@@ -1036,8 +1036,11 @@ fn start_local_api(app: &AppHandle) -> Result<(), String> {
     }
     if let Some(base) = option_env!("LOCAL_API_REMOTE_BASE") {
         cmd.env("LOCAL_API_REMOTE_BASE", base);
+        // Enable cloud fallback when a remote base is configured (e.g. Spark variant)
+        cmd.env("LOCAL_API_CLOUD_FALLBACK", "true");
     } else if let Ok(base) = std::env::var("LOCAL_API_REMOTE_BASE") {
         cmd.env("LOCAL_API_REMOTE_BASE", base);
+        cmd.env("LOCAL_API_CLOUD_FALLBACK", "true");
     }
 
     let child = cmd
