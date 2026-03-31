@@ -32,6 +32,10 @@ if (_isDesktop) {
 function apiFetch(input: string, init?: RequestInit): Promise<Response> {
   if (_isDesktop && input.startsWith('/api/')) {
     const headers = new Headers(init?.headers);
+    const originalAuth = headers.get('Authorization');
+    if (originalAuth) {
+      headers.set('X-Original-Authorization', originalAuth);
+    }
     if (_sidecarToken) {
       headers.set('Authorization', `Bearer ${_sidecarToken}`);
     }

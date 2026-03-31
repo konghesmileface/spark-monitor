@@ -520,6 +520,11 @@ export function installRuntimeFetchPatch(): void {
     }
 
     const headers = new Headers(init?.headers);
+    // Preserve caller's auth token so sidecar can forward it to the remote API
+    const originalAuth = headers.get('Authorization');
+    if (originalAuth) {
+      headers.set('X-Original-Authorization', originalAuth);
+    }
     if (localApiToken) {
       headers.set('Authorization', `Bearer ${localApiToken}`);
     }
