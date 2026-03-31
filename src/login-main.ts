@@ -2,6 +2,39 @@
 
 const CN_INTEL_BASE = import.meta.env.VITE_CN_INTEL_BASE || '';
 
+// Desktop (Tauri) runtime: route API calls through the local sidecar.
+const _isDesktop = import.meta.env.VITE_DESKTOP_RUNTIME === '1'
+  || (typeof window !== 'undefined' && ('__TAURI_INTERNALS__' in window || '__TAURI__' in window));
+
+let _sidecarBase = '';
+let _sidecarToken = '';
+
+if (_isDesktop) {
+  // Read sidecar port (default 46123)
+  const port = 46123;
+  _sidecarBase = `http://127.0.0.1:${port}`;
+
+  // Obtain LOCAL_API_TOKEN via Tauri IPC
+  (async () => {
+    try {
+      const { invoke } = await import('@tauri-apps/api/core');
+      _sidecarToken = await invoke<string>('get_local_api_token');
+    } catch { /* token stays empty — sidecar will reject but at least we tried */ }
+  })();
+}
+
+// Wrap fetch for desktop: prepend sidecar base + inject auth token
+function apiFetch(input: string, init?: RequestInit): Promise<Response> {
+  if (_isDesktop && input.startsWith('/api/')) {
+    const headers = new Headers(init?.headers);
+    if (_sidecarToken) {
+      headers.set('Authorization', `Bearer ${_sidecarToken}`);
+    }
+    return fetch(`${_sidecarBase}${input}`, { ...init, headers });
+  }
+  return fetch(`${CN_INTEL_BASE}${input}`, init);
+}
+
 const form = document.getElementById('loginForm') as HTMLFormElement;
 const msgBox = document.getElementById('msgBox') as HTMLDivElement;
 const submitBtn = document.getElementById('submitBtn') as HTMLButtonElement;
@@ -41,7 +74,7 @@ form.addEventListener('submit', async (e) => {
   const password = (document.getElementById('password') as HTMLInputElement).value;
 
   try {
-    const res = await fetch(`${CN_INTEL_BASE}/api/auth/login`, {
+    const res = await apiFetch('/api/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password }),
@@ -134,7 +167,7 @@ sendCodeBtn.addEventListener('click', async () => {
   clearMsg();
 
   try {
-    const res = await fetch(`${CN_INTEL_BASE}/api/auth/forgot-password`, {
+    const res = await apiFetch('/api/auth/forgot-password', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email }),
@@ -166,7 +199,7 @@ resendBtn.addEventListener('click', async () => {
   clearMsg();
 
   try {
-    const res = await fetch(`${CN_INTEL_BASE}/api/auth/forgot-password`, {
+    const res = await apiFetch('/api/auth/forgot-password', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email }),
@@ -202,7 +235,7 @@ resetBtn.addEventListener('click', async () => {
   clearMsg();
 
   try {
-    const res = await fetch(`${CN_INTEL_BASE}/api/auth/reset-password`, {
+    const res = await apiFetch('/api/auth/reset-password', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, code, new_password: newPassword }),
