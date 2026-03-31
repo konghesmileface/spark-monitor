@@ -506,6 +506,59 @@
       flex-shrink: 0; margin-top: 1px;
     }
 
+    /* ===== DOWNLOAD ===== */
+    .download-section {
+      background: linear-gradient(180deg, transparent 0%, rgba(0,212,255,0.03) 50%, transparent 100%);
+      position: relative;
+    }
+    .download-grid {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; margin-bottom: 48px;
+    }
+    .download-card {
+      background: var(--bg-card); border: 1px solid var(--glass-border); border-radius: 16px;
+      padding: 32px 24px; text-align: center;
+      transition: all .35s cubic-bezier(.4,0,.2,1);
+    }
+    .download-card:hover {
+      transform: translateY(-6px); border-color: var(--accent);
+      box-shadow: 0 12px 40px rgba(0,212,255,0.12); background: var(--bg-card-hover);
+    }
+    .download-icon {
+      width: 56px; height: 56px; border-radius: 14px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 26px; margin: 0 auto 16px;
+      background: rgba(0,212,255,0.08); color: var(--accent);
+    }
+    .download-card h3 { font-size: 18px; font-weight: 700; margin-bottom: 4px; }
+    .download-subtitle { font-size: 13px; color: var(--text-sec); margin-bottom: 20px; }
+    .download-buttons { display: flex; flex-direction: column; gap: 10px; margin-bottom: 14px; }
+    .btn-dl {
+      display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+      padding: 10px 18px; border-radius: 10px; font-weight: 600; font-size: 14px;
+      cursor: pointer; transition: all .2s; text-decoration: none;
+      background: linear-gradient(135deg, var(--accent), #0099cc); color: #fff;
+    }
+    .btn-dl:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(0,212,255,0.3); color: #fff; }
+    .btn-dl--outline {
+      background: transparent; border: 1px solid var(--glass-border); color: var(--text-sec);
+    }
+    .btn-dl--outline:hover { border-color: var(--accent); color: var(--accent); background: rgba(0,212,255,0.06); }
+    .download-size { font-size: 12px; color: var(--text-muted); }
+    .download-hint {
+      display: flex; justify-content: center; gap: 40px; flex-wrap: wrap;
+      padding-top: 32px; border-top: 1px solid var(--glass-border);
+    }
+    .download-hint-item {
+      display: flex; align-items: center; gap: 10px; font-size: 14px; color: var(--text-sec);
+    }
+    .download-hint-item i { color: var(--accent2); font-size: 18px; }
+    .download-hint-item b { color: var(--text); font-weight: 600; }
+    @media (max-width: 1024px) { .download-grid { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 640px) {
+      .download-grid { grid-template-columns: 1fr; }
+      .download-hint { flex-direction: column; align-items: center; gap: 16px; }
+    }
+
     /* ===== FOOTER ===== */
     .footer {
       border-top: 1px solid var(--glass-border);
@@ -803,6 +856,7 @@
     <a href="#sources">数据源</a>
     <a href="#ai-engine">AI引擎</a>
     <a href="#pricing">定价</a>
+    <a href="#downloads">下载</a>
     <a href="login.html">登录</a>
     <a href="register.html" class="nav-cta">申请试用</a>
   </div>
@@ -1327,6 +1381,79 @@
           <li><span class="check">&check;</span>HTML报告导出 — 可打印、可归档、可分享</li>
         </ul>
         <a href="register.html" class="btn-primary" style="width:100%;justify-content:center;">立即申请 <span>&rarr;</span></a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== DOWNLOAD DESKTOP CLIENT ===== -->
+<section id="downloads" class="download-section">
+  <div class="section-wrap">
+    <p class="section-label" data-reveal style="text-align:center;">快速开始</p>
+    <h2 class="section-title" data-reveal style="text-align:center;">下载桌面客户端</h2>
+    <p class="section-desc" data-reveal style="text-align:center;margin-left:auto;margin-right:auto;">
+      原生桌面应用，更快的启动速度，更好的体验。支持 macOS 和 Windows。
+    </p>
+
+    <div class="download-grid" data-reveal>
+      <!-- macOS -->
+      <div class="download-card">
+        <div class="download-icon"><i class="bi bi-apple"></i></div>
+        <h3>macOS</h3>
+        <p class="download-subtitle">Apple Silicon & Intel</p>
+        <div class="download-buttons">
+          <a href="https://github.com/konghesmileface/spark-monitor/releases/latest/download/Spark.Monitor_aarch64.dmg" class="btn-dl">
+            <i class="bi bi-download"></i> Apple Silicon (M1/M2/M3)
+          </a>
+          <a href="https://github.com/konghesmileface/spark-monitor/releases/latest/download/Spark.Monitor_x64.dmg" class="btn-dl btn-dl--outline">
+            <i class="bi bi-download"></i> Intel Mac
+          </a>
+        </div>
+        <p class="download-size">DMG 安装包</p>
+      </div>
+
+      <!-- Windows -->
+      <div class="download-card">
+        <div class="download-icon"><i class="bi bi-windows"></i></div>
+        <h3>Windows</h3>
+        <p class="download-subtitle">Windows 10/11 (64-bit)</p>
+        <div class="download-buttons">
+          <a href="https://github.com/konghesmileface/spark-monitor/releases/latest/download/Spark.Monitor_x64-setup.exe" class="btn-dl">
+            <i class="bi bi-download"></i> 下载安装包 (.exe)
+          </a>
+          <a href="https://github.com/konghesmileface/spark-monitor/releases/latest/download/Spark.Monitor_x64_en-US.msi" class="btn-dl btn-dl--outline">
+            <i class="bi bi-download"></i> MSI 安装包
+          </a>
+        </div>
+        <p class="download-size">NSIS / MSI 安装包</p>
+      </div>
+
+      <!-- Web -->
+      <div class="download-card">
+        <div class="download-icon"><i class="bi bi-globe2"></i></div>
+        <h3>Web 版</h3>
+        <p class="download-subtitle">浏览器直接访问</p>
+        <div class="download-buttons">
+          <a href="login.html" class="btn-dl">
+            <i class="bi bi-box-arrow-in-right"></i> 进入 Web 版
+          </a>
+        </div>
+        <p class="download-size">无需安装，随时访问</p>
+      </div>
+    </div>
+
+    <div class="download-hint" data-reveal>
+      <div class="download-hint-item">
+        <i class="bi bi-lightning-fill"></i>
+        <span><b>原生性能</b> — 本地运行更流畅</span>
+      </div>
+      <div class="download-hint-item">
+        <i class="bi bi-shield-check"></i>
+        <span><b>安全可靠</b> — 数据加密传输</span>
+      </div>
+      <div class="download-hint-item">
+        <i class="bi bi-arrow-repeat"></i>
+        <span><b>自动更新</b> — 始终保持最新版本</span>
       </div>
     </div>
   </div>

@@ -94,6 +94,7 @@ jobs:
           VITE_VARIANT: spark
           VITE_DESKTOP_RUNTIME: '1'
           VITE_WS_API_URL: https://sparkmonitor.cn
+          LOCAL_API_REMOTE_BASE: https://sparkmonitor.cn
         with:
           tagName: v__VERSION__
           releaseName: 'Spark Monitor v__VERSION__'

@@ -169,7 +169,11 @@ def _call_openai_compatible(provider, api_key, prompt, system_prompt, max_tokens
     )
     if resp.status_code == 200:
         data = resp.json()
-        return data['choices'][0]['message']['content']
+        choice = data['choices'][0]
+        finish_reason = choice.get('finish_reason', '')
+        if finish_reason == 'length':
+            logger.warning(f'{provider["name"]} output truncated (finish_reason=length, max_tokens={max_tokens})')
+        return choice['message']['content']
     logger.warning(f'{provider["name"]} returned {resp.status_code}: {resp.text[:200]}')
     return None
 

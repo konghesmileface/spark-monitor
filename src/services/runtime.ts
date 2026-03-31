@@ -9,6 +9,7 @@ const DEFAULT_REMOTE_HOSTS: Record<string, string> = {
   finance: WS_API_URL,
   world: WS_API_URL,
   happy: WS_API_URL,
+  spark: WS_API_URL,
 };
 
 const DEFAULT_LOCAL_API_PORT = 46123;

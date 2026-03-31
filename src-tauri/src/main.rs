@@ -1034,6 +1034,11 @@ fn start_local_api(app: &AppHandle) -> Result<(), String> {
     } else if let Ok(url) = std::env::var("CONVEX_URL") {
         cmd.env("CONVEX_URL", url);
     }
+    if let Some(base) = option_env!("LOCAL_API_REMOTE_BASE") {
+        cmd.env("LOCAL_API_REMOTE_BASE", base);
+    } else if let Ok(base) = std::env::var("LOCAL_API_REMOTE_BASE") {
+        cmd.env("LOCAL_API_REMOTE_BASE", base);
+    }
 
     let child = cmd
         .spawn()
