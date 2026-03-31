@@ -1,11 +1,50 @@
-import { defineConfig, type Plugin } from 'vite';
+import { defineConfig, loadEnv, type Plugin } from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
 import { resolve, dirname, extname } from 'path';
 import { mkdir, readFile, writeFile } from 'fs/promises';
 import { brotliCompress } from 'zlib';
 import { promisify } from 'util';
+import { ProxyAgent } from 'undici';
+import { HttpsProxyAgent } from 'https-proxy-agent';
 import pkg from './package.json';
 import { VARIANT_META } from './src/config/variant-meta';
+import sharedRssDomains from './shared/rss-allowed-domains.json';
+
+// Proxy dispatcher for GFW-blocked domains only (selective, not global).
+// proxyFetch() in server/_shared/proxy-fetch.ts uses this for PROXY_REQUIRED_DOMAINS.
+// Non-blocked domains (Finnhub, FRED, NASA, etc.) go direct to avoid
+// shared proxy IP rate-limiting. GDELT (Google Cloud) goes through proxy.
+const _proxyUrl = process.env.HTTP_PROXY || process.env.HTTPS_PROXY || '';
+if (_proxyUrl) {
+  const _dispatcher = new ProxyAgent({
+    uri: _proxyUrl,
+    connect: { timeout: 30_000 },   // GDELT (Google Cloud) TLS handshake ~14s via proxy
+  });
+  // NOTE: We intentionally do NOT call setGlobalDispatcher(_dispatcher) here.
+  // That would route ALL fetch() through the proxy, causing shared-IP rate limits.
+  // Instead, only proxyFetch() uses the dispatcher for GFW-blocked domains.
+  (globalThis as any).__proxyDispatcher = _dispatcher;
+  console.log(`[proxy] Selective proxy via ${_proxyUrl} (GFW-blocked domains only)`);
+}
+// Agent for Vite's built-in http-proxy entries (uses Node http/https module, not fetch)
+const _httpsAgent = _proxyUrl ? new HttpsProxyAgent(_proxyUrl) : undefined;
+
+/** Inject HTTPS proxy agent into all Vite proxy entries (for GFW bypass) */
+function withProxyAgent<T extends Record<string, any>>(entries: T): T {
+  if (!_httpsAgent) return entries;
+  const result = {} as any;
+  for (const [key, config] of Object.entries(entries)) {
+    result[key] = { ...config, agent: _httpsAgent };
+  }
+  return result;
+}
+
+// Load .env.local vars into process.env so sebuf handlers can access them
+// (Vite only auto-exposes VITE_* to client; server handlers need all keys)
+const _envVars = loadEnv('development', '.', '');
+for (const [k, v] of Object.entries(_envVars)) {
+  if (!process.env[k]) process.env[k] = v;
+}
 
 const isE2E = process.env.VITE_E2E === '1';
 const isDesktopBuild = process.env.VITE_DESKTOP_RUNTIME === '1';
@@ -113,46 +152,62 @@ function htmlVariantPlugin(): Plugin {
   };
 }
 
-function polymarketPlugin(): Plugin {
-  const GAMMA_BASE = 'https://gamma-api.polymarket.com';
-  const ALLOWED_ORDER = ['volume', 'liquidity', 'startDate', 'endDate', 'spread'];
+function yahooFinancePlugin(): Plugin {
+  return {
+    name: 'yahoo-finance-dev',
+    configureServer(server) {
+      server.middlewares.use(async (req, res, next) => {
+        if (!req.url?.startsWith('/api/yahoo')) return next();
+        const targetPath = req.url.replace(/^\/api\/yahoo/, '');
+        const targetUrl = `https://query1.finance.yahoo.com${targetPath}`;
+        try {
+          const controller = new AbortController();
+          const timer = setTimeout(() => controller.abort(), 10000);
+          const resp = await fetch(targetUrl, {
+            headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36' },
+            signal: controller.signal,
+          });
+          clearTimeout(timer);
+          res.statusCode = resp.status;
+          res.setHeader('Content-Type', resp.headers.get('Content-Type') || 'application/json');
+          res.setHeader('Access-Control-Allow-Origin', '*');
+          res.end(await resp.text());
+        } catch (error: any) {
+          res.statusCode = error.name === 'AbortError' ? 504 : 502;
+          res.setHeader('Content-Type', 'application/json');
+          res.end(JSON.stringify({ error: 'Yahoo Finance fetch failed' }));
+        }
+      });
+    },
+  };
+}
 
+function polymarketPlugin(): Plugin {
+  // Route /api/polymarket through relay server (port 3004) which has proxy agent support.
+  // Direct fetch from Vite server to gamma-api.polymarket.com fails because
+  // Node.js fetch() doesn't use HTTP_PROXY env vars.
   return {
     name: 'polymarket-dev',
     configureServer(server) {
       server.middlewares.use(async (req, res, next) => {
         if (!req.url?.startsWith('/api/polymarket')) return next();
 
-        const url = new URL(req.url, 'http://localhost');
-        const endpoint = url.searchParams.get('endpoint') || 'markets';
-        const closed = ['true', 'false'].includes(url.searchParams.get('closed') ?? '') ? url.searchParams.get('closed') : 'false';
-        const order = ALLOWED_ORDER.includes(url.searchParams.get('order') ?? '') ? url.searchParams.get('order') : 'volume';
-        const ascending = ['true', 'false'].includes(url.searchParams.get('ascending') ?? '') ? url.searchParams.get('ascending') : 'false';
-        const rawLimit = parseInt(url.searchParams.get('limit') ?? '', 10);
-        const limit = isNaN(rawLimit) ? 50 : Math.max(1, Math.min(100, rawLimit));
-
-        const params = new URLSearchParams({ closed: closed!, order: order!, ascending: ascending!, limit: String(limit) });
-        if (endpoint === 'events') {
-          const tag = (url.searchParams.get('tag') ?? '').replace(/[^a-z0-9-]/gi, '').slice(0, 100);
-          if (tag) params.set('tag_slug', tag);
-        }
-
-        const gammaUrl = `${GAMMA_BASE}/${endpoint === 'events' ? 'events' : 'markets'}?${params}`;
-
+        const relayUrl = `http://localhost:3004/polymarket${req.url.replace('/api/polymarket', '')}`;
         res.setHeader('Content-Type', 'application/json');
         try {
           const controller = new AbortController();
-          const timer = setTimeout(() => controller.abort(), 8000);
-          const resp = await fetch(gammaUrl, { headers: { Accept: 'application/json' }, signal: controller.signal });
+          const timer = setTimeout(() => controller.abort(), 15000);
+          const resp = await fetch(relayUrl, { signal: controller.signal });
           clearTimeout(timer);
-          if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+          if (!resp.ok) throw new Error(`Relay ${resp.status}`);
           const data = await resp.text();
-          res.setHeader('Cache-Control', 'public, max-age=120');
-          res.setHeader('X-Polymarket-Source', 'gamma');
+          // Forward cache headers from relay
+          const cacheControl = resp.headers.get('cache-control');
+          if (cacheControl) res.setHeader('Cache-Control', cacheControl);
+          res.setHeader('X-Polymarket-Source', resp.headers.get('x-polymarket-source') || 'relay');
           res.end(data);
         } catch {
-          // Expected: Cloudflare JA3 blocks server-side TLS — return empty array
-          res.setHeader('Cache-Control', 'public, max-age=300');
+          res.setHeader('Cache-Control', 'public, max-age=60');
           res.end('[]');
         }
       });
@@ -395,61 +450,8 @@ function sebufApiPlugin(): Plugin {
   };
 }
 
-// RSS proxy allowlist — duplicated from api/rss-proxy.js for dev mode.
-// Keep in sync when adding new domains.
-const RSS_PROXY_ALLOWED_DOMAINS = new Set([
-  'feeds.bbci.co.uk', 'www.theguardian.com', 'feeds.npr.org', 'news.google.com',
-  'www.aljazeera.com', 'rss.cnn.com', 'hnrss.org', 'feeds.arstechnica.com',
-  'www.theverge.com', 'www.cnbc.com', 'feeds.marketwatch.com', 'www.defenseone.com',
-  'breakingdefense.com', 'www.bellingcat.com', 'techcrunch.com', 'huggingface.co',
-  'www.technologyreview.com', 'rss.arxiv.org', 'export.arxiv.org',
-  'www.federalreserve.gov', 'www.sec.gov', 'www.whitehouse.gov', 'www.state.gov',
-  'www.defense.gov', 'home.treasury.gov', 'www.justice.gov', 'tools.cdc.gov',
-  'www.fema.gov', 'www.dhs.gov', 'www.thedrive.com', 'krebsonsecurity.com',
-  'finance.yahoo.com', 'thediplomat.com', 'venturebeat.com', 'foreignpolicy.com',
-  'www.ft.com', 'openai.com', 'www.reutersagency.com', 'feeds.reuters.com',
-  'asia.nikkei.com', 'www.cfr.org', 'www.csis.org', 'www.politico.com',
-  'www.brookings.edu', 'layoffs.fyi', 'www.defensenews.com', 'www.militarytimes.com',
-  'taskandpurpose.com', 'news.usni.org', 'www.oryxspioenkop.com', 'www.gov.uk',
-  'www.foreignaffairs.com', 'www.atlanticcouncil.org',
-  // Tech variant
-  'www.zdnet.com', 'www.techmeme.com', 'www.darkreading.com', 'www.schneier.com',
-  'rss.politico.com', 'www.anandtech.com', 'www.tomshardware.com', 'www.semianalysis.com',
-  'feed.infoq.com', 'thenewstack.io', 'devops.com', 'dev.to', 'lobste.rs', 'changelog.com',
-  'seekingalpha.com', 'news.crunchbase.com', 'www.saastr.com', 'feeds.feedburner.com',
-  'www.producthunt.com', 'www.axios.com', 'api.axios.com', 'github.blog', 'githubnext.com',
-  'mshibanami.github.io', 'www.engadget.com', 'news.mit.edu', 'dev.events',
-  'www.ycombinator.com', 'a16z.com', 'review.firstround.com', 'www.sequoiacap.com',
-  'www.nfx.com', 'www.aaronsw.com', 'bothsidesofthetable.com', 'www.lennysnewsletter.com',
-  'stratechery.com', 'www.eu-startups.com', 'tech.eu', 'sifted.eu', 'www.techinasia.com',
-  'kr-asia.com', 'techcabal.com', 'disrupt-africa.com', 'lavca.org', 'contxto.com',
-  'inc42.com', 'yourstory.com', 'pitchbook.com', 'www.cbinsights.com', 'www.techstars.com',
-  // Regional & international
-  'english.alarabiya.net', 'www.arabnews.com', 'www.timesofisrael.com', 'www.haaretz.com',
-  'www.scmp.com', 'kyivindependent.com', 'www.themoscowtimes.com', 'feeds.24.com',
-  'feeds.capi24.com', 'www.france24.com', 'www.euronews.com', 'www.lemonde.fr',
-  'rss.dw.com', 'www.africanews.com', 'www.lasillavacia.com', 'www.channelnewsasia.com',
-  'www.thehindu.com', 'news.un.org', 'www.iaea.org', 'www.who.int', 'www.cisa.gov',
-  'www.crisisgroup.org',
-  // Think tanks
-  'rusi.org', 'warontherocks.com', 'www.aei.org', 'responsiblestatecraft.org',
-  'www.fpri.org', 'jamestown.org', 'www.chathamhouse.org', 'ecfr.eu', 'www.gmfus.org',
-  'www.wilsoncenter.org', 'www.lowyinstitute.org', 'www.mei.edu', 'www.stimson.org',
-  'www.cnas.org', 'carnegieendowment.org', 'www.rand.org', 'fas.org',
-  'www.armscontrol.org', 'www.nti.org', 'thebulletin.org', 'www.iss.europa.eu',
-  // Economic & Food Security
-  'www.fao.org', 'worldbank.org', 'www.imf.org',
-  // Regional locale feeds
-  'www.hurriyet.com.tr', 'tvn24.pl', 'www.polsatnews.pl', 'www.rp.pl', 'meduza.io',
-  'novayagazeta.eu', 'www.bangkokpost.com', 'vnexpress.net', 'www.abc.net.au',
-  'news.ycombinator.com',
-  // Finance variant
-  'www.coindesk.com', 'cointelegraph.com',
-  // Happy variant — positive news sources
-  'www.goodnewsnetwork.org', 'www.positive.news', 'reasonstobecheerful.world',
-  'www.optimistdaily.com', 'www.sunnyskyz.com', 'www.huffpost.com',
-  'www.sciencedaily.com', 'feeds.nature.com', 'www.livescience.com', 'www.newscientist.com',
-]);
+// RSS proxy allowlist — loaded from shared source of truth (same file used by production api/rss-proxy.js).
+const RSS_PROXY_ALLOWED_DOMAINS = new Set(sharedRssDomains);
 
 function rssProxyPlugin(): Plugin {
   return {
@@ -520,55 +522,163 @@ function youtubeLivePlugin(): Plugin {
 
         const url = new URL(req.url, 'http://localhost');
         const channel = url.searchParams.get('channel');
+        const videoIdParam = url.searchParams.get('videoId');
 
-        if (!channel) {
+        if (!channel && !videoIdParam) {
           res.statusCode = 400;
           res.setHeader('Content-Type', 'application/json');
-          res.end(JSON.stringify({ error: 'Missing channel parameter' }));
+          res.end(JSON.stringify({ error: 'Missing channel or videoId parameter' }));
           return;
         }
 
-        try {
-          const channelHandle = channel.startsWith('@') ? channel : `@${channel}`;
-          const liveUrl = `https://www.youtube.com/${channelHandle}/live`;
+        // Build query string for relay forwarding
+        const params = new URLSearchParams();
+        if (channel) params.set('channel', channel);
+        if (videoIdParam) params.set('videoId', videoIdParam);
 
-          const ytRes = await fetch(liveUrl, {
-            headers: {
-              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-            },
-            redirect: 'follow',
+        // Step 1: Try direct scrape (works if proxy supports YouTube)
+        let videoId: string | null = null;
+        let channelName: string | null = null;
+        let hlsUrl: string | null = null;
+        let directOk = false;
+
+        if (channel) {
+          try {
+            const channelHandle = channel.startsWith('@') ? channel : `@${channel}`;
+            const liveUrl = `https://www.youtube.com/${channelHandle}/live`;
+            const dispatcher = (globalThis as any).__proxyDispatcher;
+            const ytRes = await fetch(liveUrl, {
+              headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+              },
+              redirect: 'follow',
+              ...(dispatcher ? { dispatcher } : {}),
+            } as any);
+
+            if (ytRes.ok) {
+              const html = await ytRes.text();
+              const detailsIdx = html.indexOf('"videoDetails"');
+              if (detailsIdx !== -1) {
+                const block = html.substring(detailsIdx, detailsIdx + 5000);
+                const vidMatch = block.match(/"videoId":"([a-zA-Z0-9_-]{11})"/);
+                const liveMatch = block.match(/"isLive"\s*:\s*true/);
+                if (vidMatch && liveMatch) {
+                  videoId = vidMatch[1];
+                  directOk = true;
+                }
+              }
+              if (videoId) {
+                const ownerMatch = html.match(/"ownerChannelName"\s*:\s*"([^"]+)"/);
+                if (ownerMatch) channelName = ownerMatch[1];
+                const hlsMatch = html.match(/"hlsManifestUrl"\s*:\s*"([^"]+)"/);
+                if (hlsMatch) hlsUrl = hlsMatch[1].replace(/\\u0026/g, '&');
+              }
+            }
+          } catch (e: any) {
+            console.warn(`[YouTube Live] Direct scrape failed: ${e.message}`);
+          }
+        }
+
+        // Step 2: If direct scrape returned null, fall back to relay (has residential proxy)
+        if (!directOk) {
+          const relayUrl = process.env.WS_RELAY_URL || 'http://localhost:3004';
+          const relayBase = relayUrl.replace('wss://', 'https://').replace('ws://', 'http://').replace(/\/$/, '');
+          try {
+            const relayRes = await fetch(`${relayBase}/youtube-live?${params.toString()}`, {
+              headers: { 'User-Agent': 'WorldMonitor-Dev/1.0' },
+              signal: AbortSignal.timeout(15000),
+            });
+            if (relayRes.ok) {
+              const data = await relayRes.json();
+              res.setHeader('Content-Type', 'application/json');
+              res.setHeader('Cache-Control', 'public, max-age=300');
+              res.end(JSON.stringify(data));
+              return;
+            }
+            console.warn(`[YouTube Live] Relay returned ${relayRes.status}`);
+          } catch (e: any) {
+            console.warn(`[YouTube Live] Relay fallback failed: ${e.message}`);
+          }
+        }
+
+        // Return whatever we have (direct result or null)
+        res.setHeader('Content-Type', 'application/json');
+        res.setHeader('Cache-Control', 'public, max-age=300');
+        res.end(JSON.stringify({ videoId, isLive: videoId !== null, channel, channelName, hlsUrl }));
+      });
+    },
+  };
+}
+
+/**
+ * Vite dev plugin for Vercel Edge Functions that live in api/*.js.
+ * Without this, Vite serves the raw JS source instead of executing the handler.
+ */
+function edgeFunctionPlugin(): Plugin {
+  // Prefixes already handled by dedicated plugins — skip them.
+  const SKIP_PREFIXES = ['/api/yahoo', '/api/polymarket', '/api/rss-proxy', '/api/youtube/'];
+
+  return {
+    name: 'edge-functions',
+    configureServer(server) {
+      server.middlewares.use(async (req, res, next) => {
+        if (!req.url?.startsWith('/api/')) return next();
+        for (const p of SKIP_PREFIXES) { if (req.url.startsWith(p)) return next(); }
+        // Skip sebuf routes handled by sebufApiPlugin
+        if (/^\/api\/[a-z-]+\/v1\//.test(req.url)) return next();
+
+        // Match single-segment paths: /api/telegram-feed, /api/opensky, etc.
+        const pathname = new URL(req.url, 'http://localhost').pathname;
+        const m = pathname.match(/^\/api\/([a-z0-9-]+)$/);
+        if (!m) return next();
+
+        const funcName = m[1];
+        let mod: any;
+        try {
+          mod = await server.ssrLoadModule(`./api/${funcName}.js`);
+        } catch {
+          return next(); // File doesn't exist, let Vite handle it
+        }
+        if (!mod.default || typeof mod.default !== 'function') return next();
+
+        try {
+          const port = server.config.server.port || 3000;
+          const fullUrl = new URL(req.url, `http://localhost:${port}`);
+
+          let body: string | undefined;
+          if (req.method !== 'GET' && req.method !== 'HEAD') {
+            const chunks: Buffer[] = [];
+            for await (const chunk of req) {
+              chunks.push(typeof chunk === 'string' ? Buffer.from(chunk) : chunk);
+            }
+            body = Buffer.concat(chunks).toString();
+          }
+
+          const headers: Record<string, string> = {};
+          for (const [key, value] of Object.entries(req.headers)) {
+            if (typeof value === 'string') headers[key] = value;
+            else if (Array.isArray(value)) headers[key] = value.join(', ');
+          }
+
+          const webRequest = new Request(fullUrl.toString(), {
+            method: req.method,
+            headers,
+            body: body || undefined,
           });
 
-          if (!ytRes.ok) {
-            res.setHeader('Content-Type', 'application/json');
-            res.setHeader('Cache-Control', 'public, max-age=300');
-            res.end(JSON.stringify({ videoId: null, channel }));
-            return;
+          const response: Response = await mod.default(webRequest);
+
+          res.statusCode = response.status;
+          response.headers.forEach((v: string, k: string) => res.setHeader(k, v));
+          if (!response.headers.has('access-control-allow-origin')) {
+            res.setHeader('Access-Control-Allow-Origin', '*');
           }
-
-          const html = await ytRes.text();
-
-          // Scope both fields to the same videoDetails block so we don't
-          // combine a videoId from one object with isLive from another.
-          let videoId: string | null = null;
-          const detailsIdx = html.indexOf('"videoDetails"');
-          if (detailsIdx !== -1) {
-            const block = html.substring(detailsIdx, detailsIdx + 5000);
-            const vidMatch = block.match(/"videoId":"([a-zA-Z0-9_-]{11})"/);
-            const liveMatch = block.match(/"isLive"\s*:\s*true/);
-            if (vidMatch && liveMatch) {
-              videoId = vidMatch[1];
-            }
-          }
-
-          res.setHeader('Content-Type', 'application/json');
-          res.setHeader('Cache-Control', 'public, max-age=300');
-          res.end(JSON.stringify({ videoId, isLive: videoId !== null, channel }));
-        } catch (error) {
-          console.error(`[YouTube Live] Error:`, error);
+          res.end(await response.text());
+        } catch (err) {
+          console.error(`[edge-fn] ${funcName}:`, err);
           res.statusCode = 500;
           res.setHeader('Content-Type', 'application/json');
-          res.end(JSON.stringify({ error: 'Failed to fetch', videoId: null }));
+          res.end(JSON.stringify({ error: 'Edge function error' }));
         }
       });
     },
@@ -581,19 +691,21 @@ export default defineConfig({
   },
   plugins: [
     htmlVariantPlugin(),
+    yahooFinancePlugin(),
     polymarketPlugin(),
     rssProxyPlugin(),
     youtubeLivePlugin(),
     sebufApiPlugin(),
+    edgeFunctionPlugin(),
     brotliPrecompressPlugin(),
     VitePWA({
       registerType: 'autoUpdate',
       injectRegister: false,
 
       includeAssets: [
-        'favico/favicon.ico',
-        'favico/apple-touch-icon.png',
-        'favico/favicon-32x32.png',
+        `favico/${activeVariant === 'full' ? '' : activeVariant + '/'}favicon.ico`,
+        `favico/${activeVariant === 'full' ? '' : activeVariant + '/'}apple-touch-icon.png`,
+        `favico/${activeVariant === 'full' ? '' : activeVariant + '/'}favicon-32x32.png`,
       ],
 
       manifest: {
@@ -608,9 +720,9 @@ export default defineConfig({
         background_color: '#0a0f0a',
         categories: activeMeta.categories,
         icons: [
-          { src: '/favico/android-chrome-192x192.png', sizes: '192x192', type: 'image/png' },
-          { src: '/favico/android-chrome-512x512.png', sizes: '512x512', type: 'image/png' },
-          { src: '/favico/android-chrome-512x512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+          { src: `/favico/${activeVariant === 'full' ? '' : activeVariant + '/'}android-chrome-192x192.png`, sizes: '192x192', type: 'image/png' },
+          { src: `/favico/${activeVariant === 'full' ? '' : activeVariant + '/'}android-chrome-512x512.png`, sizes: '512x512', type: 'image/png' },
+          { src: `/favico/${activeVariant === 'full' ? '' : activeVariant + '/'}android-chrome-512x512.png`, sizes: '512x512', type: 'image/png', purpose: 'maskable' },
         ],
       },
 
@@ -740,6 +852,14 @@ export default defineConfig({
         main: resolve(__dirname, 'index.html'),
         settings: resolve(__dirname, 'settings.html'),
         liveChannels: resolve(__dirname, 'live-channels.html'),
+        home: resolve(__dirname, 'home.html'),
+        login: resolve(__dirname, 'login.html'),
+        register: resolve(__dirname, 'register.html'),
+        admin: resolve(__dirname, 'admin.html'),
+        privacy: resolve(__dirname, 'privacy.html'),
+        terms: resolve(__dirname, 'terms.html'),
+        contact: resolve(__dirname, 'contact.html'),
+        agreement: resolve(__dirname, 'agreement.html'),
       },
       output: {
         manualChunks(id) {
@@ -775,7 +895,25 @@ export default defineConfig({
               return 'sentry';
             }
           }
+          // GlobeMap → isolated chunk (only loaded when user switches to globe view)
+          if (id.includes('/src/components/GlobeMap.ts')) {
+            return 'globe';
+          }
           if (id.includes('/src/components/') && id.endsWith('Panel.ts')) {
+            // Cn* panels → separate lazy chunk (only Spark variant CN mode)
+            if (/\/Cn[A-Z][^/]*Panel\.ts$/.test(id)) {
+              return 'panels-cn';
+            }
+            // Happy variant panels → separate lazy chunk
+            if (
+              /\/(PositiveNewsFeed|Counters|ProgressCharts|BreakthroughsTicker|HeroSpotlight|GoodThingsDigest|SpeciesComeback|RenewableEnergy)Panel\.ts$/.test(id)
+            ) {
+              return 'panels-happy';
+            }
+            // Geo-heavy panels → separate chunk
+            if (/\/(CountryDeepDive|MapPopup)Panel\.ts$/.test(id)) {
+              return 'panels-geo';
+            }
             return 'panels';
           }
           // Give lazy-loaded locale chunks a recognizable prefix so the
@@ -790,6 +928,7 @@ export default defineConfig({
       },
     },
   },
+  appType: 'mpa',
   server: {
     port: 3000,
     open: !isE2E,
@@ -801,14 +940,9 @@ export default defineConfig({
         '**/.playwright-mcp/**',
       ],
     },
-    proxy: {
-      // Yahoo Finance API
-      '/api/yahoo': {
-        target: 'https://query1.finance.yahoo.com',
-        changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api\/yahoo/, ''),
-      },
-      // Polymarket handled by polymarketPlugin() — no prod proxy needed
+    proxy: withProxyAgent({
+      // Yahoo Finance: handled by yahooFinancePlugin() (uses monkey-patched fetch for proxy)
+      // Polymarket: handled by polymarketPlugin()
       // USGS Earthquake API
       '/api/earthquake': {
         target: 'https://earthquake.usgs.gov',
@@ -1142,12 +1276,11 @@ export default defineConfig({
           });
         },
       },
-      // OpenSky Network - Aircraft tracking (military flight detection)
+      // OpenSky Network - route through relay server (has OAuth2 tokens + caching)
       '/api/opensky': {
-        target: 'https://opensky-network.org/api',
+        target: 'http://localhost:3004',
         changeOrigin: true,
-        secure: true,
-        rewrite: (path) => path.replace(/^\/api\/opensky/, ''),
+        rewrite: (path) => path.replace(/^\/api\/opensky/, '/opensky'),
         configure: (proxy) => {
           proxy.on('error', (err) => {
             console.log('OpenSky proxy error:', err.message);
@@ -1166,6 +1299,6 @@ export default defineConfig({
           });
         },
       },
-    },
+    }),
   },
 });

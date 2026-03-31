@@ -1,0 +1,46 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Spark Monitor",
+  "mainBinaryName": "spark-monitor",
+  "identifier": "cn.sparkfinance.sparkmonitor",
+  "app": {
+    "windows": [
+      {
+        "title": "Spark Monitor"
+      }
+    ]
+  },
+  "bundle": {
+    "shortDescription": "Spark Monitor desktop app",
+    "longDescription": "Spark Monitor desktop app for real-time markets and global intelligence.",
+    "targets": [
+      "app",
+      "dmg",
+      "nsis",
+      "msi",
+      "appimage"
+    ],
+    "icon": [
+      "icons/spark/32x32.png",
+      "icons/spark/128x128.png",
+      "icons/spark/128x128@2x.png",
+      "icons/spark/icon.icns",
+      "icons/spark/icon.ico"
+    ],
+    "macOS": {
+      "hardenedRuntime": true
+    },
+    "linux": {
+      "appimage": {
+        "bundleMediaFramework": true
+      }
+    },
+    "windows": {
+      "digestAlgorithm": "sha256",
+      "timestampUrl": "https://timestamp.digicert.com",
+      "nsis": {
+        "installerHooks": "nsis/installer-hooks.nsh"
+      }
+    }
+  }
+}

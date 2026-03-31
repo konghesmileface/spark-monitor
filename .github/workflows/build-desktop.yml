@@ -11,6 +11,7 @@ on:
         options:
           - full
           - tech
+          - spark
       draft:
         description: 'Create as draft release'
         required: false
@@ -289,6 +290,52 @@ jobs:
           args: --config src-tauri/tauri.tech.conf.json ${{ matrix.args }}
           retryAttempts: 1
 
+      # ── Build: Spark variant (signed) ──
+      - name: Build Tauri app (spark, signed)
+        if: env.BUILD_VARIANT == 'spark' && steps.apple-signing.outputs.available == 'true' && env.SKIP_SIGNING != 'true'
+        uses: tauri-apps/tauri-action@79c624843491f12ae9d63592534ed49df3bc4adb
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VITE_VARIANT: spark
+          VITE_DESKTOP_RUNTIME: '1'
+          VITE_WS_API_URL: https://sparkmonitor.cn
+          CONVEX_URL: ${{ secrets.CONVEX_URL }}
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ env.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        with:
+          tagName: v__VERSION__-spark
+          releaseName: 'Spark Monitor v__VERSION__'
+          releaseBody: 'See changelog below.'
+          releaseDraft: ${{ github.event_name == 'workflow_dispatch' && fromJSON(github.event.inputs.draft) }}
+          prerelease: false
+          tauriScript: npx tauri
+          args: --config src-tauri/tauri.spark.conf.json ${{ matrix.args }}
+          retryAttempts: 1
+
+      # ── Build: Spark variant (unsigned — no Apple certs) ──
+      - name: Build Tauri app (spark, unsigned)
+        if: env.BUILD_VARIANT == 'spark' && (steps.apple-signing.outputs.available != 'true' || env.SKIP_SIGNING == 'true')
+        uses: tauri-apps/tauri-action@79c624843491f12ae9d63592534ed49df3bc4adb
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VITE_VARIANT: spark
+          VITE_DESKTOP_RUNTIME: '1'
+          VITE_WS_API_URL: https://sparkmonitor.cn
+          CONVEX_URL: ${{ secrets.CONVEX_URL }}
+        with:
+          tagName: v__VERSION__-spark
+          releaseName: 'Spark Monitor v__VERSION__'
+          releaseBody: 'See changelog below.'
+          releaseDraft: ${{ github.event_name == 'workflow_dispatch' && fromJSON(github.event.inputs.draft) }}
+          prerelease: false
+          tauriScript: npx tauri
+          args: --config src-tauri/tauri.spark.conf.json ${{ matrix.args }}
+          retryAttempts: 1
+
       - name: Verify signed macOS bundle + embedded runtime
         if: contains(matrix.platform, 'macos') && steps.apple-signing.outputs.available == 'true' && env.SKIP_SIGNING != 'true'
         shell: bash
@@ -412,6 +459,8 @@ jobs:
           VERSION=$(node -p "require('./package.json').version")
           if [ "$BUILD_VARIANT" = "tech" ]; then
             TAG_NAME="v${VERSION}-tech"
+          elif [ "$BUILD_VARIANT" = "spark" ]; then
+            TAG_NAME="v${VERSION}-spark"
           else
             TAG_NAME="v${VERSION}"
           fi
