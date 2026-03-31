@@ -10,16 +10,21 @@ let _sidecarBase = '';
 let _sidecarToken = '';
 
 if (_isDesktop) {
-  // Read sidecar port (default 46123)
   const port = 46123;
   _sidecarBase = `http://127.0.0.1:${port}`;
 
-  // Obtain LOCAL_API_TOKEN via Tauri IPC
+  // Obtain LOCAL_API_TOKEN via Tauri IPC (no external module dependency)
   (async () => {
     try {
-      const { invoke } = await import('@tauri-apps/api/core');
-      _sidecarToken = await invoke<string>('get_local_api_token');
-    } catch { /* token stays empty — sidecar will reject but at least we tried */ }
+      const w = window as unknown as {
+        __TAURI__?: { core?: { invoke?: <T>(cmd: string) => Promise<T> } };
+        __TAURI_INTERNALS__?: { invoke?: <T>(cmd: string) => Promise<T> };
+      };
+      const invoke = w.__TAURI__?.core?.invoke ?? w.__TAURI_INTERNALS__?.invoke;
+      if (invoke) {
+        _sidecarToken = await invoke<string>('get_local_api_token');
+      }
+    } catch { /* token stays empty */ }
   })();
 }
 
