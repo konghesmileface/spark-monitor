@@ -71,7 +71,10 @@ export async function getAlertStats(): Promise<Record<string, number>> {
 export function connectFlashStream(): void {
   if (_eventSource) return;
   const uid = getUserId();
-  _eventSource = new EventSource(`${CN_INTEL_BASE}/api/cn/alerts/stream?user_id=${encodeURIComponent(uid)}`);
+  const token = localStorage.getItem('wm_token') || '';
+  const params = new URLSearchParams({ user_id: uid });
+  if (token) params.set('token', token);
+  _eventSource = new EventSource(`${CN_INTEL_BASE}/api/cn/alerts/stream?${params}`);
 
   _eventSource.onmessage = (event) => {
     try {

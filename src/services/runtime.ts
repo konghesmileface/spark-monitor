@@ -583,6 +583,10 @@ export function installRuntimeFetchPatch(): void {
         }
         if (localApiToken) {
           const retryHeaders = new Headers(init?.headers);
+          const retryOrigAuth = retryHeaders.get('Authorization');
+          if (retryOrigAuth) {
+            retryHeaders.set('X-Original-Authorization', retryOrigAuth);
+          }
           retryHeaders.set('Authorization', `Bearer ${localApiToken}`);
           response = await fetchLocalWithStartupRetry(nativeFetch, localUrl, { ...init, headers: retryHeaders });
           if (debug) console.log(`[fetch] retry ${target} → ${response.status}`);

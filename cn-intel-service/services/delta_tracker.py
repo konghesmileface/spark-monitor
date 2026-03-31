@@ -21,7 +21,7 @@ CREATE TABLE IF NOT EXISTS user_snapshots (
     id              BIGINT AUTO_INCREMENT PRIMARY KEY,
     user_id         VARCHAR(64) NOT NULL,
     snapshot_type   VARCHAR(30) NOT NULL DEFAULT 'full',
-    snapshot_data   JSON NOT NULL,
+    snapshot_data   LONGTEXT NOT NULL,
     created_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     KEY idx_user_type (user_id, snapshot_type),
     KEY idx_created (created_at)

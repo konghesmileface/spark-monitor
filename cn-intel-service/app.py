@@ -154,10 +154,14 @@ def create_app():
             return None
 
         auth_header = request.headers.get('Authorization', '')
-        if not auth_header.startswith('Bearer '):
+        token = ''
+        if auth_header.startswith('Bearer '):
+            token = auth_header[7:].strip()
+        # SSE EventSource can't send headers — accept token as query param
+        if not token:
+            token = request.args.get('token', '').strip()
+        if not token:
             return jsonify({'error': 'Authentication required'}), 401
-
-        token = auth_header[7:].strip()
         if not token:
             return jsonify({'error': 'Empty token'}), 401
 
