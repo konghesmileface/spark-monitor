@@ -41,7 +41,7 @@ export function initSettingsWindow(): void {
       .map(
         ([key, panel]) => `
         <div class="panel-toggle-item ${panel.enabled ? 'active' : ''}" data-panel="${key}">
-          <div class="panel-toggle-checkbox">${panel.enabled ? '✓' : ''}</div>
+          <div class="panel-toggle-checkbox">${panel.enabled ? '<i class="bi bi-check-lg"></i>' : ''}</div>
           <span class="panel-toggle-label">${getLocalizedPanelName(key, panel.name)}</span>
         </div>
       `

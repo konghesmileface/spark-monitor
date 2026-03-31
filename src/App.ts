@@ -19,6 +19,7 @@ import { initBreakingNewsAlerts, destroyBreakingNewsAlerts } from '@/services/br
 import type { ServiceStatusPanel } from '@/components/ServiceStatusPanel';
 import type { StablecoinPanel } from '@/components/StablecoinPanel';
 import type { ETFFlowsPanel } from '@/components/ETFFlowsPanel';
+import type { CryptoOverviewPanel } from '@/components/CryptoOverviewPanel';
 import type { MacroSignalsPanel } from '@/components/MacroSignalsPanel';
 import type { StrategicPosturePanel } from '@/components/StrategicPosturePanel';
 import type { StrategicRiskPanel } from '@/components/StrategicRiskPanel';
@@ -89,10 +90,25 @@ export class App {
       localStorage.removeItem(STORAGE_KEYS.panels);
       localStorage.removeItem(PANEL_ORDER_KEY);
       localStorage.removeItem(PANEL_SPANS_KEY);
+      localStorage.removeItem('i18nextLng'); // Clear language pref so variant default applies
       mapLayers = { ...defaultLayers };
       panelSettings = { ...DEFAULT_PANELS };
     } else {
       mapLayers = loadFromStorage<MapLayers>(STORAGE_KEYS.mapLayers, defaultLayers);
+      // Merge new default-true layers that didn't exist before (avoids full reset)
+      const CONFIG_VERSION = 2; // Bump when default layers change
+      const storedConfigVersion = parseInt(localStorage.getItem('worldmonitor-config-version') || '0', 10);
+      if (storedConfigVersion < CONFIG_VERSION) {
+        for (const key of Object.keys(defaultLayers) as (keyof MapLayers)[]) {
+          if (defaultLayers[key] && !(key in mapLayers)) mapLayers[key] = true;
+        }
+        // v2: protests and climate now default on for spark variant
+        if (currentVariant === 'spark' || currentVariant === 'full') {
+          if (!mapLayers.protests) mapLayers.protests = defaultLayers.protests;
+          if (!mapLayers.climate) mapLayers.climate = defaultLayers.climate;
+        }
+        localStorage.setItem('worldmonitor-config-version', String(CONFIG_VERSION));
+      }
       // Happy variant: force non-happy layers off even if localStorage has stale true values
       if (currentVariant === 'happy') {
         const unhappyLayers: (keyof MapLayers)[] = ['conflicts', 'bases', 'hotspots', 'nuclear', 'irradiators', 'sanctions', 'military', 'protests', 'pipelines', 'waterways', 'ais', 'flights', 'spaceports', 'minerals', 'natural', 'fires', 'outages', 'cyberThreats', 'weather', 'economic', 'cables', 'datacenters', 'ucdpEvents', 'displacement', 'climate', 'iranAttacks'];
@@ -263,6 +279,7 @@ export class App {
       pizzintIndicator: null,
       countryBriefPage: null,
       countryTimeline: null,
+      sparkKPIBar: null,
       positivePanel: null,
       countersPanel: null,
       progressPanel: null,
@@ -411,7 +428,8 @@ export class App {
     this.state.signalModal.setLocationClickHandler((lat, lon) => {
       this.state.map?.setCenter(lat, lon, 4);
     });
-    if (!this.state.isMobile) {
+    const isCnMode = SITE_VARIANT === 'spark' && (localStorage.getItem(STORAGE_KEYS.intelMode) || 'cn') === 'cn';
+    if (!this.state.isMobile && !isCnMode) {
       this.state.findingsBadge = new IntelligenceGapBadge();
       this.state.findingsBadge.setOnSignalClick((signal) => {
         if (this.state.countryBriefPage?.isVisible()) return;
@@ -600,6 +618,18 @@ export class App {
       () => !!this.state.panels['etf-flows']
     );
     this.refreshScheduler.scheduleRefresh(
+      'crypto-overview-stable',
+      () => (this.state.panels['crypto-overview'] as CryptoOverviewPanel).fetchStablecoins(),
+      3 * 60_000,
+      () => !!this.state.panels['crypto-overview']
+    );
+    this.refreshScheduler.scheduleRefresh(
+      'crypto-overview-etf',
+      () => (this.state.panels['crypto-overview'] as CryptoOverviewPanel).fetchEtfFlows(),
+      3 * 60_000,
+      () => !!this.state.panels['crypto-overview']
+    );
+    this.refreshScheduler.scheduleRefresh(
       'macro-signals',
       () => (this.state.panels['macro-signals'] as MacroSignalsPanel).fetchData(),
       3 * 60_000,
@@ -619,7 +649,7 @@ export class App {
     );
 
     // WTO trade policy data — annual data, poll every 10 min to avoid hammering upstream
-    if (SITE_VARIANT === 'full' || SITE_VARIANT === 'finance') {
+    if (SITE_VARIANT === 'full' || SITE_VARIANT === 'finance' || SITE_VARIANT === 'spark') {
       this.refreshScheduler.scheduleRefresh('tradePolicy', () => this.dataLoader.loadTradePolicy(), 10 * 60 * 1000);
       this.refreshScheduler.scheduleRefresh('supplyChain', () => this.dataLoader.loadSupplyChain(), 10 * 60 * 1000);
     }
@@ -633,7 +663,7 @@ export class App {
     );
 
     // Refresh intelligence signals for CII (geopolitical variant only)
-    if (SITE_VARIANT === 'full') {
+    if (SITE_VARIANT === 'full' || SITE_VARIANT === 'spark') {
       this.refreshScheduler.scheduleRefresh('intelligence', () => {
         const { military, iranEvents } = this.state.intelligenceCache;
         this.state.intelligenceCache = {};

@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>登录 — Spark Monitor 世界监控</title>
+  <link rel="icon" href="/favico/favicon.ico" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --accent: #00d4ff; --accent2: #00e88f;
+      --bg: #0a0e1a; --bg-card: #111827;
+      --text: #e8eef5; --text-sec: #8b96b1; --text-muted: #4b5563;
+      --border: rgba(0,212,255,0.15); --error: #ef4444; --success: #22c55e;
+    }
+    body {
+      font-family: 'Inter', -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+      background: var(--bg); color: var(--text);
+      min-height: 100vh; display: flex; align-items: center; justify-content: center;
+      padding: 24px; -webkit-font-smoothing: antialiased;
+    }
+    .login-container { width: 100%; max-width: 420px; }
+    .login-brand {
+      text-align: center; margin-bottom: 32px;
+    }
+    .login-brand svg { width: 40px; height: 40px; color: var(--accent); margin-bottom: 12px; }
+    .login-brand h1 { font-size: 24px; font-weight: 700; }
+    .login-brand h1 span {
+      background: linear-gradient(135deg, #fff 30%, var(--accent));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+    }
+    .login-brand p { font-size: 14px; color: var(--text-sec); margin-top: 4px; }
+
+    .login-card {
+      background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px;
+      padding: 32px;
+    }
+    .form-group { margin-bottom: 20px; }
+    .form-group label { display: block; font-size: 13px; font-weight: 600; color: var(--text-sec); margin-bottom: 6px; }
+    .form-group input {
+      width: 100%; padding: 10px 14px; border-radius: 8px;
+      border: 1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.04);
+      color: var(--text); font-size: 15px; outline: none; transition: border .2s;
+    }
+    .form-group input:focus { border-color: var(--accent); }
+    .form-group input::placeholder { color: var(--text-muted); }
+
+    .btn-submit {
+      width: 100%; padding: 12px; border-radius: 8px; border: none;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      color: #0a0e1a; font-weight: 700; font-size: 15px;
+      cursor: pointer; transition: all .2s;
+    }
+    .btn-submit:hover { background: linear-gradient(135deg, #33e0ff, #33eda5); transform: translateY(-1px); box-shadow: 0 4px 20px rgba(0,212,255,0.3); }
+    .btn-submit:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .msg { padding: 10px 14px; border-radius: 8px; font-size: 13px; margin-bottom: 16px; display: none; }
+    .msg-error { background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.3); color: #fca5a5; }
+    .msg-success { background: rgba(34,197,94,0.1); border: 1px solid rgba(34,197,94,0.3); color: #86efac; }
+    .msg-info { background: rgba(0,212,255,0.1); border: 1px solid var(--border); color: var(--accent); }
+    .msg.show { display: block; }
+
+    .login-footer {
+      text-align: center; margin-top: 20px; font-size: 13px; color: var(--text-muted);
+    }
+    .login-footer a { color: var(--accent); }
+    .back-link {
+      display: block; text-align: center; margin-top: 16px; font-size: 13px; color: var(--text-muted);
+    }
+    .back-link a { color: var(--text-sec); }
+
+    .forgot-link {
+      display: block; text-align: right; font-size: 13px; margin: -12px 0 16px;
+    }
+    .forgot-link a { color: var(--accent); cursor: pointer; }
+
+    .hidden { display: none !important; }
+
+    .code-row { display: flex; gap: 10px; }
+    .code-row input { flex: 1; }
+    .btn-code {
+      padding: 10px 16px; border-radius: 8px; border: 1px solid var(--border);
+      background: transparent; color: var(--accent); font-size: 13px; font-weight: 600;
+      cursor: pointer; white-space: nowrap; transition: all .2s;
+    }
+    .btn-code:hover { background: rgba(0,212,255,0.08); }
+    .btn-code:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    .btn-link {
+      background: none; border: none; color: var(--text-sec); font-size: 13px;
+      cursor: pointer; padding: 0; margin-top: 16px; display: block; width: 100%; text-align: center;
+    }
+    .btn-link:hover { color: var(--accent); }
+  </style>
+</head>
+<body>
+<div class="login-container">
+  <div class="login-brand">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+    </svg>
+    <h1><span>Spark Monitor</span></h1>
+    <p>企业级全球情报决策平台</p>
+  </div>
+
+  <div class="login-card">
+    <div id="msgBox" class="msg"></div>
+
+    <!-- Login Form -->
+    <form id="loginForm">
+      <div class="form-group">
+        <label for="email">企业邮箱</label>
+        <input type="email" id="email" name="email" placeholder="name@company.com" required autocomplete="email" />
+      </div>
+      <div class="form-group">
+        <label for="password">密码</label>
+        <input type="password" id="password" name="password" placeholder="输入密码" required autocomplete="current-password" />
+      </div>
+      <div class="forgot-link"><a id="showForgot">忘记密码?</a></div>
+      <button type="submit" class="btn-submit" id="submitBtn">登录</button>
+    </form>
+
+    <!-- Forgot Password Form (hidden by default) -->
+    <div id="forgotForm" class="hidden">
+      <!-- Step 1: email + send code -->
+      <div id="forgotStep1">
+        <div class="form-group">
+          <label for="resetEmail">注册邮箱</label>
+          <input type="email" id="resetEmail" placeholder="name@company.com" autocomplete="email" />
+        </div>
+        <button type="button" class="btn-submit" id="sendCodeBtn">发送验证码</button>
+      </div>
+
+      <!-- Step 2: code + new password -->
+      <div id="forgotStep2" class="hidden">
+        <div class="form-group">
+          <label>验证码</label>
+          <div class="code-row">
+            <input type="text" id="resetCode" placeholder="6 位验证码" maxlength="6" inputmode="numeric" autocomplete="one-time-code" />
+            <button type="button" class="btn-code" id="resendBtn" disabled>重新发送</button>
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="newPassword">新密码</label>
+          <input type="password" id="newPassword" placeholder="至少 6 个字符" autocomplete="new-password" />
+        </div>
+        <button type="button" class="btn-submit" id="resetBtn">重置密码</button>
+      </div>
+
+      <button type="button" class="btn-link" id="backToLogin">&larr; 返回登录</button>
+    </div>
+
+    <div class="login-footer" id="loginFooter">
+      还没有账号？<a href="register.html">申请企业试用</a>
+    </div>
+  </div>
+
+  <div class="back-link">
+    <a href="home.html">← 返回首页</a>
+  </div>
+</div>
+
+<script type="module" src="/src/login-main.ts"></script>
+</body>
+</html>

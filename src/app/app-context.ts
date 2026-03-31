@@ -25,6 +25,7 @@ import type { SpeciesComebackPanel } from '@/components/SpeciesComebackPanel';
 import type { RenewableEnergyPanel } from '@/components/RenewableEnergyPanel';
 import type { TvModeController } from '@/services/tv-mode';
 import type { BreakingNewsBanner } from '@/components/BreakingNewsBanner';
+import type { SparkKPIBar } from '@/components/SparkKPIBar';
 
 export interface CountryBriefSignals {
   criticalNews: number;
@@ -106,6 +107,9 @@ export interface AppContext {
   pizzintIndicator: PizzIntIndicator | null;
   countryBriefPage: CountryBriefPanel | null;
   countryTimeline: CountryTimeline | null;
+
+  // Spark variant state
+  sparkKPIBar: SparkKPIBar | null;
 
   // Happy variant state
   positivePanel: PositiveNewsFeedPanel | null;

@@ -14,6 +14,7 @@ import type {
 
 import { cachedFetchJson, getCachedJson } from '../../../_shared/redis';
 import { CHROME_UA } from '../../../_shared/constants';
+import { proxyFetch } from '../../../_shared/proxy-fetch';
 
 const USGS_FEED_URL =
   'https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/4.5_day.geojson';
@@ -59,7 +60,7 @@ export const listEarthquakes: SeismologyServiceHandler['listEarthquakes'] = asyn
     }
 
     const cached = await cachedFetchJson<EarthquakeCache>(CACHE_KEY, CACHE_TTL, async () => {
-      const response = await fetch(USGS_FEED_URL, {
+      const response = await proxyFetch(USGS_FEED_URL, {
         headers: { Accept: 'application/json', 'User-Agent': CHROME_UA },
         signal: AbortSignal.timeout(10_000),
       });

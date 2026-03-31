@@ -27,7 +27,7 @@ export class InsightsPanel extends Panel {
   private lastClusters: ClusteredEvent[] = [];
   private aiFlowUnsubscribe: (() => void) | null = null;
   private updateGeneration = 0;
-  private static readonly BRIEF_COOLDOWN_MS = 120000; // 2 min cooldown (API has limits)
+  private static readonly BRIEF_COOLDOWN_MS = 14400000; // 4h cooldown — backend Redis cache is 4-6h
   private static readonly BRIEF_CACHE_KEY = 'summary:world-brief';
 
   constructor() {
@@ -541,13 +541,13 @@ export class InsightsPanel extends Panel {
       const badges: string[] = [];
 
       if (story.sourceCount >= 3) {
-        badges.push(`<span class="insight-badge confirmed">✓ ${story.sourceCount} sources</span>`);
+        badges.push(`<span class="insight-badge confirmed"><i class="bi bi-check-lg"></i> ${story.sourceCount} sources</span>`);
       } else if (story.sourceCount >= 2) {
         badges.push(`<span class="insight-badge multi">${story.sourceCount} sources</span>`);
       }
 
       if (story.isAlert) {
-        badges.push('<span class="insight-badge alert">⚠ ALERT</span>');
+        badges.push('<span class="insight-badge alert"><i class="bi bi-exclamation-triangle-fill"></i> ALERT</span>');
       }
 
       const VALID_THREAT_LEVELS = ['critical', 'high', 'elevated', 'moderate'];
@@ -590,7 +590,7 @@ export class InsightsPanel extends Panel {
   private renderWorldBrief(brief: string): string {
     return `
       <div class="insights-brief">
-        <div class="insights-section-title">${SITE_VARIANT === 'tech' ? '🚀 TECH BRIEF' : '🌍 WORLD BRIEF'}</div>
+        <div class="insights-section-title">${SITE_VARIANT === 'tech' ? '<i class="bi bi-rocket-takeoff"></i> TECH BRIEF' : '<i class="bi bi-globe2"></i> WORLD BRIEF'}</div>
         <div class="insights-brief-text">${escapeHtml(brief)}</div>
       </div>
     `;
@@ -608,7 +608,7 @@ export class InsightsPanel extends Panel {
       const badges: string[] = [];
 
       if (cluster.sourceCount >= 3) {
-        badges.push(`<span class="insight-badge confirmed">✓ ${cluster.sourceCount} sources</span>`);
+        badges.push(`<span class="insight-badge confirmed"><i class="bi bi-check-lg"></i> ${cluster.sourceCount} sources</span>`);
       } else if (cluster.sourceCount >= 2) {
         badges.push(`<span class="insight-badge multi">${cluster.sourceCount} sources</span>`);
       }
@@ -619,7 +619,7 @@ export class InsightsPanel extends Panel {
       }
 
       if (cluster.isAlert) {
-        badges.push('<span class="insight-badge alert">⚠ ALERT</span>');
+        badges.push('<span class="insight-badge alert"><i class="bi bi-exclamation-triangle-fill"></i> ALERT</span>');
       }
 
       return `
@@ -720,7 +720,7 @@ export class InsightsPanel extends Panel {
             <span class="insight-story-title">${escapeHtml(story.title.slice(0, 80))}${story.title.length > 80 ? '...' : ''}</span>
           </div>
           <div class="insight-badges">
-            <span class="insight-badge ml-detected">🔬 ${perspectiveName}: ${(perspectiveScore * 100).toFixed(0)}%</span>
+            <span class="insight-badge ml-detected"><i class="bi bi-search"></i> ${perspectiveName}: ${(perspectiveScore * 100).toFixed(0)}%</span>
           </div>
         </div>
       `;
@@ -728,7 +728,7 @@ export class InsightsPanel extends Panel {
 
     return `
       <div class="insights-section insights-missed">
-        <div class="insights-section-title">🎯 ML DETECTED</div>
+        <div class="insights-section-title"><i class="bi bi-bullseye"></i> ML DETECTED</div>
         ${storiesHtml}
       </div>
     `;
@@ -741,14 +741,14 @@ export class InsightsPanel extends Panel {
 
     const zonesHtml = this.lastConvergenceZones.slice(0, 3).map(zone => {
       const signalIcons: Record<string, string> = {
-        internet_outage: '🌐',
-        military_flight: '✈️',
-        military_vessel: '🚢',
-        protest: '🪧',
-        ais_disruption: '⚓',
+        internet_outage: '<i class="bi bi-globe"></i>',
+        military_flight: '<i class="bi bi-airplane-fill"></i>',
+        military_vessel: '<i class="bi bi-water"></i>',
+        protest: '<i class="bi bi-megaphone-fill"></i>',
+        ais_disruption: '<i class="bi bi-life-preserver"></i>',
       };
 
-      const icons = zone.signalTypes.map(t => signalIcons[t] || '📍').join('');
+      const icons = zone.signalTypes.map(t => signalIcons[t] || '<i class="bi bi-geo-alt-fill"></i>').join('');
 
       return `
         <div class="convergence-zone">
@@ -761,7 +761,7 @@ export class InsightsPanel extends Panel {
 
     return `
       <div class="insights-section insights-convergence">
-        <div class="insights-section-title">📍 GEOGRAPHIC CONVERGENCE</div>
+        <div class="insights-section-title"><i class="bi bi-geo-alt-fill"></i> GEOGRAPHIC CONVERGENCE</div>
         ${zonesHtml}
       </div>
     `;
@@ -779,12 +779,12 @@ export class InsightsPanel extends Panel {
     }
 
     const signalIcons: Record<string, string> = {
-      internet_outage: '🌐',
-      military_flight: '✈️',
-      military_vessel: '⚓',
-      protest: '📢',
-      ais_disruption: '🚢',
-      active_strike: '💥',
+      internet_outage: '<i class="bi bi-globe"></i>',
+      military_flight: '<i class="bi bi-airplane-fill"></i>',
+      military_vessel: '<i class="bi bi-life-preserver"></i>',
+      protest: '<i class="bi bi-megaphone-fill"></i>',
+      ais_disruption: '<i class="bi bi-water"></i>',
+      active_strike: '<i class="bi bi-explosion"></i>',
     };
 
     const focalPointsHtml = correlatedFPs.map(fp => {
@@ -811,7 +811,7 @@ export class InsightsPanel extends Panel {
 
     return `
       <div class="insights-section insights-focal">
-        <div class="insights-section-title">🎯 FOCAL POINTS</div>
+        <div class="insights-section-title"><i class="bi bi-bullseye"></i> FOCAL POINTS</div>
         ${focalPointsHtml}
       </div>
     `;
@@ -820,7 +820,7 @@ export class InsightsPanel extends Panel {
   private renderDisabledState(): void {
     this.setContent(`
       <div class="insights-disabled">
-        <div class="insights-disabled-icon">⚡</div>
+        <div class="insights-disabled-icon"><i class="bi bi-lightning-charge"></i></div>
         <div class="insights-disabled-title">${t('components.insights.insightsDisabledTitle')}</div>
         <div class="insights-disabled-hint">${t('components.insights.insightsDisabledHint')}</div>
       </div>

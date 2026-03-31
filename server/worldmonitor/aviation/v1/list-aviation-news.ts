@@ -6,6 +6,7 @@ import type {
 } from '../../../../src/generated/server/worldmonitor/aviation/v1/service_server';
 import { cachedFetchJson } from '../../../_shared/redis';
 import { CHROME_UA } from '../../../_shared/constants';
+import { proxyFetch } from '../../../_shared/proxy-fetch';
 import { parseStringArray, xmlParser } from './_shared';
 
 const CACHE_TTL = 900; // 15 minutes
@@ -59,7 +60,7 @@ function matchesEntities(text: string, entities: string[]): string[] {
 
 async function fetchFeed(feedUrl: string, sourceName: string): Promise<RssItem[]> {
     try {
-        const resp = await fetch(feedUrl, {
+        const resp = await proxyFetch(feedUrl, {
             headers: {
                 'User-Agent': CHROME_UA,
                 'Accept': 'application/rss+xml, application/xml, text/xml, */*',

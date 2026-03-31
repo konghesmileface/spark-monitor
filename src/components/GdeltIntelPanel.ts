@@ -1,7 +1,7 @@
 import { Panel } from './Panel';
 import { sanitizeUrl } from '@/utils/sanitize';
 import { t } from '@/services/i18n';
-import { h, replaceChildren } from '@/utils/dom-utils';
+import { h } from '@/utils/dom-utils';
 import {
   getIntelTopics,
   fetchTopicIntelligence,
@@ -15,7 +15,7 @@ import {
 export class GdeltIntelPanel extends Panel {
   private activeTopic: IntelTopic = getIntelTopics()[0]!;
   private topicData = new Map<string, TopicIntelligence>();
-  private tabsEl: HTMLElement | null = null;
+  private loadGen = 0; // cancellation token: incremented on each tab switch
 
   constructor() {
     super({
@@ -25,57 +25,65 @@ export class GdeltIntelPanel extends Panel {
       trackActivity: true,
       infoTooltip: t('components.gdeltIntel.infoTooltip'),
     });
-    this.createTabs();
+
+    // Event delegation on content — same pattern as EconomicPanel / CryptoOverviewPanel
+    this.content.addEventListener('click', (e) => {
+      const tab = (e.target as HTMLElement).closest('.gdelt-intel-tab') as HTMLElement | null;
+      if (tab?.dataset.topicId) {
+        const topicId = tab.dataset.topicId;
+        if (topicId === this.activeTopic.id) return;
+        const topic = getIntelTopics().find(t => t.id === topicId);
+        if (topic) {
+          this.activeTopic = topic;
+          // Use cached data if available for instant switch
+          const cached = this.topicData.get(topic.id);
+          if (cached && cached.articles.length > 0) {
+            this.loadGen++;
+            this.renderArticles(cached.articles);
+            this.setCount(cached.articles.length);
+          } else {
+            this.loadActiveTopic();
+          }
+        }
+      }
+    });
+
     this.loadActiveTopic();
   }
 
-  private createTabs(): void {
-    this.tabsEl = h('div', { className: 'gdelt-intel-tabs' },
-      ...getIntelTopics().map(topic =>
-        h('button', {
-          className: `gdelt-intel-tab ${topic.id === this.activeTopic.id ? 'active' : ''}`,
-          dataset: { topicId: topic.id },
-          title: topic.description,
-          onClick: () => this.selectTopic(topic),
-        },
-          h('span', { className: 'tab-icon' }, topic.icon),
-          h('span', { className: 'tab-label' }, topic.name),
-        ),
-      ),
-    );
+  private buildTabsHtml(): string {
+    const topics = getIntelTopics();
+    const tabs = topics.map(topic => {
+      const active = topic.id === this.activeTopic.id ? 'active' : '';
+      return `<button class="gdelt-intel-tab ${active}" data-topic-id="${topic.id}" title="${topic.description}">
+        <span class="tab-icon">${topic.icon}</span>
+        <span class="tab-label">${topic.name}</span>
+      </button>`;
+    }).join('');
 
-    this.element.insertBefore(this.tabsEl, this.content);
-  }
-
-  private selectTopic(topic: IntelTopic): void {
-    if (topic.id === this.activeTopic.id) return;
-
-    this.activeTopic = topic;
-
-    this.tabsEl?.querySelectorAll('.gdelt-intel-tab').forEach(tab => {
-      tab.classList.toggle('active', (tab as HTMLElement).dataset.topicId === topic.id);
-    });
-
-    const cached = this.topicData.get(topic.id);
-    if (cached && Date.now() - cached.fetchedAt.getTime() < 5 * 60 * 1000) {
-      this.renderArticles(cached.articles);
-    } else {
-      this.loadActiveTopic();
-    }
+    return `<div class="gdelt-intel-tabs">${tabs}</div>`;
   }
 
   private async loadActiveTopic(): Promise<void> {
-    this.showLoading();
+    const gen = ++this.loadGen; // cancel any previous in-flight load
+    const topic = this.activeTopic;
+
+    // Show tabs + loading state
+    this.content.innerHTML = this.buildTabsHtml() +
+      `<div class="panel-loading"><div class="panel-loading-radar"><div class="panel-radar-sweep"></div><div class="panel-radar-dot"></div></div><div class="panel-loading-text">${t('common.loading')}</div></div>`;
 
     for (let attempt = 0; attempt < 3; attempt++) {
       try {
-        const data = await fetchTopicIntelligence(this.activeTopic);
+        const data = await fetchTopicIntelligence(topic);
+        if (gen !== this.loadGen) return; // stale — user switched tab
         if (!this.element?.isConnected) return;
-        this.topicData.set(this.activeTopic.id, data);
+        this.topicData.set(topic.id, data);
 
         if (data.articles.length === 0 && attempt < 2) {
-          this.showRetrying();
+          this.content.innerHTML = this.buildTabsHtml() +
+            `<div class="panel-loading"><div class="panel-loading-radar"><div class="panel-radar-sweep"></div><div class="panel-radar-dot"></div></div><div class="panel-loading-text">${t('common.retrying')}</div></div>`;
           await new Promise(r => setTimeout(r, 15_000));
+          if (gen !== this.loadGen) return; // stale
           if (!this.element?.isConnected) return;
           continue;
         }
@@ -85,30 +93,40 @@ export class GdeltIntelPanel extends Panel {
         return;
       } catch (error) {
         if (this.isAbortError(error)) return;
+        if (gen !== this.loadGen) return; // stale
         if (!this.element?.isConnected) return;
         console.error(`[GdeltIntelPanel] Load error (attempt ${attempt + 1}):`, error);
         if (attempt < 2) {
-          this.showRetrying();
+          this.content.innerHTML = this.buildTabsHtml() +
+            `<div class="panel-loading"><div class="panel-loading-radar"><div class="panel-radar-sweep"></div><div class="panel-radar-dot"></div></div><div class="panel-loading-text">${t('common.retrying')}</div></div>`;
           await new Promise(r => setTimeout(r, 15_000));
+          if (gen !== this.loadGen) return; // stale
           if (!this.element?.isConnected) return;
           continue;
         }
-        this.showError(t('common.failedIntelFeed'));
+        this.content.innerHTML = this.buildTabsHtml() +
+          `<div class="error-message">${t('common.failedIntelFeed')}</div>`;
       }
     }
   }
 
   private renderArticles(articles: GdeltArticle[]): void {
+    const tabsHtml = this.buildTabsHtml();
+
     if (articles.length === 0) {
-      replaceChildren(this.content, h('div', { className: 'empty-state' }, t('components.gdelt.empty')));
+      this.content.innerHTML = tabsHtml +
+        `<div class="empty-state">${t('components.gdelt.empty')}</div>`;
       return;
     }
 
-    replaceChildren(this.content,
-      h('div', { className: 'gdelt-intel-articles' },
-        ...articles.map(article => this.buildArticle(article)),
-      ),
+    // Build articles with h() for proper sanitization
+    const articlesContainer = h('div', { className: 'gdelt-intel-articles' },
+      ...articles.map(article => this.buildArticle(article)),
     );
+
+    // Set tabs HTML first, then append articles DOM
+    this.content.innerHTML = tabsHtml;
+    this.content.appendChild(articlesContainer);
   }
 
   private buildArticle(article: GdeltArticle): HTMLElement {
@@ -135,7 +153,7 @@ export class GdeltIntelPanel extends Panel {
   }
 
   public async refreshAll(): Promise<void> {
-    this.topicData.clear();
+    this.topicData.clear(); // force re-fetch on next tab switch too
     await this.loadActiveTopic();
   }
 }

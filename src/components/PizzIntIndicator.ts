@@ -1,6 +1,6 @@
 import type { PizzIntStatus, GdeltTensionPair } from '@/types';
 import { t } from '@/services/i18n';
-import { h, replaceChildren } from '@/utils/dom-utils';
+import { h, replaceChildren, rawHtml } from '@/utils/dom-utils';
 
 const DEFCON_COLORS: Record<number, string> = {
   1: '#ff0040',
@@ -48,7 +48,8 @@ export class PizzIntIndicator {
         title: t('components.pizzint.title'),
         onClick: () => { this.isExpanded = !this.isExpanded; panel.classList.toggle('hidden', !this.isExpanded); },
       },
-        h('span', { className: 'pizzint-icon' }, '🍕'),
+        rawHtml('<span class="pizzint-icon"><i class="bi bi-shield-fill-exclamation"></i></span>'),
+        h('span', { className: 'pizzint-label-text' }, 'INTEL'),
         h('span', { className: 'pizzint-defcon' }, '--'),
         h('span', { className: 'pizzint-score' }, '--%'),
       ),
@@ -104,13 +105,13 @@ export class PizzIntIndicator {
 
     replaceChildren(listEl,
       ...this.tensions.map(tp => {
-        const trendIcon = tp.trend === 'rising' ? '↑' : tp.trend === 'falling' ? '↓' : '→';
+        const trendIcon = tp.trend === 'rising' ? '<i class="bi bi-arrow-up"></i>' : tp.trend === 'falling' ? '<i class="bi bi-arrow-down"></i>' : '<i class="bi bi-arrow-right"></i>';
         const changeText = tp.changePercent > 0 ? `+${tp.changePercent}%` : `${tp.changePercent}%`;
         return h('div', { className: 'pizzint-tension-row' },
           h('span', { className: 'pizzint-tension-label' }, tp.label),
           h('span', { className: 'pizzint-tension-score' },
             h('span', { className: 'pizzint-tension-value' }, tp.score.toFixed(1)),
-            h('span', { className: `pizzint-tension-trend ${tp.trend}` }, `${trendIcon} ${changeText}`),
+            rawHtml(`<span class="pizzint-tension-trend ${tp.trend}">${trendIcon} ${changeText}</span>`),
           ),
         );
       }),

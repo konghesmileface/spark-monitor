@@ -1,6 +1,25 @@
 const REDIS_OP_TIMEOUT_MS = 1_500;
 const REDIS_PIPELINE_TIMEOUT_MS = 5_000;
 
+// In-memory fallback cache when Upstash is not configured (local dev)
+const memCache = new Map<string, { value: unknown; expiresAt: number }>();
+
+function memGet(key: string): unknown | null {
+  const entry = memCache.get(key);
+  if (!entry) return null;
+  if (Date.now() > entry.expiresAt) { memCache.delete(key); return null; }
+  return entry.value;
+}
+
+function memSet(key: string, value: unknown, ttlSeconds: number): void {
+  memCache.set(key, { value, expiresAt: Date.now() + ttlSeconds * 1000 });
+  // Lazy eviction: cap size at 500 entries
+  if (memCache.size > 500) {
+    const now = Date.now();
+    for (const [k, v] of memCache) { if (now > v.expiresAt) memCache.delete(k); }
+  }
+}
+
 function errMsg(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
 }
@@ -26,7 +45,7 @@ function prefixKey(key: string): string {
 export async function getCachedJson(key: string, raw = false): Promise<unknown | null> {
   const url = process.env.UPSTASH_REDIS_REST_URL;
   const token = process.env.UPSTASH_REDIS_REST_TOKEN;
-  if (!url || !token) return null;
+  if (!url || !token) return memGet(raw ? key : prefixKey(key));
   try {
     const finalKey = raw ? key : prefixKey(key);
     const resp = await fetch(`${url}/get/${encodeURIComponent(finalKey)}`, {
@@ -45,7 +64,7 @@ export async function getCachedJson(key: string, raw = false): Promise<unknown |
 export async function setCachedJson(key: string, value: unknown, ttlSeconds: number): Promise<void> {
   const url = process.env.UPSTASH_REDIS_REST_URL;
   const token = process.env.UPSTASH_REDIS_REST_TOKEN;
-  if (!url || !token) return;
+  if (!url || !token) { memSet(prefixKey(key), value, ttlSeconds); return; }
   try {
     // Atomic SET with EX — single call avoids race between SET and EXPIRE (C-3 fix)
     await fetch(`${url}/set/${encodeURIComponent(prefixKey(key))}/${encodeURIComponent(JSON.stringify(value))}/EX/${ttlSeconds}`, {
@@ -70,7 +89,13 @@ export async function getCachedJsonBatch(keys: string[]): Promise<Map<string, un
 
   const url = process.env.UPSTASH_REDIS_REST_URL;
   const token = process.env.UPSTASH_REDIS_REST_TOKEN;
-  if (!url || !token) return result;
+  if (!url || !token) {
+    for (const key of keys) {
+      const v = memGet(prefixKey(key));
+      if (v !== null) result.set(key, v);
+    }
+    return result;
+  }
 
   try {
     const pipeline = keys.map((k) => ['GET', prefixKey(k)]);

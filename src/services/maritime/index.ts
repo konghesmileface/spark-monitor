@@ -10,6 +10,9 @@ import { dataFreshness } from '../data-freshness';
 import { isFeatureAvailable } from '../runtime-config';
 import { startSmartPollLoop, type SmartPollLoopHandle } from '../runtime';
 
+// ---- Vessel traffic (individual vessel positions) ----
+export { startVesselTrafficPolling, stopVesselTrafficPolling, getVesselTraffic, classifyVessel, VESSEL_COLORS, type CompactVessel, type VesselCategory } from './vessel-traffic';
+
 // ---- Proto fallback (desktop safety when relay URL is unavailable) ----
 
 const client = new MaritimeServiceClient('', { fetch: (...args) => globalThis.fetch(...args) });
@@ -219,7 +222,7 @@ async function fetchSnapshotPayload(includeCandidates: boolean, signal?: AbortSi
     if (response.snapshot) {
       return {
         sequence: 0, // Proto payload does not include relay sequence.
-        status: { connected: true, vessels: 0, messages: 0 },
+        status: { connected: false, vessels: 0, messages: 0 },
         disruptions: response.snapshot.disruptions.map(toDisruptionEvent),
         density: response.snapshot.densityZones.map(toDensityZone),
         candidateReports: [],

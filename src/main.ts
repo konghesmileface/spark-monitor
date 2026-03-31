@@ -1,6 +1,7 @@
 import './styles/base-layer.css';
 import './styles/happy-theme.css';
-import 'maplibre-gl/dist/maplibre-gl.css';
+// maplibre-gl CSS is lazy-loaded in MapContainer.ts when the map initializes
+import 'bootstrap-icons/font/bootstrap-icons.css';
 import * as Sentry from '@sentry/browser';
 import { inject } from '@vercel/analytics';
 import { App } from './App';
@@ -232,6 +233,7 @@ import { loadDesktopSecrets } from '@/services/runtime-config';
 import { applyStoredTheme } from '@/utils/theme-manager';
 import { SITE_VARIANT } from '@/config/variant';
 import { clearChunkReloadGuard, installChunkReloadGuard } from '@/bootstrap/chunk-reload';
+import { CN_INTEL_BASE } from '@/services/cn-profile';
 
 // Auto-reload on stale chunk 404s after deployment (Vite fires this for modulepreload failures).
 const chunkReloadStorageKey = installChunkReloadGuard(__APP_VERSION__);
@@ -263,6 +265,11 @@ if (SITE_VARIANT && SITE_VARIANT !== 'full') {
   });
 }
 
+// Embed mode: hide header for iframe embedding
+if (new URLSearchParams(location.search).get('embed') === 'true') {
+  document.body.classList.add('embed-mode');
+}
+
 // Remove no-transition class after first paint to enable smooth theme transitions
 requestAnimationFrame(() => {
   document.documentElement.classList.remove('no-transition');
@@ -270,6 +277,25 @@ requestAnimationFrame(() => {
 
 // Clear stale settings-open flag (survives ungraceful shutdown)
 localStorage.removeItem('wm-settings-open');
+
+// ── Auth gate: redirect to login if no valid session ──
+const wmToken = localStorage.getItem('wm_token');
+if (!wmToken) {
+  window.location.href = 'login.html';
+  throw new Error('No auth token');  // halt further execution
+}
+// Async token validation — redirect on failure, continue on success
+fetch(`${CN_INTEL_BASE}/api/auth/me`, {
+  headers: { 'Authorization': `Bearer ${wmToken}` },
+}).then(res => {
+  if (!res.ok) {
+    localStorage.removeItem('wm_token');
+    localStorage.removeItem('wm_user');
+    window.location.href = 'login.html';
+  }
+}).catch(() => {
+  // Network error — allow offline/dev usage, don't block
+});
 
 // Standalone windows: ?settings=1 = panel display settings, ?live-channels=1 = channel management
 // Both need i18n initialized so t() does not return undefined.

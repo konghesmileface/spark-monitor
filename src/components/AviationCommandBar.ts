@@ -72,7 +72,7 @@ async function executeIntent(intent: Intent): Promise<CommandResult> {
         <span>${s.avgDelayMinutes > 0 ? `+${s.avgDelayMinutes}m delay` : 'Normal ops'}</span>
         ${s.closureStatus ? '<span style="color:#ef4444">CLOSED</span>' : ''}
       </div>`).join('');
-        return { html: `<div class="cmd-section"><strong>✈️ Ops Snapshot</strong>${rows}</div>` };
+        return { html: `<div class="cmd-section"><strong><i class="bi bi-airplane-fill"></i> Ops Snapshot</strong>${rows}</div>` };
     }
 
     if (intent.type === 'FLIGHT_STATUS') {
@@ -84,7 +84,7 @@ async function executeIntent(intent: Intent): Promise<CommandResult> {
             : '';
         return {
             html: `<div class="cmd-section">
-      <strong>✈️ ${escapeHtml(f.flightNumber)}</strong>
+      <strong><i class="bi bi-airplane-fill"></i> ${escapeHtml(f.flightNumber)}</strong>
       <div>${escapeHtml(f.origin.iata)} → ${escapeHtml(f.destination.iata)} · ${f.status} · ${timeStr}</div>
       ${f.delayMinutes > 0 ? `<div style="color:#f97316">+${f.delayMinutes}m delay</div>` : ''}
     </div>` };
@@ -97,7 +97,7 @@ async function executeIntent(intent: Intent): Promise<CommandResult> {
         const best = quotes[0]!;
         return {
             html: `<div class="cmd-section">
-      <strong>💸 ${escapeHtml(intent.origin)} → ${escapeHtml(intent.destination)}</strong>
+      <strong><i class="bi bi-cash-coin"></i> ${escapeHtml(intent.origin)} → ${escapeHtml(intent.destination)}</strong>
       ${isDemoMode ? '<span class="demo-badge" style="margin-left:6px">DEMO</span>' : ''}
       <div>Best: <strong style="color:#60a5fa">$${Math.round(best.priceAmount)}</strong> via ${escapeHtml(best.carrierName || best.carrierIata)} · ${best.stops === 0 ? 'nonstop' : `${best.stops} stop`}</div>
     </div>` };
@@ -107,11 +107,11 @@ async function executeIntent(intent: Intent): Promise<CommandResult> {
         const items = await fetchAviationNews(intent.entities, 24, 5);
         if (!items.length) return { html: '<div class="cmd-empty">No recent aviation news.</div>' };
         const rows = items.map(n => `<div class="cmd-news-item"><a href="${sanitizeUrl(n.url)}" target="_blank" rel="noopener">${escapeHtml(n.title)}</a></div>`).join('');
-        return { html: `<div class="cmd-section"><strong>📰 Aviation News</strong>${rows}</div>` };
+        return { html: `<div class="cmd-section"><strong><i class="bi bi-newspaper"></i> Aviation News</strong>${rows}</div>` };
     }
 
     if (intent.type === 'TRACK') {
-        return { html: `<div class="cmd-section">🛰️ Tracking <strong>${escapeHtml(intent.callsign ?? intent.icao24 ?? '?')}</strong> — open Tracking tab in Airline Intel panel for live positions.</div>` };
+        return { html: `<div class="cmd-section"><i class="bi bi-broadcast-pin"></i> Tracking <strong>${escapeHtml(intent.callsign ?? intent.icao24 ?? '?')}</strong> — open Tracking tab in Airline Intel panel for live positions.</div>` };
     }
 
     return {
@@ -155,7 +155,7 @@ export class AviationCommandBar {
         this.overlay.innerHTML = `
       <div id="aviation-cmd-box">
         <div id="aviation-cmd-header">
-          <span>✈️ Aviation Command</span>
+          <span><i class="bi bi-airplane-fill"></i> Aviation Command</span>
           <button id="aviation-cmd-close">×</button>
         </div>
         <input id="aviation-cmd-input" type="text" placeholder="ops IST  /  flight TK1  /  price IST LHR  /  brief" autocomplete="off" spellcheck="false">

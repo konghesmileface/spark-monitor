@@ -50,9 +50,6 @@ interface PolymarketEvent {
   endDate?: string;
 }
 
-// Internal constants and state
-const GAMMA_API = 'https://gamma-api.polymarket.com';
-
 // Polymarket proxy URL (Vercel server route injects Railway secret server-side)
 const POLYMARKET_PROXY_URL = '/api/polymarket';
 const wsRelayUrl = import.meta.env.VITE_WS_RELAY_URL || '';
@@ -67,49 +64,8 @@ const breaker = createCircuitBreaker<PredictionMarket[]>({ name: 'Polymarket', c
 // Sebuf client for strategy 4
 const client = new PredictionServiceClient('', { fetch: (...args) => globalThis.fetch(...args) });
 
-// Track whether direct browser->Polymarket fetch works
-// Cloudflare blocks server-side TLS but browsers pass JA3 fingerprint checks
-let directFetchWorks: boolean | null = null;
-let directFetchProbe: Promise<boolean> | null = null;
-async function probeDirectFetchCapability(): Promise<boolean> {
-  if (directFetchWorks !== null) return directFetchWorks;
-  if (!directFetchProbe) {
-    directFetchProbe = fetch(`${GAMMA_API}/events?closed=false&active=true&archived=false&order=volume&ascending=false&limit=1`, {
-      headers: { 'Accept': 'application/json' },
-    })
-      .then(resp => {
-        directFetchWorks = resp.ok;
-        return directFetchWorks;
-      })
-      .catch(() => {
-        directFetchWorks = false;
-        return false;
-      })
-      .finally(() => {
-        directFetchProbe = null;
-      });
-  }
-  return directFetchProbe;
-}
-
 async function polyFetch(endpoint: 'events' | 'markets', params: Record<string, string>): Promise<Response> {
   const qs = new URLSearchParams(params).toString();
-
-  // Probe direct connectivity once before parallel tag fanout to avoid reset storms.
-  const canUseDirect = directFetchWorks === true || (directFetchWorks === null && await probeDirectFetchCapability());
-  if (canUseDirect) {
-    try {
-      const resp = await fetch(`${GAMMA_API}/${endpoint}?${qs}`, {
-        headers: { 'Accept': 'application/json' },
-      });
-      if (resp.ok) {
-        directFetchWorks = true;
-        return resp;
-      }
-    } catch {
-      directFetchWorks = false;
-    }
-  }
 
   // Desktop: use Tauri Rust command (native TLS bypasses Cloudflare JA3 blocking)
   if (isDesktopRuntime()) {

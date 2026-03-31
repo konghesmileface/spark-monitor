@@ -8,23 +8,23 @@ import { createCircuitBreaker } from '@/utils';
 import { getHydratedData } from '@/services/bootstrap';
 
 const CATEGORY_ICONS: Record<NaturalEventCategory, string> = {
-  severeStorms: '🌀',
-  wildfires: '🔥',
-  volcanoes: '🌋',
-  earthquakes: '🔴',
-  floods: '🌊',
-  landslides: '⛰️',
-  drought: '☀️',
-  dustHaze: '🌫️',
-  snow: '❄️',
-  tempExtremes: '🌡️',
-  seaLakeIce: '🧊',
-  waterColor: '🦠',
-  manmade: '⚠️',
+  severeStorms: '<i class="bi bi-tornado"></i>',
+  wildfires: '<i class="bi bi-fire"></i>',
+  volcanoes: '<i class="bi bi-triangle-fill"></i>',
+  earthquakes: '<i class="bi bi-activity"></i>',
+  floods: '<i class="bi bi-water"></i>',
+  landslides: '<i class="bi bi-exclamation-triangle-fill"></i>',
+  drought: '<i class="bi bi-brightness-high-fill"></i>',
+  dustHaze: '<i class="bi bi-cloud-haze-fill"></i>',
+  snow: '<i class="bi bi-snow2"></i>',
+  tempExtremes: '<i class="bi bi-thermometer-high"></i>',
+  seaLakeIce: '<i class="bi bi-snow"></i>',
+  waterColor: '<i class="bi bi-droplet-fill"></i>',
+  manmade: '<i class="bi bi-exclamation-triangle"></i>',
 };
 
 export function getNaturalEventIcon(category: NaturalEventCategory): string {
-  return CATEGORY_ICONS[category] || '⚠️';
+  return CATEGORY_ICONS[category] || '<i class="bi bi-exclamation-triangle"></i>';
 }
 
 function normalizeNaturalCategory(category: string | undefined): NaturalEventCategory {

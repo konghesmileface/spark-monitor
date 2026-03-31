@@ -11,6 +11,7 @@ import type {
 } from '../../../../src/generated/server/worldmonitor/market/v1/service_server';
 import { UPSTREAM_TIMEOUT_MS, parseStringArray } from './_shared';
 import { CHROME_UA } from '../../../_shared/constants';
+import { proxyFetch } from '../../../_shared/proxy-fetch';
 import { cachedFetchJson, getCachedJson } from '../../../_shared/redis';
 
 const REDIS_CACHE_KEY = 'market:stablecoins:v1';
@@ -94,7 +95,7 @@ export async function listStablecoinMarkets(
   try {
   const result = await cachedFetchJson<ListStablecoinMarketsResponse>(redisKey, REDIS_CACHE_TTL, async () => {
     const url = `https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=${coins}&order=market_cap_desc&sparkline=false&price_change_percentage=7d`;
-    const resp = await fetch(url, {
+    const resp = await proxyFetch(url, {
       headers: { Accept: 'application/json', 'User-Agent': CHROME_UA },
       signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
     });

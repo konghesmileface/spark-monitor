@@ -15,6 +15,7 @@ import {
   type RawFlight,
 } from './_shared';
 import { CHROME_UA } from '../../../_shared/constants';
+import { proxyFetch } from '../../../_shared/proxy-fetch';
 
 const CACHE_KEY = 'theater-posture:sebuf:v1';
 const STALE_CACHE_KEY = 'theater-posture:sebuf:stale:v1';
@@ -81,7 +82,9 @@ async function fetchMilitaryFlightsFromOpenSky(): Promise<RawFlight[]> {
   const isSidecar = (process.env.LOCAL_API_MODE || '').includes('sidecar');
   const baseUrl = isSidecar
     ? 'https://opensky-network.org/api/states/all'
-    : process.env.WS_RELAY_URL ? process.env.WS_RELAY_URL + '/opensky' : null;
+    : process.env.WS_RELAY_URL
+      ? process.env.WS_RELAY_URL + '/opensky'
+      : 'https://opensky-network.org/api/states/all'; // direct fallback
 
   if (!baseUrl) return [];
 
@@ -90,7 +93,7 @@ async function fetchMilitaryFlightsFromOpenSky(): Promise<RawFlight[]> {
 
   for (const region of THEATER_QUERY_REGIONS) {
     const params = `lamin=${region.lamin}&lamax=${region.lamax}&lomin=${region.lomin}&lomax=${region.lomax}`;
-    const resp = await fetch(`${baseUrl}?${params}`, {
+    const resp = await proxyFetch(`${baseUrl}?${params}`, {
       headers: getRelayRequestHeaders(),
       signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
     });
@@ -127,7 +130,7 @@ async function fetchMilitaryFlightsFromWingbits(): Promise<RawFlight[] | null> {
   }));
 
   try {
-    const resp = await fetch('https://customer-api.wingbits.com/v1/flights', {
+    const resp = await proxyFetch('https://customer-api.wingbits.com/v1/flights', {
       method: 'POST',
       headers: { 'x-api-key': apiKey, Accept: 'application/json', 'Content-Type': 'application/json', 'User-Agent': CHROME_UA },
       body: JSON.stringify(areas),
@@ -231,13 +234,13 @@ async function fetchTheaterPostureFresh(): Promise<GetTheaterPostureResponse> {
   }
 
   // Wingbits is a fallback only when OpenSky is unavailable/empty.
+  // Note: 0 military flights is normal (e.g. nighttime) — don't throw.
   if (flights.length === 0) {
     const wingbitsFlights = await fetchMilitaryFlightsFromWingbits();
     if (wingbitsFlights && wingbitsFlights.length > 0) {
       flights = wingbitsFlights;
-    } else {
-      throw new Error('Both OpenSky and Wingbits unavailable');
     }
+    // flights may still be [] — that's OK, means no military activity detected
   }
 
   const theaters = calculatePostures(flights);

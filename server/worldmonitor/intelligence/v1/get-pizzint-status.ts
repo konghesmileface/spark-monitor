@@ -12,6 +12,7 @@ import type {
 import { UPSTREAM_TIMEOUT_MS } from './_shared';
 import { CHROME_UA } from '../../../_shared/constants';
 import { cachedFetchJson } from '../../../_shared/redis';
+import { proxyFetch } from '../../../_shared/proxy-fetch';
 
 const REDIS_CACHE_KEY = 'intel:pizzint:v1';
 const REDIS_CACHE_TTL = 600; // 10 min
@@ -39,7 +40,7 @@ export async function getPizzintStatus(
     result = await cachedFetchJson<GetPizzintStatusResponse>(cacheKey, REDIS_CACHE_TTL, async () => {
       let pizzint: PizzintStatus | undefined;
       try {
-        const resp = await fetch(PIZZINT_API, {
+        const resp = await proxyFetch(PIZZINT_API, {
           headers: { Accept: 'application/json', 'User-Agent': CHROME_UA },
           signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
         });
@@ -118,7 +119,7 @@ export async function getPizzintStatus(
       if (req.includeGdelt) {
         try {
           const url = `${GDELT_BATCH_API}?pairs=${encodeURIComponent(DEFAULT_GDELT_PAIRS)}&method=gpr`;
-          const resp = await fetch(url, {
+          const resp = await proxyFetch(url, {
             headers: { Accept: 'application/json', 'User-Agent': CHROME_UA },
             signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
           });

@@ -8,6 +8,7 @@ import type {
 
 import { cachedFetchJson } from '../../../_shared/redis';
 import { CHROME_UA } from '../../../_shared/constants';
+import { proxyFetch } from '../../../_shared/proxy-fetch';
 // @ts-expect-error — .mjs module, no declaration file
 import { detectSpike } from './_scoring.mjs';
 
@@ -41,7 +42,7 @@ async function fetchFredSeries(cfg: FredSeriesConfig): Promise<ShippingIndex | n
       limit: '24',
     });
 
-    const response = await fetch(`${FRED_API_BASE}/series/observations?${params}`, {
+    const response = await proxyFetch(`${FRED_API_BASE}/series/observations?${params}`, {
       headers: { Accept: 'application/json', 'User-Agent': CHROME_UA },
       signal: AbortSignal.timeout(10000),
     });

@@ -66,21 +66,21 @@ export class EconomicPanel extends Panel {
     const tabsHtml = `
       <div class="economic-tabs">
         <button class="economic-tab ${this.activeTab === 'indicators' ? 'active' : ''}" data-tab="indicators">
-          📊 ${t('components.economic.indicators')}
+          <i class="bi bi-bar-chart-fill"></i> ${t('components.economic.indicators')}
         </button>
         ${hasOil ? `
           <button class="economic-tab ${this.activeTab === 'oil' ? 'active' : ''}" data-tab="oil">
-            🛢️ ${t('components.economic.oil')}
+            <i class="bi bi-fuel-pump"></i> ${t('components.economic.oil')}
           </button>
         ` : ''}
         ${hasSpending ? `
           <button class="economic-tab ${this.activeTab === 'spending' ? 'active' : ''}" data-tab="spending">
-            🏛️ ${t('components.economic.gov')}
+            <i class="bi bi-bank"></i> ${t('components.economic.gov')}
           </button>
         ` : ''}
         ${hasBis ? `
           <button class="economic-tab ${this.activeTab === 'centralBanks' ? 'active' : ''}" data-tab="centralBanks">
-            🏦 ${t('components.economic.centralBanks')}
+            <i class="bi bi-bank2"></i> ${t('components.economic.centralBanks')}
           </button>
         ` : ''}
       </div>

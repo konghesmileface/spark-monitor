@@ -13,6 +13,7 @@ import {
   DELAY_SEVERITY_THRESHOLDS,
 } from '../../../../src/config/airports';
 import { CHROME_UA } from '../../../_shared/constants';
+import { proxyFetch } from '../../../_shared/proxy-fetch';
 
 /**
  * Defensive parser for repeated-string query params.
@@ -263,7 +264,7 @@ async function fetchSingleAirport(
       limit: '100',
     });
     const url = `${AVIATIONSTACK_URL}?${params}`;
-    const resp = await fetch(url, {
+    const resp = await proxyFetch(url, {
       headers: { 'User-Agent': CHROME_UA },
       signal: AbortSignal.timeout(5_000),
     });
@@ -411,7 +412,7 @@ export async function fetchNotamClosures(
       // Route through Railway relay — avoids Vercel edge timeout / CloudFront blocking
       const relayUrl = `${relayBase}/notam?locations=${encodeURIComponent(locations)}`;
       console.log(`[Aviation] NOTAM: fetching via relay for ${icaoCodes.length} airports`);
-      const resp = await fetch(relayUrl, {
+      const resp = await proxyFetch(relayUrl, {
         headers: getRelayHeaders(),
         signal: AbortSignal.timeout(30_000),
       });
@@ -425,7 +426,7 @@ export async function fetchNotamClosures(
       // Direct ICAO call (slower from Vercel, may timeout)
       console.log(`[Aviation] NOTAM: fetching direct for ${icaoCodes.length} airports`);
       const url = `${ICAO_NOTAM_URL}?api_key=${apiKey}&format=json&locations=${locations}`;
-      const resp = await fetch(url, {
+      const resp = await proxyFetch(url, {
         headers: { 'User-Agent': CHROME_UA },
         signal: AbortSignal.timeout(20_000),
       });

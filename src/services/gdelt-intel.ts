@@ -36,42 +36,42 @@ export const INTEL_TOPICS: IntelTopic[] = [
     id: 'military',
     name: 'Military Activity',
     query: '(military exercise OR troop deployment OR airstrike OR "naval exercise") sourcelang:eng',
-    icon: '⚔️',
+    icon: '<i class="bi bi-crosshair"></i>',
     description: 'Military exercises, deployments, and operations',
   },
   {
     id: 'cyber',
     name: 'Cyber Threats',
     query: '(cyberattack OR ransomware OR hacking OR "data breach" OR APT) sourcelang:eng',
-    icon: '🔓',
+    icon: '<i class="bi bi-shield-check"></i>',
     description: 'Cyber attacks, ransomware, and digital threats',
   },
   {
     id: 'nuclear',
     name: 'Nuclear',
     query: '(nuclear OR uranium enrichment OR IAEA OR "nuclear weapon" OR plutonium) sourcelang:eng',
-    icon: '☢️',
+    icon: '<i class="bi bi-radioactive"></i>',
     description: 'Nuclear programs, IAEA inspections, proliferation',
   },
   {
     id: 'sanctions',
     name: 'Sanctions',
     query: '(sanctions OR embargo OR "trade war" OR tariff OR "economic pressure") sourcelang:eng',
-    icon: '🚫',
+    icon: '<i class="bi bi-slash-circle"></i>',
     description: 'Economic sanctions and trade restrictions',
   },
   {
     id: 'intelligence',
     name: 'Intelligence',
     query: '(espionage OR spy OR intelligence agency OR covert OR surveillance) sourcelang:eng',
-    icon: '🕵️',
+    icon: '<i class="bi bi-eye-fill"></i>',
     description: 'Espionage, intelligence operations, surveillance',
   },
   {
     id: 'maritime',
     name: 'Maritime Security',
     query: '(naval blockade OR piracy OR "strait of hormuz" OR "south china sea" OR warship) sourcelang:eng',
-    icon: '🚢',
+    icon: '<i class="bi bi-water"></i>',
     description: 'Naval operations, maritime chokepoints, sea lanes',
   },
 ];
@@ -125,8 +125,9 @@ export function getIntelTopics(): IntelTopic[] {
 // ---- Sebuf client ----
 
 const client = new IntelligenceServiceClient('', { fetch: (...args) => globalThis.fetch(...args) });
-const gdeltBreaker = createCircuitBreaker<SearchGdeltDocumentsResponse>({ name: 'GDELT Intelligence', cacheTtlMs: 10 * 60 * 1000, persistCache: true });
-const positiveGdeltBreaker = createCircuitBreaker<SearchGdeltDocumentsResponse>({ name: 'GDELT Positive', cacheTtlMs: 10 * 60 * 1000, persistCache: true });
+// cacheTtlMs: 0 — breaker shared across different queries; per-query caching handled by articleCache below
+const gdeltBreaker = createCircuitBreaker<SearchGdeltDocumentsResponse>({ name: 'GDELT Intelligence', cacheTtlMs: 0 });
+const positiveGdeltBreaker = createCircuitBreaker<SearchGdeltDocumentsResponse>({ name: 'GDELT Positive', cacheTtlMs: 0 });
 
 const emptyGdeltFallback: SearchGdeltDocumentsResponse = { articles: [], query: '', error: '' };
 

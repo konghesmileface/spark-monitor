@@ -179,7 +179,7 @@ export class SearchModal {
         <div class="search-sheet">
           <div class="search-sheet-handle"></div>
           <div class="search-sheet-header">
-            <span class="search-sheet-icon">\u{1F50D}</span>
+            <span class="search-sheet-icon"><i class="bi bi-search"></i></span>
             <input type="text" class="search-input" placeholder="${this.placeholder}" autofocus />
             <button class="search-sheet-cancel" aria-label="Close">\u00D7</button>
           </div>
@@ -348,7 +348,7 @@ export class SearchModal {
 
       const icon = document.createElement('span');
       icon.className = 'search-result-icon';
-      icon.textContent = '🕐';
+      icon.innerHTML = '<i class="bi bi-clock-history"></i>';
 
       const title = document.createElement('span');
       title.className = 'search-result-title';
@@ -370,12 +370,12 @@ export class SearchModal {
     if (!this.resultsList) return;
 
     const tips: { icon: string; key: string; exampleKey: string }[] = [
-      { icon: '\u{1F30D}', key: 'commands.tips.map', exampleKey: 'commands.tips.mapExample' },
-      { icon: '\u{1F4CB}', key: 'commands.tips.panel', exampleKey: 'commands.tips.panelExample' },
-      { icon: '\u{1F4C4}', key: 'commands.tips.brief', exampleKey: 'commands.tips.briefExample' },
-      { icon: '\u{1F6E1}\uFE0F', key: 'commands.tips.layers', exampleKey: 'commands.tips.layersExample' },
-      { icon: '\u23F1\uFE0F', key: 'commands.tips.time', exampleKey: 'commands.tips.timeExample' },
-      { icon: '\u2699\uFE0F', key: 'commands.tips.settings', exampleKey: 'commands.tips.settingsExample' },
+      { icon: '<i class="bi bi-globe-americas"></i>', key: 'commands.tips.map', exampleKey: 'commands.tips.mapExample' },
+      { icon: '<i class="bi bi-layout-sidebar"></i>', key: 'commands.tips.panel', exampleKey: 'commands.tips.panelExample' },
+      { icon: '<i class="bi bi-file-text"></i>', key: 'commands.tips.brief', exampleKey: 'commands.tips.briefExample' },
+      { icon: '<i class="bi bi-layers"></i>', key: 'commands.tips.layers', exampleKey: 'commands.tips.layersExample' },
+      { icon: '<i class="bi bi-stopwatch"></i>', key: 'commands.tips.time', exampleKey: 'commands.tips.timeExample' },
+      { icon: '<i class="bi bi-gear"></i>', key: 'commands.tips.settings', exampleKey: 'commands.tips.settingsExample' },
     ];
 
     const shuffled = tips.sort(() => Math.random() - 0.5).slice(0, this.isMobile ? 2 : 4);
@@ -416,7 +416,7 @@ export class SearchModal {
     if (this.commandResults.length === 0 && this.results.length === 0) {
       this.resultsList.innerHTML = `
         <div class="search-empty">
-          <div class="search-empty-icon">\u2205</div>
+          <div class="search-empty-icon"><i class="bi bi-search"></i></div>
           <div>${t('modals.search.noResults')}</div>
         </div>
       `;
@@ -424,30 +424,30 @@ export class SearchModal {
     }
 
     const icons: Record<SearchResultType, string> = {
-      country: '\u{1F3F3}\uFE0F',
-      news: '\u{1F4F0}',
-      hotspot: '\u{1F4CD}',
-      market: '\u{1F4C8}',
-      prediction: '\u{1F3AF}',
-      conflict: '\u2694\uFE0F',
-      base: '\u{1F3DB}\uFE0F',
-      pipeline: '\u{1F6E2}',
-      cable: '\u{1F310}',
-      datacenter: '\u{1F5A5}\uFE0F',
-      earthquake: '\u{1F30D}',
-      outage: '\u{1F4E1}',
-      nuclear: '\u2622\uFE0F',
-      irradiator: '\u269B\uFE0F',
-      techcompany: '\u{1F3E2}',
-      ailab: '\u{1F9E0}',
-      startup: '\u{1F680}',
-      techevent: '\u{1F4C5}',
-      techhq: '\u{1F984}',
-      accelerator: '\u{1F680}',
-      exchange: '\u{1F3DB}\uFE0F',
-      financialcenter: '\u{1F4B0}',
-      centralbank: '\u{1F3E6}',
-      commodityhub: '\u{1F4E6}',
+      country: '<i class="bi bi-flag"></i>',
+      news: '<i class="bi bi-newspaper"></i>',
+      hotspot: '<i class="bi bi-geo-alt-fill"></i>',
+      market: '<i class="bi bi-graph-up"></i>',
+      prediction: '<i class="bi bi-bullseye"></i>',
+      conflict: '<i class="bi bi-shield-exclamation"></i>',
+      base: '<i class="bi bi-bank"></i>',
+      pipeline: '<i class="bi bi-fuel-pump"></i>',
+      cable: '<i class="bi bi-globe"></i>',
+      datacenter: '<i class="bi bi-pc-display"></i>',
+      earthquake: '<i class="bi bi-globe-americas"></i>',
+      outage: '<i class="bi bi-broadcast"></i>',
+      nuclear: '<i class="bi bi-radioactive"></i>',
+      irradiator: '<i class="bi bi-radioactive"></i>',
+      techcompany: '<i class="bi bi-building"></i>',
+      ailab: '<i class="bi bi-lightbulb"></i>',
+      startup: '<i class="bi bi-rocket-takeoff"></i>',
+      techevent: '<i class="bi bi-calendar-event"></i>',
+      techhq: '<i class="bi bi-buildings"></i>',
+      accelerator: '<i class="bi bi-rocket-takeoff"></i>',
+      exchange: '<i class="bi bi-bank"></i>',
+      financialcenter: '<i class="bi bi-currency-exchange"></i>',
+      centralbank: '<i class="bi bi-bank2"></i>',
+      commodityhub: '<i class="bi bi-box-seam"></i>',
     };
 
     let html = '';

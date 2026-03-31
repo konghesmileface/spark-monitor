@@ -4,6 +4,7 @@
  */
 
 import { CHROME_UA } from '../../../_shared/constants';
+import { proxyFetch } from '../../../_shared/proxy-fetch';
 import Papa from 'papaparse';
 
 const BIS_BASE = 'https://stats.bis.org/api/v1/data';
@@ -33,7 +34,7 @@ export async function fetchBisCSV(dataset: string, key: string, timeout = 12000)
   const controller = new AbortController();
   const id = setTimeout(() => controller.abort(), timeout);
   try {
-    const res = await fetch(url, {
+    const res = await proxyFetch(url, {
       headers: { 'User-Agent': CHROME_UA, Accept: 'text/csv' },
       signal: controller.signal,
     });

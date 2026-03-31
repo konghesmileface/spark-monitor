@@ -190,7 +190,7 @@ export class BreakingNewsBanner {
     el.setAttribute('data-target-panel', this.resolveTargetPanel(alert));
     el.style.cursor = 'pointer';
 
-    const icon = alert.threatLevel === 'critical' ? '🚨' : '⚠️';
+    const icon = alert.threatLevel === 'critical' ? '<i class="bi bi-exclamation-octagon-fill"></i>' : '<i class="bi bi-exclamation-triangle-fill"></i>';
     const levelText = alert.threatLevel === 'critical'
       ? t('components.breakingNews.critical')
       : t('components.breakingNews.high');
@@ -198,13 +198,13 @@ export class BreakingNewsBanner {
 
     const iconSpan = document.createElement('span');
     iconSpan.className = 'breaking-alert-icon';
-    iconSpan.textContent = icon;
+    iconSpan.innerHTML = icon;
 
     const content = document.createElement('div');
     content.className = 'breaking-alert-content';
 
     const levelSpan = document.createElement('span');
-    levelSpan.className = 'breaking-alert-level';
+    levelSpan.className = `breaking-alert-level breaking-alert-badge threat-${alert.threatLevel}`;
     levelSpan.textContent = levelText;
 
     const headlineSpan = document.createElement('span');

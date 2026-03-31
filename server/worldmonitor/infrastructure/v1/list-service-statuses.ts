@@ -8,6 +8,7 @@ import type {
 
 import { UPSTREAM_TIMEOUT_MS } from './_shared';
 import { cachedFetchJson } from '../../../_shared/redis';
+import { proxyFetch } from '../../../_shared/proxy-fetch';
 import { CHROME_UA } from '../../../_shared/constants';
 
 // ========================================================================
@@ -115,7 +116,7 @@ async function checkServiceStatus(service: ServiceDef): Promise<ServiceStatus> {
     }
 
     const start = Date.now();
-    const response = await fetch(service.statusPage, {
+    const response = await proxyFetch(service.statusPage, {
       headers,
       signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
     });

@@ -59,7 +59,7 @@ export class IntelligenceFindingsBadge {
     this.badge = document.createElement('button');
     this.badge.className = 'intel-findings-badge';
     this.badge.title = t('components.intelligenceFindings.badgeTitle');
-    this.badge.innerHTML = '<span class="findings-icon">🎯</span><span class="findings-count">0</span>';
+    this.badge.innerHTML = '<span class="findings-icon"><i class="bi bi-broadcast-pin"></i></span><span class="findings-count">0</span>';
 
     this.dropdown = document.createElement('div');
     this.dropdown.className = 'intel-findings-dropdown';
@@ -325,11 +325,11 @@ export class IntelligenceFindingsBadge {
     const breakingSettings = getAlertSettings();
     const breakingLabel = t('components.intelligenceFindings.breakingAlerts');
     return `<div class="popup-toggle-row" data-toggle="popup">
-        <span class="popup-toggle-label">🔔 ${escapeHtml(label)}</span>
+        <span class="popup-toggle-label"><i class="bi bi-bell-fill"></i> ${escapeHtml(label)}</span>
         <span class="popup-toggle-switch${checked ? ' on' : ''}"><span class="popup-toggle-knob"></span></span>
       </div>
       <div class="popup-toggle-row" data-toggle="breaking-alerts">
-        <span class="popup-toggle-label">🚨 ${escapeHtml(breakingLabel)}</span>
+        <span class="popup-toggle-label"><i class="bi bi-exclamation-octagon-fill"></i> ${escapeHtml(breakingLabel)}</span>
         <span class="popup-toggle-switch${breakingSettings.enabled ? ' on' : ''}"><span class="popup-toggle-knob"></span></span>
       </div>`;
   }
@@ -346,7 +346,7 @@ export class IntelligenceFindingsBadge {
         ${toggleHtml}
         <div class="findings-content">
           <div class="findings-empty">
-            <span class="empty-icon">📡</span>
+            <span class="empty-icon"><i class="bi bi-broadcast"></i></span>
             <span class="empty-text">${t('components.intelligenceFindings.scanning')}</span>
           </div>
         </div>
@@ -425,26 +425,26 @@ export class IntelligenceFindingsBadge {
   private getTypeIcon(type: string): string {
     const icons: Record<string, string> = {
       // Correlation signals
-      breaking_surge: '🔥',
-      silent_divergence: '🔇',
-      flow_price_divergence: '📊',
-      explained_market_move: '💡',
-      prediction_leads_news: '🔮',
-      geo_convergence: '🌍',
-      hotspot_escalation: '⚠️',
-      news_leads_markets: '📰',
-      velocity_spike: '📈',
-      keyword_spike: '📊',
-      convergence: '🔀',
-      triangulation: '🔺',
-      flow_drop: '⬇️',
-      sector_cascade: '🌊',
+      breaking_surge: '<i class="bi bi-fire"></i>',
+      silent_divergence: '<i class="bi bi-volume-mute-fill"></i>',
+      flow_price_divergence: '<i class="bi bi-bar-chart-fill"></i>',
+      explained_market_move: '<i class="bi bi-lightbulb"></i>',
+      prediction_leads_news: '<i class="bi bi-eye-fill"></i>',
+      geo_convergence: '<i class="bi bi-globe2"></i>',
+      hotspot_escalation: '<i class="bi bi-exclamation-triangle-fill"></i>',
+      news_leads_markets: '<i class="bi bi-newspaper"></i>',
+      velocity_spike: '<i class="bi bi-graph-up-arrow"></i>',
+      keyword_spike: '<i class="bi bi-bar-chart-fill"></i>',
+      convergence: '<i class="bi bi-shuffle"></i>',
+      triangulation: '<i class="bi bi-triangle-fill"></i>',
+      flow_drop: '<i class="bi bi-graph-down-arrow"></i>',
+      sector_cascade: '<i class="bi bi-tsunami"></i>',
       // Unified alerts
-      cii_spike: '🔴',
-      cascade: '⚡',
-      composite: '🔗',
+      cii_spike: '<i class="bi bi-circle-fill" style="color:var(--color-critical)"></i>',
+      cascade: '<i class="bi bi-lightning-charge-fill"></i>',
+      composite: '<i class="bi bi-link-45deg"></i>',
     };
-    return icons[type] || '📌';
+    return icons[type] || '<i class="bi bi-pin-map-fill"></i>';
   }
 
   private formatTimeAgo(date: Date): string {
@@ -498,7 +498,7 @@ export class IntelligenceFindingsBadge {
     overlay.innerHTML = `
       <div class="findings-modal">
         <div class="findings-modal-header">
-          <span class="findings-modal-title">🎯 ${t('components.intelligenceFindings.all', { count: String(this.findings.length) })}</span>
+          <span class="findings-modal-title"><i class="bi bi-bullseye"></i> ${t('components.intelligenceFindings.all', { count: String(this.findings.length) })}</span>
           <button class="findings-modal-close" aria-label="Close">×</button>
         </div>
         <div class="findings-modal-content">

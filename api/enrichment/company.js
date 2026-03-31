@@ -15,12 +15,19 @@ import { checkRateLimit } from '../_rate-limit.js';
 
 export const config = { runtime: 'edge' };
 
+/** In dev mode, vite.config.ts sets globalThis.__proxyDispatcher for GFW bypass. */
+function pFetch(url, init) {
+  const dispatcher = globalThis.__proxyDispatcher;
+  if (dispatcher) return fetch(url, { ...init, dispatcher });
+  return fetch(url, init);
+}
+
 const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
 const CACHE_TTL_SECONDS = 3600;
 
 async function fetchGitHubOrg(name) {
   try {
-    const res = await fetch(`https://api.github.com/orgs/${encodeURIComponent(name)}`, {
+    const res = await pFetch(`https://api.github.com/orgs/${encodeURIComponent(name)}`, {
       headers: { 'Accept': 'application/vnd.github.v3+json', 'User-Agent': UA },
       signal: AbortSignal.timeout(5000),
     });

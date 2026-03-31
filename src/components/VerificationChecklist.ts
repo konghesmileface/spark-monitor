@@ -17,14 +17,14 @@ export interface VerificationResult {
 
 function getVerificationTemplate(): VerificationCheck[] {
   return [
-    { id: 'recency', label: t('components.verification.checks.recency'), checked: false, icon: '🕐' },
-    { id: 'geolocation', label: t('components.verification.checks.geolocation'), checked: false, icon: '📍' },
-    { id: 'source', label: t('components.verification.checks.source'), checked: false, icon: '📰' },
-    { id: 'crossref', label: t('components.verification.checks.crossref'), checked: false, icon: '🔗' },
-    { id: 'no_ai', label: t('components.verification.checks.noAi'), checked: false, icon: '🤖' },
-    { id: 'no_recrop', label: t('components.verification.checks.noRecrop'), checked: false, icon: '🔄' },
-    { id: 'metadata', label: t('components.verification.checks.metadata'), checked: false, icon: '📋' },
-    { id: 'context', label: t('components.verification.checks.context'), checked: false, icon: '📖' },
+    { id: 'recency', label: t('components.verification.checks.recency'), checked: false, icon: '<i class="bi bi-clock"></i>' },
+    { id: 'geolocation', label: t('components.verification.checks.geolocation'), checked: false, icon: '<i class="bi bi-geo-alt-fill"></i>' },
+    { id: 'source', label: t('components.verification.checks.source'), checked: false, icon: '<i class="bi bi-newspaper"></i>' },
+    { id: 'crossref', label: t('components.verification.checks.crossref'), checked: false, icon: '<i class="bi bi-link-45deg"></i>' },
+    { id: 'no_ai', label: t('components.verification.checks.noAi'), checked: false, icon: '<i class="bi bi-robot"></i>' },
+    { id: 'no_recrop', label: t('components.verification.checks.noRecrop'), checked: false, icon: '<i class="bi bi-arrow-repeat"></i>' },
+    { id: 'metadata', label: t('components.verification.checks.metadata'), checked: false, icon: '<i class="bi bi-clipboard-check"></i>' },
+    { id: 'context', label: t('components.verification.checks.context'), checked: false, icon: '<i class="bi bi-book"></i>' },
   ];
 }
 
@@ -107,7 +107,7 @@ export class VerificationChecklist extends Component {
               checked: check.checked,
               onChange: () => this.toggleCheck(check.id),
             }),
-            h('span', { class: 'icon' }, check.icon),
+            h('span', { class: 'icon', dangerouslySetInnerHTML: { __html: check.icon } }),
             h('span', { class: 'label' }, check.label),
           )
         ),

@@ -583,7 +583,7 @@ export function foreignPresenceToSignal(alert: ForeignPresenceAlert): {
     id: `foreign-${alert.id}-${alert.firstDetected.getTime()}`,
     type: 'military_surge',
     source: 'Military Flight Tracking',
-    title: `🚨 ${alert.operatorCountry} Military in ${alert.region.name}`,
+    title: `[ALERT] ${alert.operatorCountry} Military in ${alert.region.name}`,
     description,
     severity,
     confidence,
@@ -620,9 +620,9 @@ export function surgeAlertToSignal(surge: SurgeAlert): {
   metadata: Record<string, unknown>;
 } {
   const typeLabels = {
-    airlift: '🛫 Military Airlift Surge',
-    fighter: '✈️ Fighter Deployment Surge',
-    reconnaissance: '🔭 Reconnaissance Surge',
+    airlift: 'Military Airlift Surge',
+    fighter: 'Fighter Deployment Surge',
+    reconnaissance: 'Reconnaissance Surge',
   };
 
   const aircraftList = Array.from(surge.aircraftTypes.entries())

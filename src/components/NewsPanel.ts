@@ -36,6 +36,8 @@ export class NewsPanel extends Panel {
   private renderRequestId = 0;
   private boundScrollHandler: (() => void) | null = null;
   private boundClickHandler: (() => void) | null = null;
+  private autoTranslateAbort: AbortController | null = null;
+  private autoTranslateRunning = false;
 
   // Panel summary feature
   private summaryBtn: HTMLButtonElement | null = null;
@@ -129,7 +131,7 @@ export class NewsPanel extends Panel {
     // Create summarize button
     this.summaryBtn = document.createElement('button');
     this.summaryBtn.className = 'panel-summarize-btn';
-    this.summaryBtn.innerHTML = '✨';
+    this.summaryBtn.innerHTML = '<i class="bi bi-stars"></i>';
     this.summaryBtn.title = t('components.newsPanel.summarize');
     this.summaryBtn.addEventListener('click', () => this.handleSummarize());
 
@@ -185,7 +187,7 @@ export class NewsPanel extends Panel {
     } finally {
       this.isSummarizing = false;
       if (this.summaryBtn) {
-        this.summaryBtn.innerHTML = '✨';
+        this.summaryBtn.innerHTML = '<i class="bi bi-stars"></i>';
         this.summaryBtn.disabled = false;
       }
     }
@@ -210,17 +212,17 @@ export class NewsPanel extends Panel {
       if (translated) {
         titleEl.textContent = translated;
         titleEl.dataset.original = originalText;
-        element.innerHTML = '✓';
+        element.innerHTML = '<i class="bi bi-check-lg"></i>';
         element.title = 'Original: ' + originalText;
         element.classList.add('translated');
       } else {
-        element.innerHTML = '文';
+        element.innerHTML = '<i class="bi bi-translate"></i>';
         // Shake animation or error state could be added here
       }
     } catch (e) {
       if (!this.element?.isConnected) return;
       console.error('Translation failed', e);
-      element.innerHTML = '文';
+      element.innerHTML = '<i class="bi bi-translate"></i>';
     } finally {
       if (element.isConnected) {
         element.style.pointerEvents = 'auto';
@@ -316,6 +318,10 @@ export class NewsPanel extends Panel {
 
     if (this.clusteredMode) {
       void this.renderClustersAsync(items);
+    } else {
+      // Flat-only mode: bind translate buttons directly
+      // (Clustered mode will re-bind in bindRelatedAssetEvents after clustering)
+      setTimeout(() => this.bindRelatedAssetEvents(), 200);
     }
   }
 
@@ -345,6 +351,7 @@ export class NewsPanel extends Panel {
   }
 
   private renderFlat(items: NewsItem[]): void {
+    this.stopAutoTranslate();
     this.setCount(items.length);
     this.currentHeadlines = items
       .slice(0, 5)
@@ -365,7 +372,7 @@ export class NewsPanel extends Panel {
         <a class="item-title" href="${sanitizeUrl(item.link)}" target="_blank" rel="noopener">${escapeHtml(item.title)}</a>
         <div class="item-time">
           ${formatTime(item.pubDate)}
-          ${getCurrentLanguage() !== 'en' ? `<button class="item-translate-btn" title="Translate" data-text="${escapeHtml(item.title)}">文</button>` : ''}
+          ${getCurrentLanguage() !== 'en' ? `<button class="item-translate-btn" title="Translate" data-text="${escapeHtml(item.title)}"><i class="bi bi-translate"></i></button>` : ''}
         </div>
       </div>
     `
@@ -376,6 +383,7 @@ export class NewsPanel extends Panel {
   }
 
   private renderClusters(clusters: ClusteredEvent[]): void {
+    this.stopAutoTranslate();
     // Sort by threat priority, then by time within same level
     const sorted = [...clusters].sort((a, b) => {
       const pa = THREAT_PRIORITY[a.threat?.level ?? 'info'];
@@ -473,7 +481,7 @@ export class NewsPanel extends Panel {
       ? `<span class="velocity-badge ${velocity.level}">${velocity.trend === 'rising' ? '↑' : ''}+${velocity.sourcesPerHour}/hr</span>`
       : '';
 
-    const sentimentIcon = velocity?.sentiment === 'negative' ? '⚠' : velocity?.sentiment === 'positive' ? '✓' : '';
+    const sentimentIcon = velocity?.sentiment === 'negative' ? '<i class="bi bi-exclamation-triangle-fill"></i>' : velocity?.sentiment === 'positive' ? '<i class="bi bi-check-lg"></i>' : '';
     const sentimentBadge = sentimentIcon && Math.abs(velocity?.sentimentScore || 0) > 2
       ? `<span class="sentiment-badge ${velocity?.sentiment}">${sentimentIcon}</span>`
       : '';
@@ -486,7 +494,7 @@ export class NewsPanel extends Panel {
     // Propaganda risk indicator for primary source
     const primaryPropRisk = getSourcePropagandaRisk(cluster.primarySource);
     const primaryPropBadge = primaryPropRisk.risk !== 'low'
-      ? `<span class="propaganda-badge ${primaryPropRisk.risk}" title="${escapeHtml(primaryPropRisk.note || `State-affiliated: ${primaryPropRisk.stateAffiliated || 'Unknown'}`)}">${primaryPropRisk.risk === 'high' ? '⚠ State Media' : '! Caution'}</span>`
+      ? `<span class="propaganda-badge ${primaryPropRisk.risk}" title="${escapeHtml(primaryPropRisk.note || `State-affiliated: ${primaryPropRisk.stateAffiliated || 'Unknown'}`)}">${primaryPropRisk.risk === 'high' ? '<i class="bi bi-exclamation-triangle-fill"></i> State Media' : '! Caution'}</span>`
       : '';
 
     // Source credibility badge for primary source (T1=Wire, T2=Verified outlet)
@@ -494,7 +502,7 @@ export class NewsPanel extends Panel {
     const primaryType = getSourceType(cluster.primarySource);
     const tierLabel = primaryTier === 1 ? 'Wire' : ''; // Don't show "Major" - confusing with story importance
     const tierBadge = primaryTier <= 2
-      ? `<span class="tier-badge tier-${primaryTier}" title="${primaryType === 'wire' ? 'Wire Service - Highest reliability' : primaryType === 'gov' ? 'Official Government Source' : 'Verified News Outlet'}">${primaryTier === 1 ? '★' : '●'}${tierLabel ? ` ${tierLabel}` : ''}</span>`
+      ? `<span class="tier-badge tier-${primaryTier}" title="${primaryType === 'wire' ? 'Wire Service - Highest reliability' : primaryType === 'gov' ? 'Official Government Source' : 'Verified News Outlet'}">${primaryTier === 1 ? '<i class="bi bi-star-fill"></i>' : '●'}${tierLabel ? ` ${tierLabel}` : ''}</span>`
       : '';
 
     // Build "Also reported by" section for multi-source confirmation
@@ -504,7 +512,7 @@ export class NewsPanel extends Panel {
         .map(s => {
           const propRisk = getSourcePropagandaRisk(s.name);
           const propBadge = propRisk.risk !== 'low'
-            ? `<span class="propaganda-badge ${propRisk.risk}" title="${escapeHtml(propRisk.note || `State-affiliated: ${propRisk.stateAffiliated || 'Unknown'}`)}">${propRisk.risk === 'high' ? '⚠' : '!'}</span>`
+            ? `<span class="propaganda-badge ${propRisk.risk}" title="${escapeHtml(propRisk.note || `State-affiliated: ${propRisk.stateAffiliated || 'Unknown'}`)}">${propRisk.risk === 'high' ? '<i class="bi bi-exclamation-triangle-fill"></i>' : '!'}</span>`
             : '';
           return `<span class="top-source tier-${s.tier}">${escapeHtml(s.name)}${propBadge}</span>`;
         })
@@ -572,7 +580,7 @@ export class NewsPanel extends Panel {
         <div class="cluster-meta">
           <span class="top-sources">${topSourcesHtml}</span>
           <span class="item-time">${formatTime(cluster.lastUpdated)}</span>
-          ${getCurrentLanguage() !== 'en' ? `<button class="item-translate-btn" title="Translate" data-text="${escapeHtml(cluster.primaryTitle)}">文</button>` : ''}
+          ${getCurrentLanguage() !== 'en' ? `<button class="item-translate-btn" title="Translate" data-text="${escapeHtml(cluster.primaryTitle)}"><i class="bi bi-translate"></i></button>` : ''}
         </div>
         ${relatedAssetsHtml}
       </div>
@@ -621,6 +629,48 @@ export class NewsPanel extends Panel {
         if (text) this.handleTranslate(btn, text);
       });
     });
+
+    // Auto-translate for non-English UI (only start once per render cycle)
+    if (getCurrentLanguage() !== 'en' && !this.autoTranslateRunning) {
+      this.startAutoTranslate();
+    }
+  }
+
+  /**
+   * Automatically translate all visible untranslated headlines, serially.
+   * Runs once per render cycle; scroll events won't restart it.
+   */
+  private startAutoTranslate(): void {
+    if (this.autoTranslateRunning) return;
+
+    const ac = new AbortController();
+    this.autoTranslateAbort = ac;
+    this.autoTranslateRunning = true;
+
+    (async () => {
+      // Small delay to let initial DOM settle
+      await new Promise(r => setTimeout(r, 300));
+
+      while (!ac.signal.aborted && this.element?.isConnected) {
+        const btn = this.content.querySelector<HTMLElement>('.item-translate-btn:not(.translated)');
+        if (!btn) break; // All done
+        const text = btn.dataset.text;
+        if (text) {
+          await this.handleTranslate(btn, text);
+        } else {
+          btn.classList.add('translated'); // Skip invalid
+        }
+      }
+
+      this.autoTranslateRunning = false;
+    })();
+  }
+
+  /** Stop auto-translate (called on re-render) */
+  private stopAutoTranslate(): void {
+    this.autoTranslateAbort?.abort();
+    this.autoTranslateAbort = null;
+    this.autoTranslateRunning = false;
   }
 
   private getLocalizedAssetLabel(type: RelatedAsset['type']): string {
@@ -638,6 +688,8 @@ export class NewsPanel extends Panel {
    * Clean up resources
    */
   public destroy(): void {
+    this.stopAutoTranslate();
+
     // Clean up windowed list
     this.windowedList?.destroy();
     this.windowedList = null;

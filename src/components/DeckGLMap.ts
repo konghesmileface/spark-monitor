@@ -1410,6 +1410,12 @@ export class DeckGLMap {
       layers.push(this.createRenewableInstallationsLayer());
     }
 
+    // China province sentiment choropleth (CN intel mode)
+    if (this.chinaSentimentData.length > 0 && this.chinaGeoJsonData) {
+      const chinaLayer = this.createChinaSentimentLayer();
+      if (chinaLayer) layers.push(chinaLayer);
+    }
+
     // News geo-locations (always shown if data exists)
     if (this.newsLocations.length > 0) {
       layers.push(...this.createNewsLocationsLayer());
@@ -1655,10 +1661,10 @@ export class DeckGLMap {
       getFillColor: (d) => {
         // Color by port type (matching old Map.ts icons)
         switch (d.type) {
-          case 'naval': return [100, 150, 255, 200] as [number, number, number, number]; // Blue - ⚓
-          case 'oil': return [255, 140, 0, 200] as [number, number, number, number]; // Orange - 🛢️
-          case 'lng': return [255, 200, 50, 200] as [number, number, number, number]; // Yellow - 🛢️
-          case 'container': return [0, 200, 255, 180] as [number, number, number, number]; // Cyan - 🏭
+          case 'naval': return [100, 150, 255, 200] as [number, number, number, number]; // Blue - anchor
+          case 'oil': return [255, 140, 0, 200] as [number, number, number, number]; // Orange - oil
+          case 'lng': return [255, 200, 50, 200] as [number, number, number, number]; // Yellow - oil
+          case 'container': return [0, 200, 255, 180] as [number, number, number, number]; // Cyan - factory
           case 'mixed': return [150, 200, 150, 180] as [number, number, number, number]; // Green
           case 'bulk': return [180, 150, 120, 180] as [number, number, number, number]; // Brown
           default: return [0, 200, 255, 160] as [number, number, number, number];
@@ -2978,7 +2984,7 @@ export class DeckGLMap {
       case 'spaceports-layer':
         return { html: `<div class="deckgl-tooltip"><strong>${text(obj.name)}</strong><br/>${text(obj.country || t('components.deckgl.layers.spaceports'))}</div>` };
       case 'ports-layer': {
-        const typeIcon = obj.type === 'naval' ? '⚓' : obj.type === 'oil' || obj.type === 'lng' ? '🛢️' : '🏭';
+        const typeIcon = obj.type === 'naval' ? '<i class="bi bi-life-preserver"></i>' : obj.type === 'oil' || obj.type === 'lng' ? '<i class="bi bi-fuel-pump"></i>' : '<i class="bi bi-building-fill-gear"></i>';
         return { html: `<div class="deckgl-tooltip"><strong>${typeIcon} ${text(obj.name)}</strong><br/>${text(obj.type || t('components.deckgl.tooltip.port'))} - ${text(obj.country)}</div>` };
       }
       case 'flight-delays-layer':
@@ -3011,7 +3017,7 @@ export class DeckGLMap {
       case 'iran-events-layer':
         return { html: `<div class="deckgl-tooltip"><strong>${t('components.deckgl.layers.iranAttacks')}: ${text(obj.category || '')}</strong><br/>${text((obj.title || '').slice(0, 80))}</div>` };
       case 'news-locations-layer':
-        return { html: `<div class="deckgl-tooltip"><strong>📰 ${t('components.deckgl.tooltip.news')}</strong><br/>${text(obj.title?.slice(0, 80) || '')}</div>` };
+        return { html: `<div class="deckgl-tooltip"><strong><i class="bi bi-newspaper"></i> ${t('components.deckgl.tooltip.news')}</strong><br/>${text(obj.title?.slice(0, 80) || '')}</div>` };
       case 'positive-events-layer': {
         const catLabel = obj.category ? obj.category.replace(/-/g, ' & ') : 'Positive Event';
         const countInfo = obj.count > 1 ? `<br/><span style="opacity:.7">${obj.count} sources reporting</span>` : '';
@@ -3033,6 +3039,13 @@ export class DeckGLMap {
         if (!ciiEntry) return { html: `<div class="deckgl-tooltip"><strong>${text(ciiName)}</strong><br/><span style="opacity:.7">No CII data</span></div>` };
         const levelColor = DeckGLMap.CII_LEVEL_HEX[ciiEntry.level] ?? '#888';
         return { html: `<div class="deckgl-tooltip"><strong>${text(ciiName)}</strong><br/>CII: <span style="color:${levelColor};font-weight:600">${ciiEntry.score}/100</span><br/><span style="text-transform:capitalize;opacity:.7">${text(ciiEntry.level)}</span></div>` };
+      }
+      case 'china-sentiment-layer': {
+        const provName = obj.properties?.name ?? '未知';
+        const provData = this.chinaSentimentData.find(p => p.name === provName);
+        if (!provData) return { html: `<div class="deckgl-tooltip"><strong>${text(provName)}</strong><br/><span style="opacity:.7">无数据</span></div>` };
+        const scoreColor = provData.score >= 60 ? '#E53935' : provData.score >= 40 ? '#9E9E9E' : '#43A047';
+        return { html: `<div class="deckgl-tooltip"><strong>${text(provName)}</strong><br/>舆情指数: <span style="color:${scoreColor};font-weight:600">${provData.score}</span><br/>热门话题: ${text(provData.topTopic)}<br/><span style="opacity:.7">${provData.postCount.toLocaleString()} 条讨论</span></div>` };
       }
       case 'species-recovery-layer': {
         return { html: `<div class="deckgl-tooltip"><strong>${text(obj.commonName)}</strong><br/>${text(obj.recoveryZone?.name ?? obj.region)}<br/><span style="opacity:.7">Status: ${text(obj.recoveryStatus)}</span></div>` };
@@ -3412,7 +3425,7 @@ export class DeckGLMap {
       <div class="toggle-header">
         <span>${t('components.deckgl.layersTitle')}</span>
         <button class="layer-help-btn" title="${t('components.deckgl.layerGuide')}">?</button>
-        <button class="toggle-collapse">&#9660;</button>
+        <button class="toggle-collapse"><i class="bi bi-chevron-down"></i></button>
       </div>
       <div class="toggle-list" style="max-height: 32vh; overflow-y: auto; scrollbar-width: thin;">
         ${layerConfig.map(({ key, label, icon }) => `
@@ -3464,7 +3477,7 @@ export class DeckGLMap {
     }
     collapseBtn?.addEventListener('click', () => {
       toggleList?.classList.toggle('collapsed');
-      if (collapseBtn) collapseBtn.innerHTML = toggleList?.classList.contains('collapsed') ? '&#9654;' : '&#9660;';
+      if (collapseBtn) collapseBtn.innerHTML = toggleList?.classList.contains('collapsed') ? '<i class="bi bi-chevron-right"></i>' : '<i class="bi bi-chevron-down"></i>';
     });
   }
 
@@ -3803,6 +3816,78 @@ export class DeckGLMap {
       padding: 40,
       duration: 800,
       maxZoom: 8,
+    });
+  }
+
+  /** Fly to China view for CN intel mode province sentiment map */
+  public flyToChina(): void {
+    if (!this.maplibreMap) return;
+    this.maplibreMap.flyTo({
+      center: [104, 35],
+      zoom: 3.8,
+      duration: 1200,
+    });
+    // Load province sentiment data
+    this.loadChinaSentiment();
+  }
+
+  private chinaSentimentData: Array<{ name: string; code: string; score: number; postCount: number; topTopic: string }> = [];
+  private chinaSentimentVersion = 0;
+  private chinaGeoJsonData: Record<string, unknown> | null = null;
+
+  private async loadChinaSentiment(): Promise<void> {
+    try {
+      // Fetch province sentiment data
+      const sentRes = await fetch('/api/cn/sentiment/regional');
+      if (sentRes.ok) {
+        const data = await sentRes.json();
+        this.chinaSentimentData = data.provinces || [];
+        this.chinaSentimentVersion++;
+      }
+      // Fetch China province GeoJSON (DataV)
+      if (!this.chinaGeoJsonData) {
+        const geoRes = await fetch('https://geo.datav.aliyun.com/areas_v3/bound/100000_full.json');
+        if (geoRes.ok) {
+          this.chinaGeoJsonData = await geoRes.json();
+        }
+      }
+      // Rebuild layers to show province choropleth
+      this.debouncedRebuildLayers();
+    } catch (e) {
+      console.warn('[DeckGLMap] Failed to load China sentiment:', e);
+    }
+  }
+
+  private createChinaSentimentLayer(): GeoJsonLayer | null {
+    if (!this.chinaGeoJsonData || this.chinaSentimentData.length === 0) return null;
+    const scoreMap = new Map(this.chinaSentimentData.map(p => [p.name, p]));
+    return new GeoJsonLayer({
+      id: 'china-sentiment-layer',
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      data: this.chinaGeoJsonData as any,
+      filled: true,
+      stroked: true,
+      getFillColor: (feature: { properties?: Record<string, unknown> }) => {
+        const name = feature.properties?.['name'] as string | undefined;
+        const prov = name ? scoreMap.get(name) : undefined;
+        if (!prov) return [0, 0, 0, 0] as [number, number, number, number];
+        const s = prov.score;
+        // Red (positive/active) → Gray (neutral) → Green (negative/low)
+        if (s >= 60) {
+          const t = Math.min(1, (s - 60) / 40);
+          return [229, 57, 53, 60 + t * 100] as [number, number, number, number];
+        } else if (s >= 40) {
+          return [158, 158, 158, 60] as [number, number, number, number];
+        } else {
+          const t = Math.min(1, (40 - s) / 40);
+          return [67, 160, 71, 60 + t * 100] as [number, number, number, number];
+        }
+      },
+      getLineColor: [200, 200, 200, 80] as [number, number, number, number],
+      getLineWidth: 1,
+      lineWidthMinPixels: 0.5,
+      pickable: true,
+      updateTriggers: { getFillColor: [this.chinaSentimentVersion] },
     });
   }
 

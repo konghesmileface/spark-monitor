@@ -17,6 +17,7 @@ import type {
 
 import { CHROME_UA } from '../../../_shared/constants';
 import { cachedFetchJson, getCachedJson } from '../../../_shared/redis';
+import { proxyFetch } from '../../../_shared/proxy-fetch';
 
 const REDIS_CACHE_KEY = 'prediction:markets:v1';
 const REDIS_CACHE_TTL = 600; // 10 min
@@ -129,7 +130,7 @@ export const listPredictionMarkets: PredictionServiceHandler['listPredictionMark
       } catch { /* bootstrap read failed, fall through */ }
     }
 
-    // Fallback: fetch from Gamma API directly (may fail due to JA3 blocking)
+    // Fetch via relay first (avoids Cloudflare JA3 blocking), then direct Gamma
     const cacheKey = `${REDIS_CACHE_KEY}:${req.category || 'all'}:${req.query || ''}:${req.pageSize || 50}`;
     const result = await cachedFetchJson<ListPredictionMarketsResponse>(
       cacheKey,
@@ -151,7 +152,34 @@ export const listPredictionMarkets: PredictionServiceHandler['listPredictionMark
           params.set('tag_slug', req.category);
         }
 
-        const response = await fetch(
+        // Try relay first (different TLS fingerprint, avoids Cloudflare JA3 blocking)
+        const relayUrl = process.env.WS_RELAY_URL || process.env.VITE_WS_RELAY_URL;
+        if (relayUrl) {
+          try {
+            const relayParams = new URLSearchParams({ endpoint, ...Object.fromEntries(params) });
+            const relayResp = await fetch(`${relayUrl}/polymarket?${relayParams}`, {
+              headers: { Accept: 'application/json' },
+              signal: AbortSignal.timeout(FETCH_TIMEOUT),
+            });
+            if (relayResp.ok) {
+              const data: unknown = await relayResp.json();
+              let markets: PredictionMarket[];
+              if (useEvents) {
+                markets = (data as GammaEvent[]).map((e) => mapEvent(e, req.category));
+              } else {
+                markets = (data as GammaMarket[]).map(mapMarket);
+              }
+              if (req.query) {
+                const q = req.query.toLowerCase();
+                markets = markets.filter((m) => m.title.toLowerCase().includes(q));
+              }
+              if (markets.length > 0) return { markets, pagination: undefined };
+            }
+          } catch { /* relay failed, try direct */ }
+        }
+
+        // Direct Gamma API (may fail due to JA3 blocking)
+        const response = await proxyFetch(
           `${GAMMA_BASE}/${endpoint}?${params}`,
           {
             headers: { Accept: 'application/json', 'User-Agent': CHROME_UA },

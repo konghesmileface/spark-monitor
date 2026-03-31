@@ -6,6 +6,7 @@ import type {
 } from '../../../../src/generated/server/worldmonitor/aviation/v1/service_server';
 import { cachedFetchJson } from '../../../_shared/redis';
 import { CHROME_UA } from '../../../_shared/constants';
+import { proxyFetch } from '../../../_shared/proxy-fetch';
 import { AVIATIONSTACK_URL } from './_shared';
 
 const CACHE_TTL = 120; // 2 minutes
@@ -81,7 +82,7 @@ export async function getFlightStatus(
                 });
                 if (origin) params.set('dep_iata', origin);
 
-                const resp = await fetch(`${AVIATIONSTACK_URL}?${params}`, {
+                const resp = await proxyFetch(`${AVIATIONSTACK_URL}?${params}`, {
                     headers: { 'User-Agent': CHROME_UA },
                     signal: AbortSignal.timeout(10_000),
                 });

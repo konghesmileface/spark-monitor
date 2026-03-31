@@ -5,6 +5,7 @@ import type {
 } from '../../../../src/generated/server/worldmonitor/intelligence/v1/service_server';
 
 import { cachedFetchJson } from '../../../_shared/redis';
+import { proxyFetch } from '../../../_shared/proxy-fetch';
 import { UPSTREAM_TIMEOUT_MS, GROQ_API_URL, GROQ_MODEL, TIER1_COUNTRIES, hashString } from './_shared';
 import { CHROME_UA } from '../../../_shared/constants';
 
@@ -77,7 +78,7 @@ Rules:
           userPromptParts.push(`Context snapshot:\n${contextSnapshot}`);
         }
 
-        const resp = await fetch(GROQ_API_URL, {
+        const resp = await proxyFetch(GROQ_API_URL, {
           method: 'POST',
           headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json', 'User-Agent': CHROME_UA },
           body: JSON.stringify({

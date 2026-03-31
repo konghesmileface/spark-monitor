@@ -13,6 +13,7 @@ import type {
 } from '../../../../src/generated/server/worldmonitor/displacement/v1/service_server';
 
 import { CHROME_UA } from '../../../_shared/constants';
+import { proxyFetch } from '../../../_shared/proxy-fetch';
 import { cachedFetchJson, getCachedJson } from '../../../_shared/redis';
 
 const REDIS_CACHE_KEY = 'displacement:summary:v1';
@@ -56,7 +57,7 @@ async function fetchUnhcrYearItems(year: number): Promise<UnhcrRawItem[] | null>
   const items: UnhcrRawItem[] = [];
 
   for (let page = 1; page <= maxPageGuard; page++) {
-    const response = await fetch(
+    const response = await proxyFetch(
       `https://api.unhcr.org/population/v1/population/?year=${year}&limit=${limit}&page=${page}&coo_all=true&coa_all=true`,
       { headers: { Accept: 'application/json', 'User-Agent': CHROME_UA }, signal: AbortSignal.timeout(10_000) },
     );
@@ -369,8 +370,9 @@ export async function getDisplacementSummary(
       return { summary };
     }
     return result || emptyResponse;
-  } catch {
+  } catch (err) {
     // Graceful degradation: return empty summary on ANY failure
+    console.error('[Displacement] UNHCR fetch failed:', (err as Error)?.message || err);
     return emptyResponse;
   }
 }

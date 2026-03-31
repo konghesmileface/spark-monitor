@@ -34,7 +34,7 @@ function savePanelSpan(panelId: string, span: number): void {
 const PANEL_COL_SPANS_KEY = 'worldmonitor-panel-col-spans';
 const ROW_RESIZE_STEP_PX = 80;
 const COL_RESIZE_STEP_PX = 80;
-const PANELS_GRID_MIN_TRACK_PX = 280;
+const PANELS_GRID_MIN_TRACK_PX = 360;
 
 function loadPanelColSpans(): Record<string, number> {
   try {
@@ -682,6 +682,9 @@ export class Panel {
   }
 
   public setContent(html: string): void {
+    // Guard: skip if panel has been destroyed (element detached from DOM)
+    if (!this.element.isConnected) return;
+
     if (this.pendingContentHtml === html || this.content.innerHTML === html) {
       return;
     }
@@ -692,7 +695,7 @@ export class Panel {
     }
 
     this.contentDebounceTimer = setTimeout(() => {
-      if (this.pendingContentHtml !== null) {
+      if (this.pendingContentHtml !== null && this.element.isConnected) {
         this.setContentImmediate(this.pendingContentHtml);
       }
     }, this.contentDebounceMs);
@@ -707,7 +710,19 @@ export class Panel {
     this.pendingContentHtml = null;
     if (this.content.innerHTML !== html) {
       this.content.innerHTML = html;
+      this.checkOverflow();
     }
+  }
+
+  private checkOverflow(): void {
+    // Defer to next frame so layout is computed
+    requestAnimationFrame(() => {
+      if (this.content.scrollHeight > this.content.clientHeight) {
+        this.content.classList.add('has-overflow');
+      } else {
+        this.content.classList.remove('has-overflow');
+      }
+    });
   }
 
   public show(): void {

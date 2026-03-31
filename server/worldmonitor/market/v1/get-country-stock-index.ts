@@ -10,6 +10,7 @@ import type {
 } from '../../../../src/generated/server/worldmonitor/market/v1/service_server';
 import { UPSTREAM_TIMEOUT_MS, type YahooChartResponse } from './_shared';
 import { CHROME_UA } from '../../../_shared/constants';
+import { proxyFetch } from '../../../_shared/proxy-fetch';
 import { cachedFetchJson } from '../../../_shared/redis';
 
 // ========================================================================
@@ -102,12 +103,19 @@ export async function getCountryStockIndex(
     const encodedSymbol = encodeURIComponent(index.symbol);
     const yahooUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${encodedSymbol}?range=1mo&interval=1d`;
 
-    const res = await fetch(yahooUrl, {
-      headers: { 'User-Agent': CHROME_UA },
+    const res = await proxyFetch(yahooUrl, {
+      headers: {
+        'User-Agent': CHROME_UA,
+        Accept: 'application/json',
+      },
       signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
     });
 
-    if (!res.ok) return null;
+    // Yahoo aggressively rate-limits (429). Return null to serve from cache.
+    if (!res.ok) {
+      if (res.status === 429) console.warn(`[stock-index] Yahoo 429 for ${code}`);
+      return null;
+    }
 
     const data: YahooChartResponse = await res.json();
     const chartResult = data?.chart?.result?.[0];

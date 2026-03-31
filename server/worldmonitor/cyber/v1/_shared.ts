@@ -22,6 +22,7 @@ import type {
 } from '../../../../src/generated/server/worldmonitor/cyber/v1/service_server';
 
 import { CHROME_UA } from '../../../_shared/constants';
+import { proxyFetch } from '../../../_shared/proxy-fetch';
 
 // ========================================================================
 // Constants
@@ -279,7 +280,7 @@ async function fetchGeoIp(
 ): Promise<{ lat: number; lon: number; country: string } | null> {
   // Primary: ipinfo.io
   try {
-    const resp = await fetch(`https://ipinfo.io/${encodeURIComponent(ip)}/json`, {
+    const resp = await proxyFetch(`https://ipinfo.io/${encodeURIComponent(ip)}/json`, {
       headers: { 'User-Agent': CHROME_UA },
       signal: signal || AbortSignal.timeout(GEO_PER_IP_TIMEOUT_MS),
     });
@@ -299,7 +300,7 @@ async function fetchGeoIp(
 
   // Fallback: freeipapi.com
   try {
-    const resp = await fetch(`https://freeipapi.com/api/json/${encodeURIComponent(ip)}`, {
+    const resp = await proxyFetch(`https://freeipapi.com/api/json/${encodeURIComponent(ip)}`, {
       headers: { 'User-Agent': CHROME_UA },
       signal: signal || AbortSignal.timeout(GEO_PER_IP_TIMEOUT_MS),
     });
@@ -439,7 +440,7 @@ function parseFeodoRecord(record: any, cutoffMs: number): RawThreat | null {
 
 export async function fetchFeodoSource(limit: number, cutoffMs: number): Promise<SourceResult> {
   try {
-    const response = await fetch(FEODO_URL, {
+    const response = await proxyFetch(FEODO_URL, {
       headers: { Accept: 'application/json', 'User-Agent': CHROME_UA },
       signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
     });
@@ -528,7 +529,7 @@ export async function fetchUrlhausSource(limit: number, cutoffMs: number): Promi
   if (!authKey) return { ok: false, threats: [] };
 
   try {
-    const response = await fetch(URLHAUS_RECENT_URL(limit), {
+    const response = await proxyFetch(URLHAUS_RECENT_URL(limit), {
       method: 'GET',
       headers: { Accept: 'application/json', 'Auth-Key': authKey, 'User-Agent': CHROME_UA },
       signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
@@ -596,7 +597,7 @@ function parseC2IntelCsvLine(line: string): RawThreat | null {
 
 export async function fetchC2IntelSource(limit: number): Promise<SourceResult> {
   try {
-    const response = await fetch(C2INTEL_URL, {
+    const response = await proxyFetch(C2INTEL_URL, {
       headers: { Accept: 'text/plain', 'User-Agent': CHROME_UA },
       signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
     });
@@ -624,7 +625,7 @@ export async function fetchOtxSource(limit: number, days: number): Promise<Sourc
 
   try {
     const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
-    const response = await fetch(
+    const response = await proxyFetch(
       `${OTX_INDICATORS_URL}${encodeURIComponent(since)}`,
       {
         headers: { Accept: 'application/json', 'X-OTX-API-KEY': apiKey, 'User-Agent': CHROME_UA },
@@ -680,7 +681,7 @@ export async function fetchAbuseIpDbSource(limit: number): Promise<SourceResult>
 
   try {
     const url = `${ABUSEIPDB_BLACKLIST_URL}?confidenceMinimum=90&limit=${Math.min(limit, 500)}`;
-    const response = await fetch(url, {
+    const response = await proxyFetch(url, {
       headers: { Accept: 'application/json', Key: apiKey, 'User-Agent': CHROME_UA },
       signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
     });

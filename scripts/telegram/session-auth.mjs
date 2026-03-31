@@ -30,7 +30,15 @@ try {
   const phoneNumber = (await rl.question('Phone number (with country code, e.g. +971...): ')).trim();
   const password = (await rl.question('2FA password (press enter if none): ')).trim();
 
-  const client = new TelegramClient(new StringSession(''), apiId, apiHash, { connectionRetries: 3 });
+  const proxyPort = parseInt(process.env.PROXY_PORT || '17890', 10);
+  const useProxy = process.env.NO_PROXY !== '1';
+  const clientOpts = { connectionRetries: 5 };
+  if (useProxy) {
+    clientOpts.useWSS = false;
+    clientOpts.proxy = { socksType: 5, ip: '127.0.0.1', port: proxyPort };
+    console.log(`Using SOCKS5 proxy 127.0.0.1:${proxyPort}`);
+  }
+  const client = new TelegramClient(new StringSession(''), apiId, apiHash, clientOpts);
 
   await client.start({
     phoneNumber: async () => phoneNumber,

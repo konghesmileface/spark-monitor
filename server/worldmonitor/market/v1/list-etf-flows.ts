@@ -11,6 +11,7 @@ import type {
 } from '../../../../src/generated/server/worldmonitor/market/v1/service_server';
 import { UPSTREAM_TIMEOUT_MS, type YahooChartResponse } from './_shared';
 import { CHROME_UA, yahooGate } from '../../../_shared/constants';
+import { proxyFetch } from '../../../_shared/proxy-fetch';
 import { cachedFetchJson, getCachedJson } from '../../../_shared/redis';
 
 // ========================================================================
@@ -47,7 +48,7 @@ async function fetchEtfChart(ticker: string): Promise<YahooChartResponse | null>
   try {
     await yahooGate();
     const url = `https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?range=5d&interval=1d`;
-    const resp = await fetch(url, {
+    const resp = await proxyFetch(url, {
       headers: {
         'User-Agent': CHROME_UA,
       },

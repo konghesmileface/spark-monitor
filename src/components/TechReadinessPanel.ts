@@ -62,27 +62,27 @@ export class TechReadinessPanel extends Panel {
       <div class="tech-fetch-progress">
         <div class="tech-fetch-icon">
           <div class="tech-globe-ring"></div>
-          <span class="tech-globe">🌐</span>
+          <span class="tech-globe"><i class="bi bi-globe"></i></span>
         </div>
         <div class="tech-fetch-title">${t('components.techReadiness.fetchingData')}</div>
         <div class="tech-fetch-indicators">
           <div class="tech-indicator-item" style="animation-delay: 0s">
-            <span class="tech-indicator-icon">🌐</span>
+            <span class="tech-indicator-icon"><i class="bi bi-globe"></i></span>
             <span class="tech-indicator-name">${t('components.techReadiness.internetUsersIndicator')}</span>
             <span class="tech-indicator-status"></span>
           </div>
           <div class="tech-indicator-item" style="animation-delay: 0.2s">
-            <span class="tech-indicator-icon">📱</span>
+            <span class="tech-indicator-icon"><i class="bi bi-phone"></i></span>
             <span class="tech-indicator-name">${t('components.techReadiness.mobileSubscriptionsIndicator')}</span>
             <span class="tech-indicator-status"></span>
           </div>
           <div class="tech-indicator-item" style="animation-delay: 0.4s">
-            <span class="tech-indicator-icon">📡</span>
+            <span class="tech-indicator-icon"><i class="bi bi-broadcast"></i></span>
             <span class="tech-indicator-name">${t('components.techReadiness.broadbandAccess')}</span>
             <span class="tech-indicator-status"></span>
           </div>
           <div class="tech-indicator-item" style="animation-delay: 0.6s">
-            <span class="tech-indicator-icon">🔬</span>
+            <span class="tech-indicator-icon"><i class="bi bi-search"></i></span>
             <span class="tech-indicator-name">${t('components.techReadiness.rdExpenditure')}</span>
             <span class="tech-indicator-status"></span>
           </div>
@@ -93,7 +93,7 @@ export class TechReadinessPanel extends Panel {
   }
 
   private getFlag(countryCode: string): string {
-    return COUNTRY_FLAGS[countryCode] || '🌐';
+    return COUNTRY_FLAGS[countryCode] || '<i class="bi bi-globe"></i>';
   }
 
   private getScoreClass(score: number): string {
@@ -127,9 +127,9 @@ export class TechReadinessPanel extends Panel {
               <div class="readiness-info">
                 <div class="readiness-name">${escapeHtml(country.countryName)}</div>
                 <div class="readiness-components">
-                  <span title="${t('components.techReadiness.internetUsers')}">🌐${this.formatComponent(country.components.internet)}</span>
-                  <span title="${t('components.techReadiness.mobileSubscriptions')}">📱${this.formatComponent(country.components.mobile)}</span>
-                  <span title="${t('components.techReadiness.rdSpending')}">🔬${this.formatComponent(country.components.rdSpend)}</span>
+                  <span title="${t('components.techReadiness.internetUsers')}"><i class="bi bi-globe"></i>${this.formatComponent(country.components.internet)}</span>
+                  <span title="${t('components.techReadiness.mobileSubscriptions')}"><i class="bi bi-phone"></i>${this.formatComponent(country.components.mobile)}</span>
+                  <span title="${t('components.techReadiness.rdSpending')}"><i class="bi bi-search"></i>${this.formatComponent(country.components.rdSpend)}</span>
                 </div>
               </div>
               <div class="readiness-score ${scoreClass}">${country.score}</div>

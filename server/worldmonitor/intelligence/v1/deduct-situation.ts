@@ -5,6 +5,7 @@ import type {
 } from '../../../../src/generated/server/worldmonitor/intelligence/v1/service_server';
 
 import { cachedFetchJson } from '../../../_shared/redis';
+import { proxyFetch } from '../../../_shared/proxy-fetch';
 import { hashString } from './_shared';
 import { CHROME_UA } from '../../../_shared/constants';
 
@@ -53,7 +54,7 @@ Your task is to DEDUCT the situation in a near timeline (e.g. 24 hours to a few 
                     userPrompt += `\n\n### Current Intelligence Context\n${geoContext}`;
                 }
 
-                const resp = await fetch(apiUrl, {
+                const resp = await proxyFetch(apiUrl, {
                     method: 'POST',
                     headers: {
                         Authorization: `Bearer ${apiKey}`,

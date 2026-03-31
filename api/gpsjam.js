@@ -7,6 +7,13 @@ const BASE_URL = 'https://gpsjam.org/data';
 const UA = 'Mozilla/5.0 (compatible; WorldMonitor/1.0)';
 const MIN_AIRCRAFT = 3;
 
+/** In dev mode, vite.config.ts sets globalThis.__proxyDispatcher for GFW bypass. */
+function pFetch(url, init) {
+  const dispatcher = globalThis.__proxyDispatcher;
+  if (dispatcher) return fetch(url, { ...init, dispatcher });
+  return fetch(url, init);
+}
+
 let cached = null;
 let cachedAt = 0;
 const CACHE_TTL = 3600_000;
@@ -33,7 +40,7 @@ async function readFromRedis() {
 }
 
 async function fetchDirectFromGpsJam() {
-  const manifestResp = await fetch(`${BASE_URL}/manifest.csv`, {
+  const manifestResp = await pFetch(`${BASE_URL}/manifest.csv`, {
     headers: { 'User-Agent': UA },
     signal: AbortSignal.timeout(10_000),
   });
@@ -42,7 +49,7 @@ async function fetchDirectFromGpsJam() {
   const lines = manifest.trim().split('\n');
   const latestDate = lines[lines.length - 1].split(',')[0];
 
-  const hexResp = await fetch(`${BASE_URL}/${latestDate}-h3_4.csv`, {
+  const hexResp = await pFetch(`${BASE_URL}/${latestDate}-h3_4.csv`, {
     headers: { 'User-Agent': UA },
     signal: AbortSignal.timeout(15_000),
   });

@@ -1,6 +1,13 @@
 // Non-sebuf: returns XML/HTML, stays as standalone Vercel function
 export const config = { runtime: 'edge' };
 
+/** In dev mode, vite.config.ts sets globalThis.__proxyDispatcher for GFW bypass. */
+function pFetch(url, init) {
+  const dispatcher = globalThis.__proxyDispatcher;
+  if (dispatcher) return fetch(url, { ...init, dispatcher });
+  return fetch(url, init);
+}
+
 const RELEASES_URL = 'https://api.github.com/repos/koala73/worldmonitor/releases/latest';
 const RELEASES_PAGE = 'https://github.com/koala73/worldmonitor/releases/latest';
 
@@ -48,7 +55,7 @@ export default async function handler(req) {
   }
 
   try {
-    const res = await fetch(RELEASES_URL, {
+    const res = await pFetch(RELEASES_URL, {
       headers: {
         'Accept': 'application/vnd.github+json',
         'User-Agent': 'WorldMonitor-Download-Redirect',

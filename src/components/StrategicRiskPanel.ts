@@ -33,6 +33,11 @@ export class StrategicRiskPanel extends Panel {
   private breakingAlerts: Map<string, { threatLevel: 'critical' | 'high'; timestamp: number }> = new Map();
   private boundOnBreaking: ((e: Event) => void) | null = null;
   private breakingExpiryTimer: ReturnType<typeof setTimeout> | null = null;
+  // Sweep summary tracking
+  private lastVisitScore = 0;
+  private lastVisitAlertCount = 0;
+  private lastVisitTimestamp = 0;
+  private sweepDismissed = false;
 
   constructor() {
     super({
@@ -42,7 +47,28 @@ export class StrategicRiskPanel extends Panel {
       trackActivity: true,
       infoTooltip: t('components.strategicRisk.infoTooltip'),
     });
+    this._loadLastVisit();
     this.init();
+  }
+
+  private _loadLastVisit(): void {
+    try {
+      const raw = localStorage.getItem('wm_risk_visit');
+      if (raw) {
+        const data = JSON.parse(raw);
+        this.lastVisitScore = data.score || 0;
+        this.lastVisitAlertCount = data.alertCount || 0;
+        this.lastVisitTimestamp = data.timestamp || 0;
+      }
+    } catch { /* ignore */ }
+  }
+
+  private _saveVisitData(score: number, alertCount: number): void {
+    localStorage.setItem('wm_risk_visit', JSON.stringify({
+      score,
+      alertCount,
+      timestamp: Date.now(),
+    }));
   }
 
   private async init(): Promise<void> {
@@ -171,9 +197,9 @@ export class StrategicRiskPanel extends Panel {
 
   private getTrendEmoji(trend: string): string {
     switch (trend) {
-      case 'escalating': return '📈';
-      case 'de-escalating': return '📉';
-      default: return '➡️';
+      case 'escalating': return '<i class="bi bi-graph-up-arrow"></i>';
+      case 'de-escalating': return '<i class="bi bi-graph-down-arrow"></i>';
+      default: return '<i class="bi bi-arrow-right"></i>';
     }
   }
 
@@ -197,21 +223,52 @@ export class StrategicRiskPanel extends Panel {
 
   private getPriorityEmoji(priority: AlertPriority): string {
     switch (priority) {
-      case 'critical': return '🔴';
-      case 'high': return '🟠';
-      case 'medium': return '🟡';
-      case 'low': return '🟢';
+      case 'critical': return '<i class="bi bi-circle-fill" style="color:var(--color-critical)"></i>';
+      case 'high': return '<i class="bi bi-circle-fill" style="color:var(--color-high)"></i>';
+      case 'medium': return '<i class="bi bi-circle-fill" style="color:var(--color-elevated)"></i>';
+      case 'low': return '<i class="bi bi-circle-fill" style="color:var(--color-normal)"></i>';
     }
   }
 
   private getTypeEmoji(type: string): string {
     switch (type) {
-      case 'convergence': return '🎯';
-      case 'cii_spike': return '📊';
-      case 'cascade': return '🔗';
-      case 'composite': return '⚠️';
-      default: return '📍';
+      case 'convergence': return '<i class="bi bi-bullseye"></i>';
+      case 'cii_spike': return '<i class="bi bi-bar-chart-fill"></i>';
+      case 'cascade': return '<i class="bi bi-link-45deg"></i>';
+      case 'composite': return '<i class="bi bi-exclamation-triangle-fill"></i>';
+      default: return '<i class="bi bi-geo-alt-fill"></i>';
     }
+  }
+
+  private renderSweepSummary(): string {
+    if (this.sweepDismissed || !this.overview) return '';
+    if (this.lastVisitTimestamp === 0) return '';
+
+    const hoursAway = (Date.now() - this.lastVisitTimestamp) / (3600 * 1000);
+    if (hoursAway < 1) return '';
+
+    const scoreDelta = this.overview.compositeScore - this.lastVisitScore;
+    const currentAlertCount = getAlertCount().critical + getAlertCount().high;
+    const newAlerts = Math.max(0, currentAlertCount - this.lastVisitAlertCount);
+
+    if (Math.abs(scoreDelta) < 5 && newAlerts < 2) return '';
+
+    const hoursText = hoursAway >= 24
+      ? `${Math.floor(hoursAway / 24)}${t('components.strategicRisk.time.daysUnit') || 'd'}`
+      : `${Math.floor(hoursAway)}h`;
+    const scoreDir = scoreDelta > 0 ? '↑' : '↓';
+    const alertText = newAlerts > 0 ? `, ${newAlerts} ${t('components.strategicRisk.newHighAlerts') || 'new high-priority events'}` : '';
+
+    return `
+      <div class="risk-sweep-banner">
+        <span class="risk-sweep-icon"><i class="bi bi-lightning-charge-fill"></i></span>
+        <span class="risk-sweep-text">
+          ${t('components.strategicRisk.sweepAway') || 'Away'} ${hoursText}: ${t('components.strategicRisk.riskIndex') || 'Risk'} ${scoreDir}${Math.abs(scoreDelta)}${alertText}
+        </span>
+        <button class="risk-sweep-details" data-action="sweep-details">${t('components.strategicRisk.viewDetails') || 'Details'}</button>
+        <button class="risk-sweep-dismiss" data-action="sweep-dismiss">×</button>
+      </div>
+    `;
   }
 
   /**
@@ -224,7 +281,7 @@ export class StrategicRiskPanel extends Panel {
     return `
       <div class="strategic-risk-panel">
         <div class="risk-no-data">
-          <div class="risk-no-data-icon">⚠️</div>
+          <div class="risk-no-data-icon"><i class="bi bi-exclamation-triangle-fill"></i></div>
           <div class="risk-no-data-title">${t('components.strategicRisk.insufficientData')}</div>
           <div class="risk-no-data-desc">
             ${t('components.strategicRisk.unableToAssess')}<br>${t('components.strategicRisk.enableDataSources')}
@@ -277,7 +334,7 @@ export class StrategicRiskPanel extends Panel {
     // Only show status banner when there's something to report (learning mode)
     const statusBanner = showLearning
       ? `<div class="risk-status-banner risk-status-learning">
-          <span class="risk-status-icon">📊</span>
+          <span class="risk-status-icon"><i class="bi bi-bar-chart-fill"></i></span>
           <span class="risk-status-text">${t('components.strategicRisk.learningMode', { minutes: String(remainingMinutes) })}</span>
           <div class="learning-progress-mini">
             <div class="learning-bar" style="width: ${progress}%"></div>
@@ -289,26 +346,31 @@ export class StrategicRiskPanel extends Panel {
       <div class="strategic-risk-panel">
         ${statusBanner}
 
-        <div class="risk-gauge">
-          <div class="risk-score-container">
-            <div class="risk-score-ring" style="--score-color: ${color}; --score-deg: ${scoreDeg}deg;">
-              <div class="risk-score-inner">
-                <div class="risk-score" style="color: ${color}">${score}</div>
-                <div class="risk-level" style="color: ${color}">${level}</div>
+        <div class="risk-top-bar">
+          <div class="risk-gauge">
+            <div class="risk-score-container${score >= 70 ? ' threat-active' : ''}">
+              <div class="risk-score-ring" style="--score-color: ${color}; --score-deg: ${scoreDeg}deg;">
+                <div class="risk-score-inner">
+                  <div class="risk-score" style="color: ${color}">${score}</div>
+                  <div class="risk-level" style="color: ${color}">${level}</div>
+                </div>
+              </div>
+            </div>
+            <div class="risk-trend-container">
+              <span class="risk-trend-label">${t('components.strategicRisk.trend')}</span>
+              <div class="risk-trend" style="color: ${this.getTrendColor(this.overview.trend)}">
+                ${this.getTrendEmoji(this.overview.trend)} ${this.overview.trend === 'escalating' ? t('components.strategicRisk.trends.escalating') : this.overview.trend === 'de-escalating' ? t('components.strategicRisk.trends.deEscalating') : t('components.strategicRisk.trends.stable')}
               </div>
             </div>
           </div>
-          <div class="risk-trend-container">
-            <span class="risk-trend-label">${t('components.strategicRisk.trend')}</span>
-            <div class="risk-trend" style="color: ${this.getTrendColor(this.overview.trend)}">
-              ${this.getTrendEmoji(this.overview.trend)} ${this.overview.trend === 'escalating' ? t('components.strategicRisk.trends.escalating') : this.overview.trend === 'de-escalating' ? t('components.strategicRisk.trends.deEscalating') : t('components.strategicRisk.trends.stable')}
-            </div>
-          </div>
+          ${this.renderMetrics()}
         </div>
 
-        ${this.renderMetrics()}
-        ${this.renderTopRisks()}
-        ${this.renderRecentAlerts()}
+        <div class="risk-body">
+          ${this.renderSweepSummary()}
+          ${this.renderTopRisks()}
+          ${this.renderRecentAlerts()}
+        </div>
 
         <div class="risk-footer">
           <span class="risk-updated">${t('components.strategicRisk.updated', { time: this.overview.timestamp.toLocaleTimeString() })}</span>
@@ -316,6 +378,13 @@ export class StrategicRiskPanel extends Panel {
         </div>
       </div>
     `;
+  }
+
+  /** Save current state for next sweep comparison (called after render). */
+  private _saveCurrentVisit(): void {
+    if (!this.overview) return;
+    const alertCounts = getAlertCount();
+    this._saveVisitData(this.overview.compositeScore, alertCounts.critical + alertCounts.high);
   }
 
   private renderSourceRow(source: DataSourceState): string {
@@ -383,7 +452,7 @@ export class StrategicRiskPanel extends Panel {
                 <div class="risk-item risk-item-clickable" data-lat="${topZone.lat}" data-lon="${topZone.lon}">
                   <span class="risk-rank">${i + 1}.</span>
                   <span class="risk-text">${escapeHtml(risk)}</span>
-                  <span class="risk-location-icon">↗</span>
+                  <span class="risk-location-icon"><i class="bi bi-box-arrow-up-right"></i></span>
                 </div>
               `;
       }
@@ -423,7 +492,7 @@ export class StrategicRiskPanel extends Panel {
                   <span class="risk-alert-type">${this.getTypeEmoji(alert.type)}</span>
                   <span class="risk-alert-priority">${this.getPriorityEmoji(alert.priority)}</span>
                   <span class="risk-alert-title">${escapeHtml(alert.title)}</span>
-                  ${hasLocation ? '<span class="risk-location-icon">↗</span>' : ''}
+                  ${hasLocation ? '<span class="risk-location-icon"><i class="bi bi-box-arrow-up-right"></i></span>' : ''}
                 </div>
                 <div class="risk-alert-summary">${escapeHtml(alert.summary)}</div>
                 <div class="risk-alert-time">${this.formatTime(alert.timestamp)}</div>
@@ -499,6 +568,26 @@ export class StrategicRiskPanel extends Panel {
         }
       });
     });
+
+    // Sweep summary buttons
+    const sweepDetails = this.content.querySelector('[data-action="sweep-details"]');
+    if (sweepDetails) {
+      sweepDetails.addEventListener('click', () => {
+        const alertsSection = this.content.querySelector('.risk-alerts');
+        if (alertsSection) alertsSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        this.sweepDismissed = true;
+        this._saveCurrentVisit();
+        this.render();
+      });
+    }
+    const sweepDismiss = this.content.querySelector('[data-action="sweep-dismiss"]');
+    if (sweepDismiss) {
+      sweepDismiss.addEventListener('click', () => {
+        this.sweepDismissed = true;
+        this._saveCurrentVisit();
+        this.render();
+      });
+    }
 
     // Clickable risk items (convergence zones)
     const clickableRisks = this.content.querySelectorAll('.risk-item-clickable');

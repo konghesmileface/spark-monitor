@@ -46,6 +46,7 @@ import {
 } from '@/config';
 import { tokenizeForMatch, matchKeyword, findMatchingKeywords } from '@/utils/keyword-match';
 import { MapPopup } from './MapPopup';
+import { classifyVessel, VESSEL_COLORS, type CompactVessel } from '@/services/maritime/vessel-traffic';
 import {
   updateHotspotEscalation,
   getHotspotEscalation,
@@ -110,6 +111,8 @@ export class MapComponent {
   private overlays: HTMLElement;
   private clusterCanvas: HTMLCanvasElement;
   private clusterGl: WebGLRenderingContext | null = null;
+  private vesselCanvas: HTMLCanvasElement;
+  private vesselTraffic: CompactVessel[] = [];
   private state: MapState;
   private worldData: WorldTopology | null = null;
   private countryFeatures: Feature<Geometry>[] | null = null;
@@ -163,7 +166,10 @@ export class MapComponent {
   private resizeObserver: ResizeObserver | null = null;
   private renderScheduled = false;
   private lastRenderTime = 0;
-  private readonly MIN_RENDER_INTERVAL_MS = 100;
+  private readonly MIN_RENDER_INTERVAL_MS = 40;
+  // Spatial grid for O(1) vessel click lookups (built during render)
+  private vesselGrid: Map<string, Array<{ x: number; y: number; v: CompactVessel }>> = new Map();
+  private readonly VESSEL_GRID_CELL = 20; // px per grid cell
   private healthCheckLoop: SmartPollLoopHandle | null = null;
 
   constructor(container: HTMLElement, initialState: MapState) {
@@ -184,6 +190,12 @@ export class MapComponent {
     this.clusterCanvas.className = 'map-cluster-canvas';
     this.clusterCanvas.id = 'mapClusterCanvas';
     this.wrapper.appendChild(this.clusterCanvas);
+
+    this.vesselCanvas = document.createElement('canvas');
+    this.vesselCanvas.className = 'map-vessel-canvas';
+    this.vesselCanvas.id = 'mapVesselCanvas';
+    this.wrapper.appendChild(this.vesselCanvas);
+    this.vesselCanvas.addEventListener('click', (e) => this.handleVesselClick(e));
 
     // Overlays inside wrapper so they transform together on zoom/pan
     this.overlays = document.createElement('div');
@@ -373,7 +385,7 @@ export class MapComponent {
       'cables', 'pipelines', 'outages', 'datacenters',   // infrastructure
       // cyberThreats is intentionally hidden on SVG/mobile fallback (DeckGL desktop only)
       'ais', 'flights', 'gpsJamming',                      // transport/interference
-      'natural', 'weather',                               // natural
+      'natural', 'weather', 'climate',                      // natural
       'economic',                                         // economic
       'waterways',                                        // labels
       'ciiChoropleth',                                    // CII heat-map (DeckGL only, shown as disabled toggle)
@@ -624,8 +636,8 @@ export class MapComponent {
         <div class="map-legend-item"><span class="legend-dot" style="background:#8b5cf6"></span>${escapeHtml(t('components.deckgl.layers.techHQs').toUpperCase())}</div>
         <div class="map-legend-item"><span class="legend-dot" style="background:#06b6d4"></span>${escapeHtml(t('components.deckgl.layers.startupHubs').toUpperCase())}</div>
         <div class="map-legend-item"><span class="legend-dot" style="background:#f59e0b"></span>${escapeHtml(t('components.deckgl.layers.cloudRegions').toUpperCase())}</div>
-        <div class="map-legend-item"><span class="map-legend-icon" style="color:#a855f7">📅</span>${escapeHtml(t('components.deckgl.layers.techEvents').toUpperCase())}</div>
-        <div class="map-legend-item"><span class="map-legend-icon" style="color:#4ecdc4">💾</span>${escapeHtml(t('components.deckgl.layers.aiDataCenters').toUpperCase())}</div>
+        <div class="map-legend-item"><span class="map-legend-icon" style="color:#a855f7"><i class="bi bi-calendar-event"></i></span>${escapeHtml(t('components.deckgl.layers.techEvents').toUpperCase())}</div>
+        <div class="map-legend-item"><span class="map-legend-icon" style="color:#4ecdc4"><i class="bi bi-hdd-rack"></i></span>${escapeHtml(t('components.deckgl.layers.aiDataCenters').toUpperCase())}</div>
       `;
     } else if (SITE_VARIANT === 'happy') {
       // Happy variant legend — natural events only
@@ -638,9 +650,9 @@ export class MapComponent {
         <div class="map-legend-item"><span class="legend-dot high"></span>${escapeHtml((t('popups.hotspot.levels.high') ?? 'HIGH').toUpperCase())}</div>
         <div class="map-legend-item"><span class="legend-dot elevated"></span>${escapeHtml((t('popups.hotspot.levels.elevated') ?? 'ELEVATED').toUpperCase())}</div>
         <div class="map-legend-item"><span class="legend-dot low"></span>${escapeHtml((t('popups.monitoring') ?? 'MONITORING').toUpperCase())}</div>
-        <div class="map-legend-item"><span class="map-legend-icon conflict">⚔</span>${escapeHtml(t('modals.search.types.conflict').toUpperCase())}</div>
+        <div class="map-legend-item"><span class="map-legend-icon conflict"><i class="bi bi-crosshair2"></i></span>${escapeHtml(t('modals.search.types.conflict').toUpperCase())}</div>
         <div class="map-legend-item"><span class="map-legend-icon earthquake">●</span>${escapeHtml(t('modals.search.types.earthquake').toUpperCase())}</div>
-        <div class="map-legend-item"><span class="map-legend-icon apt">⚠</span>APT</div>
+        <div class="map-legend-item"><span class="map-legend-icon apt"><i class="bi bi-shield-exclamation"></i></span>APT</div>
       `;
     }
     return legend;
@@ -1046,6 +1058,9 @@ export class MapComponent {
 
     if (this.state.layers.ais) {
       this.renderAisDensity(projection);
+      this.renderVesselCanvas(projection);
+    } else {
+      this.clearVesselCanvas();
     }
 
     // GPU-accelerated cluster markers (LOD)
@@ -1616,7 +1631,7 @@ export class MapComponent {
 
         const icon = document.createElement('div');
         icon.className = 'economic-icon';
-        icon.textContent = center.type === 'exchange' ? '📈' : center.type === 'central-bank' ? '🏛' : '💰';
+        icon.innerHTML = center.type === 'exchange' ? '<i class="bi bi-graph-up-arrow"></i>' : center.type === 'central-bank' ? '<i class="bi bi-bank"></i>' : '<i class="bi bi-cash-stack"></i>';
         div.appendChild(icon);
         div.title = center.name;
 
@@ -1650,7 +1665,7 @@ export class MapComponent {
 
         const icon = document.createElement('div');
         icon.className = 'weather-icon';
-        icon.textContent = '⚠';
+        icon.innerHTML = '<i class="bi bi-exclamation-triangle-fill"></i>';
         div.appendChild(icon);
 
         div.addEventListener('click', (e) => {
@@ -1681,7 +1696,7 @@ export class MapComponent {
 
         const icon = document.createElement('div');
         icon.className = 'outage-icon';
-        icon.textContent = '📡';
+        icon.innerHTML = '<i class="bi bi-broadcast"></i>';
         div.appendChild(icon);
 
         const label = document.createElement('div');
@@ -1717,7 +1732,7 @@ export class MapComponent {
 
         const icon = document.createElement('div');
         icon.className = 'cable-advisory-icon';
-        icon.textContent = advisory.severity === 'fault' ? '⚡' : '⚠';
+        icon.innerHTML = advisory.severity === 'fault' ? '<i class="bi bi-lightning-charge-fill"></i>' : '<i class="bi bi-exclamation-triangle-fill"></i>';
         div.appendChild(icon);
 
         const label = document.createElement('div');
@@ -1750,7 +1765,7 @@ export class MapComponent {
 
         const icon = document.createElement('div');
         icon.className = 'repair-ship-icon';
-        icon.textContent = '🚢';
+        icon.innerHTML = '<i class="bi bi-water"></i>';
         div.appendChild(icon);
 
         const label = document.createElement('div');
@@ -1788,7 +1803,7 @@ export class MapComponent {
 
         const icon = document.createElement('div');
         icon.className = 'datacenter-icon';
-        icon.textContent = '🖥️';
+        icon.innerHTML = '<i class="bi bi-pc-display"></i>';
         div.appendChild(icon);
 
         div.addEventListener('click', (e) => {
@@ -1819,7 +1834,7 @@ export class MapComponent {
 
         const icon = document.createElement('div');
         icon.className = 'spaceport-icon';
-        icon.textContent = '🚀';
+        icon.innerHTML = '<i class="bi bi-rocket-takeoff"></i>';
         div.appendChild(icon);
 
         const label = document.createElement('div');
@@ -1856,7 +1871,7 @@ export class MapComponent {
         const icon = document.createElement('div');
         icon.className = 'mineral-icon';
         // Select icon based on mineral type
-        icon.textContent = mine.mineral === 'Lithium' ? '🔋' : mine.mineral === 'Rare Earths' ? '🧲' : '💎';
+        icon.innerHTML = mine.mineral === 'Lithium' ? '<i class="bi bi-battery-charging"></i>' : mine.mineral === 'Rare Earths' ? '<i class="bi bi-gem"></i>' : '<i class="bi bi-diamond"></i>';
         div.appendChild(icon);
 
         const label = document.createElement('div');
@@ -1894,7 +1909,7 @@ export class MapComponent {
 
         const icon = document.createElement('div');
         icon.className = 'startup-hub-icon';
-        icon.textContent = hub.tier === 'mega' ? '🦄' : hub.tier === 'major' ? '🚀' : '💡';
+        icon.innerHTML = hub.tier === 'mega' ? '<i class="bi bi-star-fill"></i>' : hub.tier === 'major' ? '<i class="bi bi-rocket-takeoff"></i>' : '<i class="bi bi-lightbulb"></i>';
         div.appendChild(icon);
 
         if (this.state.zoom >= 2 || hub.tier === 'mega') {
@@ -1933,8 +1948,8 @@ export class MapComponent {
         const icon = document.createElement('div');
         icon.className = 'cloud-region-icon';
         // Provider-specific icons
-        const icons: Record<string, string> = { aws: '🟠', gcp: '🔵', azure: '🟣', cloudflare: '🟡' };
-        icon.textContent = icons[region.provider] || '☁️';
+        const icons: Record<string, string> = { aws: '<i class="bi bi-circle-fill" style="color:#ff9900"></i>', gcp: '<i class="bi bi-circle-fill" style="color:var(--color-info)"></i>', azure: '<i class="bi bi-circle-fill" style="color:#9b59b6"></i>', cloudflare: '<i class="bi bi-circle-fill" style="color:var(--color-elevated)"></i>' };
+        icon.innerHTML = icons[region.provider] || '<i class="bi bi-cloud-fill"></i>';
         div.appendChild(icon);
 
         if (this.state.zoom >= 3) {
@@ -1983,7 +1998,7 @@ export class MapComponent {
           // Show count for clusters
           const unicornCount = cluster.items.filter(h => h.type === 'unicorn').length;
           const faangCount = cluster.items.filter(h => h.type === 'faang').length;
-          icon.textContent = faangCount > 0 ? '🏛️' : unicornCount > 0 ? '🦄' : '🏢';
+          icon.innerHTML = faangCount > 0 ? '<i class="bi bi-bank"></i>' : unicornCount > 0 ? '<i class="bi bi-star-fill"></i>' : '<i class="bi bi-building"></i>';
 
           const badge = document.createElement('div');
           badge.className = 'cluster-badge';
@@ -1992,7 +2007,7 @@ export class MapComponent {
 
           div.title = cluster.items.map(h => h.company).join(', ');
         } else {
-          icon.textContent = primaryItem.type === 'faang' ? '🏛️' : primaryItem.type === 'unicorn' ? '🦄' : '🏢';
+          icon.innerHTML = primaryItem.type === 'faang' ? '<i class="bi bi-bank"></i>' : primaryItem.type === 'unicorn' ? '<i class="bi bi-star-fill"></i>' : '<i class="bi bi-building"></i>';
         }
         div.appendChild(icon);
 
@@ -2042,7 +2057,7 @@ export class MapComponent {
 
         const icon = document.createElement('div');
         icon.className = 'accelerator-icon';
-        icon.textContent = acc.type === 'accelerator' ? '🎯' : acc.type === 'incubator' ? '🔬' : '🎨';
+        icon.innerHTML = acc.type === 'accelerator' ? '<i class="bi bi-bullseye"></i>' : acc.type === 'incubator' ? '<i class="bi bi-search"></i>' : '<i class="bi bi-palette"></i>';
         div.appendChild(icon);
 
         if (this.state.zoom >= 3) {
@@ -2133,13 +2148,13 @@ export class MapComponent {
         const pos = projection([exchange.lon, exchange.lat]);
         if (!pos || !Number.isFinite(pos[0]) || !Number.isFinite(pos[1])) return;
 
-        const icon = exchange.tier === 'mega' ? '🏛️' : exchange.tier === 'major' ? '📊' : '📈';
+        const iconHtml = exchange.tier === 'mega' ? '<i class="bi bi-bank"></i>' : exchange.tier === 'major' ? '<i class="bi bi-bar-chart-fill"></i>' : '<i class="bi bi-graph-up-arrow"></i>';
         const div = document.createElement('div');
         div.className = `map-marker exchange-marker tier-${exchange.tier}`;
         div.style.left = `${pos[0]}px`;
         div.style.top = `${pos[1]}px`;
         div.style.zIndex = exchange.tier === 'mega' ? '50' : '40';
-        div.textContent = icon;
+        div.innerHTML = iconHtml;
         div.title = `${exchange.shortName} (${exchange.city})`;
 
         if ((this.state.zoom >= 2 && exchange.tier === 'mega') || this.state.zoom >= 3) {
@@ -2170,13 +2185,13 @@ export class MapComponent {
         const pos = projection([center.lon, center.lat]);
         if (!pos || !Number.isFinite(pos[0]) || !Number.isFinite(pos[1])) return;
 
-        const icon = center.type === 'global' ? '💰' : center.type === 'regional' ? '🏦' : '🏝️';
+        const iconHtml = center.type === 'global' ? '<i class="bi bi-cash-stack"></i>' : center.type === 'regional' ? '<i class="bi bi-bank2"></i>' : '<i class="bi bi-geo-alt"></i>';
         const div = document.createElement('div');
         div.className = `map-marker financial-center-marker type-${center.type}`;
         div.style.left = `${pos[0]}px`;
         div.style.top = `${pos[1]}px`;
         div.style.zIndex = center.type === 'global' ? '45' : '35';
-        div.textContent = icon;
+        div.innerHTML = iconHtml;
         div.title = `${center.name} Financial Center`;
 
         if ((this.state.zoom >= 2 && center.type === 'global') || this.state.zoom >= 3) {
@@ -2207,13 +2222,13 @@ export class MapComponent {
         const pos = projection([bank.lon, bank.lat]);
         if (!pos || !Number.isFinite(pos[0]) || !Number.isFinite(pos[1])) return;
 
-        const icon = bank.type === 'supranational' ? '🌐' : bank.type === 'major' ? '🏛️' : '🏦';
+        const iconHtml = bank.type === 'supranational' ? '<i class="bi bi-globe"></i>' : bank.type === 'major' ? '<i class="bi bi-bank"></i>' : '<i class="bi bi-bank2"></i>';
         const div = document.createElement('div');
         div.className = `map-marker central-bank-marker type-${bank.type}`;
         div.style.left = `${pos[0]}px`;
         div.style.top = `${pos[1]}px`;
         div.style.zIndex = bank.type === 'supranational' ? '48' : bank.type === 'major' ? '42' : '38';
-        div.textContent = icon;
+        div.innerHTML = iconHtml;
         div.title = `${bank.shortName} - ${bank.name}`;
 
         if ((this.state.zoom >= 2 && (bank.type === 'major' || bank.type === 'supranational')) || this.state.zoom >= 3) {
@@ -2244,13 +2259,13 @@ export class MapComponent {
         const pos = projection([hub.lon, hub.lat]);
         if (!pos || !Number.isFinite(pos[0]) || !Number.isFinite(pos[1])) return;
 
-        const icon = hub.type === 'exchange' ? '📦' : hub.type === 'port' ? '🚢' : '⛽';
+        const iconHtml = hub.type === 'exchange' ? '<i class="bi bi-box-seam"></i>' : hub.type === 'port' ? '<i class="bi bi-water"></i>' : '<i class="bi bi-fuel-pump"></i>';
         const div = document.createElement('div');
         div.className = `map-marker commodity-hub-marker type-${hub.type}`;
         div.style.left = `${pos[0]}px`;
         div.style.top = `${pos[1]}px`;
         div.style.zIndex = '38';
-        div.textContent = icon;
+        div.innerHTML = iconHtml;
         div.title = `${hub.name} (${hub.city})`;
 
         if (this.state.zoom >= 3) {
@@ -2375,7 +2390,7 @@ export class MapComponent {
 
         const icon = document.createElement('div');
         icon.className = 'protest-icon';
-        icon.textContent = hasRiot ? '🔥' : primaryEvent.eventType === 'strike' ? '✊' : '📢';
+        icon.innerHTML = hasRiot ? '<i class="bi bi-fire"></i>' : primaryEvent.eventType === 'strike' ? '<i class="bi bi-people-fill"></i>' : '<i class="bi bi-megaphone"></i>';
         div.appendChild(icon);
 
         if (isCluster) {
@@ -2428,7 +2443,7 @@ export class MapComponent {
 
         const icon = document.createElement('div');
         icon.className = 'flight-delay-icon';
-        icon.textContent = delay.delayType === 'ground_stop' ? '🛑' : delay.severity === 'severe' ? '✈️' : '🛫';
+        icon.innerHTML = delay.delayType === 'ground_stop' ? '<i class="bi bi-stop-circle-fill"></i>' : delay.severity === 'severe' ? '<i class="bi bi-airplane"></i>' : '<i class="bi bi-airplane-engines"></i>';
         div.appendChild(icon);
 
         if (this.state.zoom >= 3) {
@@ -2470,7 +2485,7 @@ export class MapComponent {
         div.style.lineHeight = '1';
         div.style.pointerEvents = 'auto';
         div.style.cursor = 'pointer';
-        div.textContent = '\u25B2'; // ▲
+        div.innerHTML = '<i class="bi bi-caret-up-fill"></i>';
 
         div.addEventListener('click', (e) => {
           e.stopPropagation();
@@ -2487,10 +2502,14 @@ export class MapComponent {
       });
     }
 
-    // Military Tracking (flights and vessels)
+    // Military Tracking (flights and vessels) - batched DOM via DocumentFragment
     if (this.state.layers.military) {
+      const milFragment = document.createDocumentFragment();
+      const showLabels = this.state.zoom >= 3;
+      const showTracks = this.state.zoom >= 2;
+
       // Render individual flights
-      this.militaryFlights.forEach((flight) => {
+      this.militaryFlights.forEach((flight, idx) => {
         const pos = projection([flight.lon, flight.lat]);
         if (!pos) return;
 
@@ -2498,23 +2517,21 @@ export class MapComponent {
         div.className = `military-flight-marker ${flight.operator} ${flight.aircraftType}${flight.isInteresting ? ' interesting' : ''}`;
         div.style.left = `${pos[0]}px`;
         div.style.top = `${pos[1]}px`;
+        div.dataset.milType = 'flight';
+        div.dataset.milIdx = String(idx);
 
-        // Crosshair icon - rotates with heading
         const icon = document.createElement('div');
         icon.className = `military-flight-icon ${flight.aircraftType}`;
         icon.style.transform = `rotate(${flight.heading}deg)`;
-        // CSS handles the crosshair rendering
         div.appendChild(icon);
 
-        // Show callsign at higher zoom levels
-        if (this.state.zoom >= 3) {
+        if (showLabels) {
           const label = document.createElement('div');
           label.className = 'military-flight-label';
           label.textContent = flight.callsign;
           div.appendChild(label);
         }
 
-        // Show altitude indicator
         if (flight.altitude > 0) {
           const alt = document.createElement('div');
           alt.className = 'military-flight-altitude';
@@ -2522,21 +2539,9 @@ export class MapComponent {
           div.appendChild(alt);
         }
 
-        div.addEventListener('click', (e) => {
-          e.stopPropagation();
-          const rect = this.container.getBoundingClientRect();
-          this.popup.show({
-            type: 'militaryFlight',
-            data: flight,
-            x: e.clientX - rect.left,
-            y: e.clientY - rect.top,
-          });
-        });
+        milFragment.appendChild(div);
 
-        this.overlays.appendChild(div);
-
-        // Render flight track if available
-        if (flight.track && flight.track.length > 1 && this.state.zoom >= 2) {
+        if (flight.track && flight.track.length > 1 && showTracks) {
           const trackLine = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
           const points = flight.track
             .map((p) => {
@@ -2558,7 +2563,7 @@ export class MapComponent {
       });
 
       // Render flight clusters
-      this.militaryFlightClusters.forEach((cluster) => {
+      this.militaryFlightClusters.forEach((cluster, idx) => {
         const pos = projection([cluster.lon, cluster.lat]);
         if (!pos) return;
 
@@ -2566,6 +2571,8 @@ export class MapComponent {
         div.className = `military-cluster-marker flight-cluster ${cluster.activityType || 'unknown'}`;
         div.style.left = `${pos[0]}px`;
         div.style.top = `${pos[1]}px`;
+        div.dataset.milType = 'flightCluster';
+        div.dataset.milIdx = String(idx);
 
         const count = document.createElement('div');
         count.className = 'cluster-count';
@@ -2577,23 +2584,11 @@ export class MapComponent {
         label.textContent = cluster.name;
         div.appendChild(label);
 
-        div.addEventListener('click', (e) => {
-          e.stopPropagation();
-          const rect = this.container.getBoundingClientRect();
-          this.popup.show({
-            type: 'militaryFlightCluster',
-            data: cluster,
-            x: e.clientX - rect.left,
-            y: e.clientY - rect.top,
-          });
-        });
-
-        this.overlays.appendChild(div);
+        milFragment.appendChild(div);
       });
 
       // Military Vessels (warships, carriers, submarines)
-      // Render individual vessels
-      this.militaryVessels.forEach((vessel) => {
+      this.militaryVessels.forEach((vessel, idx) => {
         const pos = projection([vessel.lon, vessel.lat]);
         if (!pos) return;
 
@@ -2601,45 +2596,32 @@ export class MapComponent {
         div.className = `military-vessel-marker ${vessel.operator} ${vessel.vesselType}${vessel.isDark ? ' dark-vessel' : ''}${vessel.isInteresting ? ' interesting' : ''}`;
         div.style.left = `${pos[0]}px`;
         div.style.top = `${pos[1]}px`;
+        div.dataset.milType = 'vessel';
+        div.dataset.milIdx = String(idx);
 
         const icon = document.createElement('div');
         icon.className = `military-vessel-icon ${vessel.vesselType}`;
         icon.style.transform = `rotate(${vessel.heading}deg)`;
-        // CSS handles the diamond/anchor rendering
         div.appendChild(icon);
 
-        // Dark vessel warning indicator
         if (vessel.isDark) {
           const darkIndicator = document.createElement('div');
           darkIndicator.className = 'dark-vessel-indicator';
-          darkIndicator.textContent = '⚠️';
+          darkIndicator.innerHTML = '<i class="bi bi-exclamation-triangle-fill"></i>';
           darkIndicator.title = 'AIS Signal Lost';
           div.appendChild(darkIndicator);
         }
 
-        // Show vessel name at higher zoom
-        if (this.state.zoom >= 3) {
+        if (showLabels) {
           const label = document.createElement('div');
           label.className = 'military-vessel-label';
           label.textContent = vessel.name;
           div.appendChild(label);
         }
 
-        div.addEventListener('click', (e) => {
-          e.stopPropagation();
-          const rect = this.container.getBoundingClientRect();
-          this.popup.show({
-            type: 'militaryVessel',
-            data: vessel,
-            x: e.clientX - rect.left,
-            y: e.clientY - rect.top,
-          });
-        });
+        milFragment.appendChild(div);
 
-        this.overlays.appendChild(div);
-
-        // Render vessel track if available
-        if (vessel.track && vessel.track.length > 1 && this.state.zoom >= 2) {
+        if (vessel.track && vessel.track.length > 1 && showTracks) {
           const trackLine = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
           const points = vessel.track
             .map((p) => {
@@ -2660,7 +2642,7 @@ export class MapComponent {
       });
 
       // Render vessel clusters
-      this.militaryVesselClusters.forEach((cluster) => {
+      this.militaryVesselClusters.forEach((cluster, idx) => {
         const pos = projection([cluster.lon, cluster.lat]);
         if (!pos) return;
 
@@ -2668,6 +2650,8 @@ export class MapComponent {
         div.className = `military-cluster-marker vessel-cluster ${cluster.activityType || 'unknown'}`;
         div.style.left = `${pos[0]}px`;
         div.style.top = `${pos[1]}px`;
+        div.dataset.milType = 'vesselCluster';
+        div.dataset.milIdx = String(idx);
 
         const count = document.createElement('div');
         count.className = 'cluster-count';
@@ -2679,19 +2663,33 @@ export class MapComponent {
         label.textContent = cluster.name;
         div.appendChild(label);
 
-        div.addEventListener('click', (e) => {
-          e.stopPropagation();
-          const rect = this.container.getBoundingClientRect();
-          this.popup.show({
-            type: 'militaryVesselCluster',
-            data: cluster,
-            x: e.clientX - rect.left,
-            y: e.clientY - rect.top,
-          });
-        });
-
-        this.overlays.appendChild(div);
+        milFragment.appendChild(div);
       });
+
+      // Single DOM append + delegated click handler
+      const milContainer = document.createElement('div');
+      milContainer.className = 'military-overlay-batch';
+      milContainer.appendChild(milFragment);
+      milContainer.addEventListener('click', (e) => {
+        const target = (e.target as HTMLElement).closest<HTMLElement>('[data-mil-type]');
+        if (!target) return;
+        e.stopPropagation();
+        const rect = this.container.getBoundingClientRect();
+        const popupX = e.clientX - rect.left;
+        const popupY = e.clientY - rect.top;
+        const milType = target.dataset.milType;
+        const milIdx = Number(target.dataset.milIdx);
+        if (milType === 'flight' && this.militaryFlights[milIdx]) {
+          this.popup.show({ type: 'militaryFlight', data: this.militaryFlights[milIdx], x: popupX, y: popupY });
+        } else if (milType === 'flightCluster' && this.militaryFlightClusters[milIdx]) {
+          this.popup.show({ type: 'militaryFlightCluster', data: this.militaryFlightClusters[milIdx], x: popupX, y: popupY });
+        } else if (milType === 'vessel' && this.militaryVessels[milIdx]) {
+          this.popup.show({ type: 'militaryVessel', data: this.militaryVessels[milIdx], x: popupX, y: popupY });
+        } else if (milType === 'vesselCluster' && this.militaryVesselClusters[milIdx]) {
+          this.popup.show({ type: 'militaryVesselCluster', data: this.militaryVesselClusters[milIdx], x: popupX, y: popupY });
+        }
+      });
+      this.overlays.appendChild(milContainer);
     }
 
     // Natural Events (NASA EONET) - part of NATURAL layer
@@ -2707,7 +2705,7 @@ export class MapComponent {
 
         const icon = document.createElement('div');
         icon.className = 'nat-event-icon';
-        icon.textContent = getNaturalEventIcon(event.category);
+        icon.innerHTML = getNaturalEventIcon(event.category);
         div.appendChild(icon);
 
         if (this.state.zoom >= 2) {
@@ -2804,7 +2802,7 @@ export class MapComponent {
 
       const icon = document.createElement('div');
       icon.className = 'ais-disruption-icon';
-      icon.textContent = event.type === 'gap_spike' ? '🛰️' : '🚢';
+      icon.innerHTML = event.type === 'gap_spike' ? '<i class="bi bi-broadcast"></i>' : '<i class="bi bi-water"></i>';
       div.appendChild(icon);
 
       const label = document.createElement('div');
@@ -2865,7 +2863,7 @@ export class MapComponent {
 
       const icon = document.createElement('div');
       icon.className = 'port-icon';
-      icon.textContent = port.type === 'naval' ? '⚓' : port.type === 'oil' || port.type === 'lng' ? '🛢️' : '🏭';
+      icon.innerHTML = port.type === 'naval' ? '<i class="bi bi-water"></i>' : port.type === 'oil' || port.type === 'lng' ? '<i class="bi bi-fuel-pump"></i>' : '<i class="bi bi-building"></i>';
       div.appendChild(icon);
 
       const label = document.createElement('div');
@@ -2898,7 +2896,7 @@ export class MapComponent {
       div.style.left = `${pos[0]}px`;
       div.style.top = `${pos[1]}px`;
       div.innerHTML = `
-        <div class="apt-icon">⚠</div>
+        <div class="apt-icon"><i class="bi bi-exclamation-triangle-fill"></i></div>
         <div class="apt-label">${escapeHtml(apt.name)}</div>
       `;
 
@@ -3616,6 +3614,151 @@ export class MapComponent {
     this.aisDisruptions = disruptions;
     this.aisDensity = density;
     this.render();
+  }
+
+  public setVesselTraffic(vessels: CompactVessel[]): void {
+    this.vesselTraffic = vessels;
+    this.render();
+  }
+
+  private clearVesselCanvas(): void {
+    const ctx = this.vesselCanvas.getContext('2d');
+    if (ctx) ctx.clearRect(0, 0, this.vesselCanvas.width, this.vesselCanvas.height);
+  }
+
+  private renderVesselCanvas(projection: d3.GeoProjection): void {
+    const ctx = this.vesselCanvas.getContext('2d');
+    if (!ctx) return;
+
+    const rect = this.wrapper.getBoundingClientRect();
+    const dpr = window.devicePixelRatio || 1;
+    const w = rect.width;
+    const h = rect.height;
+
+    if (this.vesselCanvas.width !== w * dpr || this.vesselCanvas.height !== h * dpr) {
+      this.vesselCanvas.width = w * dpr;
+      this.vesselCanvas.height = h * dpr;
+      this.vesselCanvas.style.width = `${w}px`;
+      this.vesselCanvas.style.height = `${h}px`;
+    }
+
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, w, h);
+
+    if (this.vesselTraffic.length === 0) return;
+
+    const zoom = this.state.zoom;
+    const dotRadius = zoom < 2 ? 1.5 : zoom < 4 ? 2.5 : 3.5;
+    const showArrow = zoom >= 3;
+    const showName = zoom >= 5;
+
+    // Batch by color for fewer state changes + build spatial grid for O(1) click
+    const buckets = new Map<string, Array<{ x: number; y: number; v: CompactVessel }>>();
+    const grid = new Map<string, Array<{ x: number; y: number; v: CompactVessel }>>();
+    const cellSize = this.VESSEL_GRID_CELL;
+
+    for (const v of this.vesselTraffic) {
+      const pos = projection([v.lon, v.lat]);
+      if (!pos) continue;
+      const [x, y] = pos;
+      if (x < -20 || x > w + 20 || y < -20 || y > h + 20) continue;
+      const cat = classifyVessel(v.shipType);
+      const color = VESSEL_COLORS[cat];
+      const point = { x, y, v };
+      let bucket = buckets.get(color);
+      if (!bucket) { bucket = []; buckets.set(color, bucket); }
+      bucket.push(point);
+      // Insert into spatial grid
+      const gx = Math.floor(x / cellSize);
+      const gy = Math.floor(y / cellSize);
+      const key = `${gx},${gy}`;
+      let cell = grid.get(key);
+      if (!cell) { cell = []; grid.set(key, cell); }
+      cell.push(point);
+    }
+    this.vesselGrid = grid;
+
+    const PI2 = Math.PI * 2;
+    for (const [color, points] of buckets) {
+      ctx.fillStyle = color;
+      ctx.beginPath();
+      for (const p of points) {
+        ctx.moveTo(p.x + dotRadius, p.y);
+        ctx.arc(p.x, p.y, dotRadius, 0, PI2);
+      }
+      ctx.fill();
+
+      // Heading arrows at zoom >= 3 for moving vessels
+      if (showArrow) {
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        for (const p of points) {
+          if (p.v.speed <= 0.5 || p.v.heading <= 0 || p.v.heading >= 360) continue;
+          const rad = (p.v.heading - 90) * Math.PI / 180;
+          const arrowLen = dotRadius + 4;
+          ctx.moveTo(p.x, p.y);
+          ctx.lineTo(p.x + Math.cos(rad) * arrowLen, p.y + Math.sin(rad) * arrowLen);
+        }
+        ctx.stroke();
+      }
+    }
+
+    // Vessel names at high zoom
+    if (showName) {
+      ctx.font = '9px sans-serif';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'middle';
+      for (const [color, points] of buckets) {
+        ctx.fillStyle = color;
+        for (const p of points) {
+          if (!p.v.name) continue;
+          ctx.fillText(p.v.name, p.x + dotRadius + 3, p.y);
+        }
+      }
+    }
+  }
+
+  private handleVesselClick(e: MouseEvent): void {
+    if (!this.state.layers.ais || this.vesselTraffic.length === 0) return;
+
+    const rect = this.vesselCanvas.getBoundingClientRect();
+    const mx = e.clientX - rect.left;
+    const my = e.clientY - rect.top;
+
+    // Use spatial grid for O(1) nearest-vessel lookup
+    const cellSize = this.VESSEL_GRID_CELL;
+    const gx = Math.floor(mx / cellSize);
+    const gy = Math.floor(my / cellSize);
+
+    let nearest: CompactVessel | null = null;
+    let bestDist = 10; // max 10px radius
+
+    // Check 3×3 neighborhood around click cell
+    for (let dx = -1; dx <= 1; dx++) {
+      for (let dy = -1; dy <= 1; dy++) {
+        const cell = this.vesselGrid.get(`${gx + dx},${gy + dy}`);
+        if (!cell) continue;
+        for (const p of cell) {
+          const distX = p.x - mx;
+          const distY = p.y - my;
+          const dist = Math.sqrt(distX * distX + distY * distY);
+          if (dist < bestDist) {
+            bestDist = dist;
+            nearest = p.v;
+          }
+        }
+      }
+    }
+
+    if (nearest) {
+      this.popup.show({
+        type: 'commercialVessel',
+        data: nearest,
+        x: e.clientX - this.container.getBoundingClientRect().left,
+        y: e.clientY - this.container.getBoundingClientRect().top,
+      });
+    }
   }
 
   public setCableActivity(advisories: CableAdvisory[], repairShips: RepairShip[]): void {

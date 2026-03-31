@@ -20,6 +20,7 @@ import type {
 } from '../../../../src/generated/server/worldmonitor/research/v1/service_server';
 import { CITY_COORDS } from '../../../../api/data/city-coords';
 import { CHROME_UA, clampInt } from '../../../_shared/constants';
+import { proxyFetch } from '../../../_shared/proxy-fetch';
 import { cachedFetchJson } from '../../../_shared/redis';
 
 const REDIS_CACHE_KEY = 'research:tech-events:v1';
@@ -261,10 +262,10 @@ async function fetchTechEvents(req: ListTechEventsRequest): Promise<ListTechEven
 
   // Fetch both sources in parallel
   const [icsResponse, rssResponse] = await Promise.allSettled([
-    fetch(ICS_URL, {
+    proxyFetch(ICS_URL, {
       headers: { 'User-Agent': CHROME_UA },
     }),
-    fetch(DEV_EVENTS_RSS, {
+    proxyFetch(DEV_EVENTS_RSS, {
       headers: { 'User-Agent': CHROME_UA },
     }),
   ]);

@@ -35,7 +35,7 @@ interface NWSResponse {
 }
 
 const NWS_API = 'https://api.weather.gov/alerts/active';
-const breaker = createCircuitBreaker<WeatherAlert[]>({ name: 'NWS Weather', cacheTtlMs: 30 * 60 * 1000, persistCache: true });
+const breaker = createCircuitBreaker<WeatherAlert[]>({ name: 'NWS Weather', maxFailures: 5, cooldownMs: 2 * 60 * 1000, cacheTtlMs: 30 * 60 * 1000, persistCache: true });
 
 export async function fetchWeatherAlerts(): Promise<WeatherAlert[]> {
   return breaker.execute(async () => {

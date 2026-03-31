@@ -399,8 +399,8 @@ export class UnifiedSettings {
     html += `<div class="ai-flow-section-label">${t('components.insights.sectionPanels')}</div>`;
     html += this.toggleRowHtml('us-badge-anim', t('components.insights.badgeAnimLabel'), t('components.insights.badgeAnimDesc'), settings.badgeAnimation);
 
-    // AI Analysis section (web-only)
-    if (!this.config.isDesktopApp) {
+    // AI Analysis section (web-only, not Spark)
+    if (!this.config.isDesktopApp && SITE_VARIANT !== 'spark') {
       html += `<div class="ai-flow-section-label">${t('components.insights.sectionAi')}</div>`;
       html += this.toggleRowHtml('us-cloud', t('components.insights.aiFlowCloudLabel'), t('components.insights.aiFlowCloudDesc'), settings.cloudLlm);
 
@@ -467,12 +467,14 @@ export class UnifiedSettings {
       </div>
       <div class="us-data-mgmt-toast" id="usDataMgmtToast"></div>
     `;
-    // Community section
-    html += `<div class="ai-flow-section-label">${t('components.community.sectionLabel')}</div>`;
-    html += `<a href="https://github.com/koala73/worldmonitor/discussions/94" target="_blank" rel="noopener" class="us-discussion-link">
-      <span class="us-discussion-dot"></span>
-      <span>${t('components.community.joinDiscussion')}</span>
-    </a>`;
+    // Community section (not Spark)
+    if (SITE_VARIANT !== 'spark') {
+      html += `<div class="ai-flow-section-label">${t('components.community.sectionLabel')}</div>`;
+      html += `<a href="https://github.com/koala73/worldmonitor/discussions/94" target="_blank" rel="noopener" class="us-discussion-link">
+        <span class="us-discussion-dot"></span>
+        <span>${t('components.community.joinDiscussion')}</span>
+      </a>`;
+    }
 
     // AI status footer (web-only)
     if (!this.config.isDesktopApp) {
@@ -665,7 +667,7 @@ export class UnifiedSettings {
     const entries = this.getVisiblePanelEntries();
     container.innerHTML = entries.map(([key, panel]) => `
       <div class="panel-toggle-item ${panel.enabled ? 'active' : ''}" data-panel="${escapeHtml(key)}">
-        <div class="panel-toggle-checkbox">${panel.enabled ? '✓' : ''}</div>
+        <div class="panel-toggle-checkbox">${panel.enabled ? '<i class="bi bi-check-lg"></i>' : ''}</div>
         <span class="panel-toggle-label">${escapeHtml(this.config.getLocalizedPanelName(key, panel.name))}</span>
       </div>
     `).join('');
@@ -755,7 +757,7 @@ export class UnifiedSettings {
       const escaped = escapeHtml(source);
       return `
         <div class="source-toggle-item ${isEnabled ? 'active' : ''}" data-source="${escaped}">
-          <div class="source-toggle-checkbox">${isEnabled ? '✓' : ''}</div>
+          <div class="source-toggle-checkbox">${isEnabled ? '<i class="bi bi-check-lg"></i>' : ''}</div>
           <span class="source-toggle-label">${escaped}</span>
         </div>
       `;

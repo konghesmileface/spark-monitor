@@ -2,6 +2,7 @@
  * Shared helpers, types, and constants for the market service handler RPCs.
  */
 import { CHROME_UA, yahooGate } from '../../../_shared/constants';
+import { proxyFetch } from '../../../_shared/proxy-fetch';
 
 // ========================================================================
 // Relay helpers (Railway proxy for Yahoo when Vercel IPs are rate-limited)
@@ -65,8 +66,12 @@ export async function fetchYahooQuotesBatch(
 
 // Yahoo-only symbols: indices and futures not on Finnhub free tier
 export const YAHOO_ONLY_SYMBOLS = new Set([
-  '^GSPC', '^DJI', '^IXIC', '^VIX',
+  '^GSPC', '^DJI', '^IXIC', '^VIX', '^TNX', '^HSI',
   'GC=F', 'CL=F', 'NG=F', 'SI=F', 'HG=F',
+  'PL=F', 'PA=F', 'ZW=F', 'ZC=F', 'ZS=F', 'CT=F', 'KC=F', 'SB=F',
+  'DX-Y.NYB',
+  '000001.SS', '399001.SZ', '399006.SZ', '000300.SS', // A-share indices
+  'CNY=X', // Forex
 ]);
 
 // Known crypto IDs and their metadata
@@ -113,7 +118,7 @@ export async function fetchFinnhubQuote(
 ): Promise<{ symbol: string; price: number; changePercent: number } | null> {
   try {
     const url = `https://finnhub.io/api/v1/quote?symbol=${encodeURIComponent(symbol)}`;
-    const resp = await fetch(url, {
+    const resp = await proxyFetch(url, {
       headers: { Accept: 'application/json', 'User-Agent': CHROME_UA, 'X-Finnhub-Token': apiKey },
       signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
     });
@@ -189,7 +194,7 @@ export async function fetchYahooQuote(
   try {
     await yahooGate();
     const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}`;
-    const resp = await fetch(url, {
+    const resp = await proxyFetch(url, {
       headers: { 'User-Agent': CHROME_UA },
       signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
     });
@@ -212,7 +217,7 @@ export async function fetchYahooQuote(
   }
   try {
     const relayUrl = `${relayBase}/yahoo-chart?symbol=${encodeURIComponent(symbol)}`;
-    const resp = await fetch(relayUrl, {
+    const resp = await proxyFetch(relayUrl, {
       headers: getRelayHeaders(),
       signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
     });
@@ -236,7 +241,7 @@ export async function fetchCoinGeckoMarkets(
   ids: string[],
 ): Promise<CoinGeckoMarketItem[]> {
   const url = `https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=${ids.join(',')}&order=market_cap_desc&sparkline=true&price_change_percentage=24h`;
-  const resp = await fetch(url, {
+  const resp = await proxyFetch(url, {
     headers: { Accept: 'application/json', 'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36' },
     signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
   });

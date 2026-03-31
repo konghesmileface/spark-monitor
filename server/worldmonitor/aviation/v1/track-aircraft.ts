@@ -7,6 +7,7 @@ import type {
 import { getRelayBaseUrl, getRelayHeaders } from './_shared';
 import { cachedFetchJson } from '../../../_shared/redis';
 import { CHROME_UA } from '../../../_shared/constants';
+import { proxyFetch } from '../../../_shared/proxy-fetch';
 
 // 120s for anonymous OpenSky tier (~10 req/min limit); TODO: reduce to 10s on commercial tier
 const CACHE_TTL = 120;
@@ -67,7 +68,7 @@ async function fetchOpenSkyAnonymous(req: TrackAircraftRequest): Promise<Positio
         url = `${OPENSKY_PUBLIC_BASE}/states/all`;
     }
 
-    const resp = await fetch(url, {
+    const resp = await proxyFetch(url, {
         signal: AbortSignal.timeout(12_000),
         headers: { 'Accept': 'application/json', 'User-Agent': CHROME_UA },
     });
@@ -108,7 +109,7 @@ export async function trackAircraft(
                             osUrl = `${relayBase}/opensky/states/all`;
                         }
 
-                        const resp = await fetch(osUrl, {
+                        const resp = await proxyFetch(osUrl, {
                             headers: getRelayHeaders({}),
                             signal: AbortSignal.timeout(10_000),
                         });

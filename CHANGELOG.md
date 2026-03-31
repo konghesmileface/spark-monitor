@@ -2,6 +2,29 @@
 
 All notable changes to World Monitor are documented here.
 
+## [2.5.26] - 2026-03-27
+
+### Added
+
+- **AI 引擎设置弹出框** — 替换原 header 下拉芯片条，新建 `CnAiSettingsModal.ts` 全屏弹出框，支持引擎优先顺序调整 + 自定义 API Key 输入（前3后4遮掩显示，眼睛切换可见，单独删除）
+- **自定义 API Key 后端** — `user_profiles` 新增 `ai_custom_keys TEXT` 列；`PUT /api/cn/ai/keys` 保存密钥、`DELETE /api/cn/ai/key/<provider>` 删除单个密钥；`GET /api/cn/ai/providers` 返回 `has_custom_key` + `masked_key`
+- **自定义 Key 透传** — `call_ai()` / `call_ai_stream()` / `get_available_providers()` 新增 `custom_keys` 参数；`morning_brief` / `industry_advisor` / `enterprise_reports` 全部透传用户自定义密钥
+
+### Fixed
+
+- **研报 PDF "查看原文" 401 错误** — 上传 PDF 的 drawer 不再传入 `link` 属性（`target="_blank"` 新标签页无法携带 Bearer token），已提取全文直接在 drawer 内展示
+- **"我的研报" 摘要只显示最新** — 新增 `selectedUploadId` 状态，点击列表中任意研报即显示该报的分析摘要（含核心观点、关键数据、风险因素、操作建议），选中卡片高亮
+- **panel-layout 旧下拉残留清理** — 移除 `cnProviderDropdown` div 和 40+ 行内联下拉逻辑
+
+### Changed
+
+- **研报 AI 分析大幅增强** — PDF 文本截断从 8K→15K 字符；`max_tokens` 2000→3000；输出字段从 8→16 个（新增 `reportType` / `keyData` / `industryChain` / `competitiveAnalysis` / `catalysts` / `valuation` / `actionSuggestion`）；`summary` 从 200 字→300-500 字；system prompt 升级为详细角色设定
+- **联系方式更新** — 首页 footer 邮箱改为 `hekong@spdt.freeqiye.com`；联系我们页增加电话 18201972547 / 17274630436（微信同号）
+
+### Security
+
+- 自定义 API Key 明文存 MySQL（与 .env 平台 key 同等安全模型），前端永不返回平台 key，用户 key 返回时做 mask 处理（前3后4可见），仅接受已知 provider name
+
 ## [2.5.25] - 2026-03-04
 
 ### Changed

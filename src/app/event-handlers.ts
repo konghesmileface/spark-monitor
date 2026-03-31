@@ -297,6 +297,17 @@ export class EventHandlerManager implements AppModule {
       });
     }
 
+    // Intel mode switcher (Spark variant: 世界情报 / 中文情报)
+    this.ctx.container.querySelectorAll<HTMLButtonElement>('.intel-mode-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const mode = btn.dataset.intelMode;
+        if (mode) {
+          localStorage.setItem(STORAGE_KEYS.intelMode, mode);
+          window.location.reload();
+        }
+      });
+    });
+
     const fullscreenBtn = document.getElementById('fullscreenBtn');
     if (!this.ctx.isDesktopApp && fullscreenBtn) {
       fullscreenBtn.addEventListener('click', () => this.toggleFullscreen());
@@ -408,6 +419,7 @@ export class EventHandlerManager implements AppModule {
               tech: 'https://tech.worldmonitor.app',
               finance: 'https://finance.worldmonitor.app',
               happy: 'https://happy.worldmonitor.app',
+              spark: 'https://spark.worldmonitor.app',
             };
             if (hosts[variant]) window.location.href = hosts[variant];
           }
@@ -448,7 +460,7 @@ export class EventHandlerManager implements AppModule {
         sheet.querySelectorAll('.region-sheet-option').forEach(o => {
           o.classList.toggle('active', o === opt);
           const check = o.querySelector('.region-sheet-check');
-          if (check) check.textContent = o === opt ? '✓' : '';
+          if (check) check.innerHTML = o === opt ? '<i class="bi bi-check-lg"></i>' : '';
         });
         const menuRegionLabel = document.getElementById('mobileMenuRegion')?.querySelector('.mobile-menu-item-label');
         if (menuRegionLabel) menuRegionLabel.textContent = opt.querySelector('span')?.textContent ?? '';
@@ -707,7 +719,7 @@ export class EventHandlerManager implements AppModule {
     const isDark = getCurrentTheme() === 'dark';
     const icon = btn.querySelector('.mobile-menu-item-icon');
     const label = btn.querySelector('.mobile-menu-item-label');
-    if (icon) icon.textContent = isDark ? '☀️' : '🌙';
+    if (icon) icon.innerHTML = isDark ? '<i class="bi bi-sun-fill"></i>' : '<i class="bi bi-moon-fill"></i>';
     if (label) label.textContent = isDark ? 'Light Mode' : 'Dark Mode';
   }
 
@@ -727,6 +739,8 @@ export class EventHandlerManager implements AppModule {
 
   setupPizzIntIndicator(): void {
     if (SITE_VARIANT === 'tech' || SITE_VARIANT === 'finance' || SITE_VARIANT === 'happy') return;
+    // Skip PizzINT in CN intel mode — it's a world-intel feature
+    if (SITE_VARIANT === 'spark' && (localStorage.getItem(STORAGE_KEYS.intelMode) || 'cn') === 'cn') return;
 
     this.ctx.pizzintIndicator = new PizzIntIndicator();
     const headerLeft = this.ctx.container.querySelector('.header-left');
@@ -736,6 +750,7 @@ export class EventHandlerManager implements AppModule {
   }
 
   setupExportPanel(): void {
+    if (SITE_VARIANT === 'spark') return;
     this.ctx.exportPanel = new ExportPanel(() => ({
       news: this.ctx.latestClusters.length > 0 ? this.ctx.latestClusters : this.ctx.allNews,
       markets: this.ctx.latestMarkets,
@@ -816,6 +831,7 @@ export class EventHandlerManager implements AppModule {
   }
 
   setupPlaybackControl(): void {
+    if (SITE_VARIANT === 'spark') return;
     this.ctx.playbackControl = new PlaybackControl();
     this.ctx.playbackControl.onSnapshot((snapshot) => {
       if (snapshot) {
@@ -990,8 +1006,13 @@ export class EventHandlerManager implements AppModule {
       if (Number.isFinite(numeric)) {
         const clamped = Math.max(getMinHeight(), Math.min(numeric, getMaxHeight()));
         if (window.innerWidth >= 1600) {
-          mapContainer.style.flex = 'none';
-          mapContainer.style.height = `${clamped}px`;
+          // Only apply saved height when bottom grid has panels to share space with;
+          // otherwise let the map fill 100% of the column (bottom grid is hidden at ≥1600px).
+          const bottomGrid = mapSection.querySelector('.map-bottom-grid');
+          if (bottomGrid?.classList.contains('has-panels')) {
+            mapContainer.style.flex = 'none';
+            mapContainer.style.height = `${clamped}px`;
+          }
         } else {
           mapSection.style.height = `${clamped}px`;
         }
@@ -1102,6 +1123,24 @@ export class EventHandlerManager implements AppModule {
     });
 
     this.setupMapFullscreen(mapSection);
+    this.setupGlobeToggle();
+  }
+
+  private setupGlobeToggle(): void {
+    const btn = document.getElementById('mapGlobeToggle');
+    if (!btn) return;
+    const isGlobe = this.ctx.map?.isGlobeMode() ?? false;
+    if (isGlobe) btn.classList.add('active');
+    btn.addEventListener('click', () => {
+      const nowGlobe = !(this.ctx.map?.isGlobeMode() ?? false);
+      saveToStorage(STORAGE_KEYS.mapMode, nowGlobe ? 'globe' : 'flat');
+      if (nowGlobe) {
+        this.ctx.map?.switchToGlobe();
+      } else {
+        this.ctx.map?.switchToFlat();
+      }
+      btn.classList.toggle('active', nowGlobe);
+    });
   }
 
   private setupMapFullscreen(mapSection: HTMLElement): void {

@@ -13,6 +13,13 @@ import { checkRateLimit } from '../_rate-limit.js';
 
 export const config = { runtime: 'edge' };
 
+/** In dev mode, vite.config.ts sets globalThis.__proxyDispatcher for GFW bypass. */
+function pFetch(url, init) {
+  const dispatcher = globalThis.__proxyDispatcher;
+  if (dispatcher) return fetch(url, { ...init, dispatcher });
+  return fetch(url, init);
+}
+
 const UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
 
 const SIGNAL_KEYWORDS = {
@@ -55,7 +62,7 @@ function scoreSignalStrength(points, comments, recencyDays) {
 
 async function fetchHNSignals(companyName) {
   try {
-    const res = await fetch(
+    const res = await pFetch(
       `https://hn.algolia.com/api/v1/search_by_date?query=${encodeURIComponent(companyName)}&tags=story&hitsPerPage=20&numericFilters=created_at_i>${Math.floor(Date.now() / 1000) - 30 * 86400}`,
       {
         headers: { 'User-Agent': UA },
@@ -86,7 +93,7 @@ async function fetchHNSignals(companyName) {
 
 async function fetchGitHubSignals(orgName) {
   try {
-    const res = await fetch(
+    const res = await pFetch(
       `https://api.github.com/orgs/${encodeURIComponent(orgName)}/repos?sort=created&per_page=10`,
       {
         headers: { 'Accept': 'application/vnd.github.v3+json', 'User-Agent': UA },
@@ -117,7 +124,7 @@ async function fetchGitHubSignals(orgName) {
 
 async function fetchJobSignals(companyName) {
   try {
-    const res = await fetch(
+    const res = await pFetch(
       `https://hn.algolia.com/api/v1/search?query=${encodeURIComponent(companyName)}&tags=comment,ask_hn&hitsPerPage=10&numericFilters=created_at_i>${Math.floor(Date.now() / 1000) - 60 * 86400}`,
       {
         headers: { 'User-Agent': UA },

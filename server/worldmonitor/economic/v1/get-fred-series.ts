@@ -10,6 +10,7 @@ import type {
   FredObservation,
 } from '../../../../src/generated/server/worldmonitor/economic/v1/service_server';
 
+import { proxyFetch } from '../../../_shared/proxy-fetch';
 import { cachedFetchJson } from '../../../_shared/redis';
 
 const FRED_API_BASE = 'https://api.stlouisfed.org/fred';
@@ -39,13 +40,13 @@ async function fetchFredSeries(req: GetFredSeriesRequest): Promise<FredSeries | 
     });
 
     const [obsResult, metaResult] = await Promise.allSettled([
-      fetch(`${FRED_API_BASE}/series/observations?${obsParams}`, {
+      proxyFetch(`${FRED_API_BASE}/series/observations?${obsParams}`, {
         headers: { Accept: 'application/json' },
-        signal: AbortSignal.timeout(10000),
+        signal: AbortSignal.timeout(20000),
       }),
-      fetch(`${FRED_API_BASE}/series?${metaParams}`, {
+      proxyFetch(`${FRED_API_BASE}/series?${metaParams}`, {
         headers: { Accept: 'application/json' },
-        signal: AbortSignal.timeout(10000),
+        signal: AbortSignal.timeout(20000),
       }),
     ]);
 

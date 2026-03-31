@@ -42,20 +42,20 @@ export class CIIPanel extends Panel {
 
   private getLevelEmoji(level: CountryScore['level']): string {
     switch (level) {
-      case 'critical': return '🔴';
-      case 'high': return '🟠';
-      case 'elevated': return '🟡';
-      case 'normal': return '🟢';
-      case 'low': return '⚪';
+      case 'critical': return '<i class="bi bi-circle-fill" style="color:var(--color-critical)"></i>';
+      case 'high': return '<i class="bi bi-circle-fill" style="color:var(--color-high)"></i>';
+      case 'elevated': return '<i class="bi bi-circle-fill" style="color:var(--color-elevated)"></i>';
+      case 'normal': return '<i class="bi bi-circle-fill" style="color:var(--color-normal)"></i>';
+      case 'low': return '<i class="bi bi-circle-fill" style="color:var(--color-low,#ccc)"></i>';
     }
   }
 
   private static readonly SHARE_SVG = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v7a2 2 0 002 2h12a2 2 0 002-2v-7"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>';
 
   private buildTrendArrow(trend: CountryScore['trend'], change: number): HTMLElement {
-    if (trend === 'rising') return h('span', { className: 'trend-up' }, `↑${change > 0 ? change : ''}`);
-    if (trend === 'falling') return h('span', { className: 'trend-down' }, `↓${Math.abs(change)}`);
-    return h('span', { className: 'trend-stable' }, '→');
+    if (trend === 'rising') { const el = h('span', { className: 'trend-up' }); el.innerHTML = `<i class="bi bi-arrow-up"></i>${change > 0 ? change : ''}`; return el; }
+    if (trend === 'falling') { const el = h('span', { className: 'trend-down' }); el.innerHTML = `<i class="bi bi-arrow-down"></i>${Math.abs(change)}`; return el; }
+    const el = h('span', { className: 'trend-stable' }); el.innerHTML = '<i class="bi bi-arrow-right"></i>'; return el;
   }
 
   private buildCountry(country: CountryScore): HTMLElement {

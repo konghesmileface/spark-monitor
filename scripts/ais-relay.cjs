@@ -17,7 +17,12 @@ const { readFileSync } = require('fs');
 const crypto = require('crypto');
 const v8 = require('v8');
 const { WebSocketServer, WebSocket } = require('ws');
+const { HttpsProxyAgent } = require('https-proxy-agent');
 const RSS_ALLOWED_DOMAINS = new Set(require('../shared/rss-allowed-domains.cjs'));
+
+// HTTPS proxy agent for external API calls that need proxy routing
+const HTTPS_PROXY_URL = process.env.HTTPS_PROXY || process.env.HTTP_PROXY || '';
+const httpsProxyAgent = HTTPS_PROXY_URL ? new HttpsProxyAgent(HTTPS_PROXY_URL) : null;
 
 // Log effective heap limit at startup (verifies NODE_OPTIONS=--max-old-space-size is active)
 const _heapStats = v8.getHeapStatistics();
@@ -108,24 +113,28 @@ const UPSTASH_REDIS_REST_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN || '';
 const UPSTASH_ENABLED = !!(
   UPSTASH_REDIS_REST_URL &&
   UPSTASH_REDIS_REST_TOKEN &&
-  UPSTASH_REDIS_REST_URL.startsWith('https://')
+  (UPSTASH_REDIS_REST_URL.startsWith('https://') || UPSTASH_REDIS_REST_URL.startsWith('http://'))
 );
 const RELAY_ENV_PREFIX = process.env.RELAY_ENV ? `${process.env.RELAY_ENV}:` : '';
 const OREF_REDIS_KEY = `${RELAY_ENV_PREFIX}relay:oref:history:v1`;
+const TELEGRAM_REDIS_KEY = `${RELAY_ENV_PREFIX}relay:telegram:feed:v1`;
+const TELEGRAM_PERSIST_TTL = 86400; // 24h
 const CHROME_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36';
 
-if (UPSTASH_REDIS_REST_URL && !UPSTASH_REDIS_REST_URL.startsWith('https://')) {
-  console.warn('[Relay] UPSTASH_REDIS_REST_URL must start with https:// — Redis disabled');
+if (UPSTASH_REDIS_REST_URL && !UPSTASH_REDIS_REST_URL.startsWith('https://') && !UPSTASH_REDIS_REST_URL.startsWith('http://')) {
+  console.warn('[Relay] UPSTASH_REDIS_REST_URL must start with http:// or https:// — Redis disabled');
 }
 if (UPSTASH_ENABLED) {
   console.log(`[Relay] Upstash Redis enabled (key: ${OREF_REDIS_KEY})`);
 }
 
+const _httpModule = UPSTASH_REDIS_REST_URL.startsWith('http://') ? http : https;
+
 function upstashGet(key) {
   return new Promise((resolve) => {
     if (!UPSTASH_ENABLED) return resolve(null);
     const url = new URL(`/get/${encodeURIComponent(key)}`, UPSTASH_REDIS_REST_URL);
-    const req = https.request(url, {
+    const req = _httpModule.request(url, {
       method: 'GET',
       headers: { Authorization: `Bearer ${UPSTASH_REDIS_REST_TOKEN}` },
       timeout: 5000,
@@ -155,7 +164,7 @@ function upstashSet(key, value, ttlSeconds) {
     if (!UPSTASH_ENABLED) return resolve(false);
     const url = new URL('/', UPSTASH_REDIS_REST_URL);
     const body = JSON.stringify(['SET', key, JSON.stringify(value), 'EX', String(ttlSeconds)]);
-    const req = https.request(url, {
+    const req = _httpModule.request(url, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${UPSTASH_REDIS_REST_TOKEN}`,
@@ -247,7 +256,7 @@ function sendPreGzipped(req, res, statusCode, headers, rawBody, gzippedBody) {
 // ─────────────────────────────────────────────────────────────
 const TELEGRAM_ENABLED = Boolean(process.env.TELEGRAM_API_ID && process.env.TELEGRAM_API_HASH && process.env.TELEGRAM_SESSION);
 const TELEGRAM_POLL_INTERVAL_MS = Math.max(15_000, Number(process.env.TELEGRAM_POLL_INTERVAL_MS || 60_000));
-const TELEGRAM_MAX_FEED_ITEMS = Math.max(50, Number(process.env.TELEGRAM_MAX_FEED_ITEMS || 200));
+const TELEGRAM_MAX_FEED_ITEMS = Math.max(50, Number(process.env.TELEGRAM_MAX_FEED_ITEMS || 1000));
 const TELEGRAM_MAX_TEXT_CHARS = Math.max(200, Number(process.env.TELEGRAM_MAX_TEXT_CHARS || 800));
 
 const telegramState = {
@@ -344,9 +353,15 @@ async function initTelegramClientIfNeeded() {
     const { TelegramClient } = await import('telegram');
     const { StringSession } = await import('telegram/sessions/index.js');
 
-    const client = new TelegramClient(new StringSession(sessionStr), apiId, apiHash, {
-      connectionRetries: 3,
-    });
+    const tgOpts = { connectionRetries: 5 };
+    // GFW: route Telegram DC traffic through local SOCKS5 proxy if available
+    const socksPort = parseInt(process.env.TELEGRAM_SOCKS_PORT || process.env.CLASH_MIXED_PORT || '17890', 10);
+    if (socksPort) {
+      tgOpts.useWSS = false;
+      tgOpts.proxy = { socksType: 5, ip: '127.0.0.1', port: socksPort };
+      console.log(`[Relay] Telegram using SOCKS5 proxy 127.0.0.1:${socksPort}`);
+    }
+    const client = new TelegramClient(new StringSession(sessionStr), apiId, apiHash, tgOpts);
 
     await client.connect();
     telegramState.client = client;
@@ -468,6 +483,14 @@ async function pollTelegramOnce() {
   telegramState.lastPollAt = Date.now();
   const elapsed = ((Date.now() - pollStart) / 1000).toFixed(1);
   console.log(`[Relay] Telegram poll: ${channelsPolled}/${channels.length} channels, ${newItems.length} new msgs, ${telegramState.items.length} total, ${channelsFailed} errors, ${mediaSkipped} media-only skipped (${elapsed}s)`);
+
+  // Persist Telegram feed to Redis for restart recovery
+  if (UPSTASH_ENABLED && telegramState.items.length > 0) {
+    const payload = { items: telegramState.items, cursorByHandle: telegramState.cursorByHandle, savedAt: Date.now() };
+    upstashSet(TELEGRAM_REDIS_KEY, payload, TELEGRAM_PERSIST_TTL)
+      .then(ok => { if (ok) console.log(`[Relay] Telegram feed persisted to Redis (${telegramState.items.length} items)`); })
+      .catch(() => {});
+  }
 }
 
 let telegramPollInFlight = false;
@@ -492,9 +515,28 @@ function guardedTelegramPoll() {
 
 const TELEGRAM_STARTUP_DELAY_MS = Math.max(0, Number(process.env.TELEGRAM_STARTUP_DELAY_MS || 60_000));
 
+async function restoreTelegramFromRedis() {
+  if (!UPSTASH_ENABLED) return;
+  try {
+    const cached = await upstashGet(TELEGRAM_REDIS_KEY);
+    if (cached && Array.isArray(cached.items) && cached.items.length > 0) {
+      telegramState.items = cached.items.slice(0, TELEGRAM_MAX_FEED_ITEMS);
+      if (cached.cursorByHandle && typeof cached.cursorByHandle === 'object') {
+        Object.assign(telegramState.cursorByHandle, cached.cursorByHandle);
+      }
+      const age = cached.savedAt ? Math.round((Date.now() - cached.savedAt) / 1000) : '?';
+      console.log(`[Relay] Telegram feed restored from Redis: ${telegramState.items.length} items (age: ${age}s)`);
+    }
+  } catch (e) {
+    console.warn('[Relay] Telegram Redis restore failed:', e?.message || e);
+  }
+}
+
 function startTelegramPollLoop() {
   if (!TELEGRAM_ENABLED) return;
   loadTelegramChannels();
+  // Restore previous Telegram feed from Redis (non-blocking)
+  restoreTelegramFromRedis().catch(() => {});
   if (TELEGRAM_STARTUP_DELAY_MS > 0) {
     console.log(`[Relay] Telegram connect delayed ${TELEGRAM_STARTUP_DELAY_MS}ms (waiting for old container to disconnect)`);
     setTimeout(() => {
@@ -2833,6 +2875,45 @@ let lastSnapshotGzip = null;       // cached gzip buffer (no candidates)
 let lastSnapshotWithCandJson = null;
 let lastSnapshotWithCandGzip = null;
 
+// --- Individual vessel traffic snapshot (compact array-of-arrays) ---
+const TRAFFIC_SNAPSHOT_INTERVAL_MS = 5_000;
+let lastTrafficJson = null;
+let lastTrafficGzip = null;
+let lastTrafficAt = 0;
+
+function buildTrafficSnapshot() {
+  const now = Date.now();
+  if (lastTrafficJson && now - lastTrafficAt < Math.floor(TRAFFIC_SNAPSHOT_INTERVAL_MS / 2)) {
+    return;
+  }
+  // Serialize all vessels as compact array-of-arrays: [mmsi, lat, lon, shipType, heading, speed, course, name]
+  const arr = [];
+  for (const v of vessels.values()) {
+    arr.push([
+      v.mmsi,
+      Math.round(v.lat * 1e4) / 1e4,
+      Math.round(v.lon * 1e4) / 1e4,
+      v.shipType || 0,
+      v.heading || 0,
+      Math.round((v.speed || 0) * 10) / 10,
+      Math.round((v.course || 0) * 10) / 10,
+      v.name || '',
+    ]);
+  }
+  const payload = JSON.stringify({ t: now, c: arr.length, v: arr });
+  lastTrafficJson = payload;
+  lastTrafficAt = now;
+  zlib.gzip(Buffer.from(payload), (err, buf) => {
+    if (!err) lastTrafficGzip = buf;
+  });
+}
+
+setInterval(() => {
+  if (vessels.size > 0) {
+    buildTrafficSnapshot();
+  }
+}, TRAFFIC_SNAPSHOT_INTERVAL_MS);
+
 // Chokepoint spatial index: bucket vessels into grid cells at ingest time
 // instead of O(chokepoints * vessels) on every snapshot
 const chokepointBuckets = new Map(); // key: gridKey -> Set of MMSI
@@ -2973,6 +3054,8 @@ function processRawUpstreamMessage(raw) {
     const parsed = JSON.parse(raw);
     if (parsed?.MessageType === 'PositionReport') {
       processPositionReportForSnapshot(parsed);
+    } else if (parsed?.MessageType === 'ShipStaticData') {
+      processShipStaticData(parsed);
     }
   } catch {
     // Ignore malformed upstream payloads
@@ -2993,6 +3076,27 @@ function processRawUpstreamMessage(raw) {
   }
 }
 
+function processShipStaticData(data) {
+  const meta = data?.MetaData;
+  const staticData = data?.Message?.ShipStaticData;
+  if (!meta || !staticData) return;
+
+  const mmsi = String(meta.MMSI);
+  const existing = vessels.get(mmsi);
+  if (!existing) return; // Only enrich already-tracked vessels
+
+  // Update shipType from static data if available
+  const shipType = Number(staticData.Type);
+  if (Number.isFinite(shipType) && shipType > 0) {
+    existing.shipType = shipType;
+  }
+  // Update name if better quality (trimmed, non-empty)
+  const name = (staticData.Name || meta.ShipName || '').trim();
+  if (name && (!existing.name || existing.name.trim().length === 0)) {
+    existing.name = name;
+  }
+}
+
 function processPositionReportForSnapshot(data) {
   const meta = data?.MetaData;
   const pos = data?.Message?.PositionReport;
@@ -3007,13 +3111,19 @@ function processPositionReportForSnapshot(data) {
 
   const now = Date.now();
 
+  const existing = vessels.get(mmsi);
+  const newShipType = meta.ShipType;
+  // Preserve previously-resolved shipType (from ShipStaticData) if this PositionReport lacks it
+  const resolvedShipType = (Number.isFinite(newShipType) && newShipType > 0)
+    ? newShipType
+    : (existing?.shipType || undefined);
   vessels.set(mmsi, {
     mmsi,
-    name: meta.ShipName || '',
+    name: meta.ShipName || existing?.name || '',
     lat,
     lon,
     timestamp: now,
-    shipType: meta.ShipType,
+    shipType: resolvedShipType,
     heading: pos.TrueHeading,
     speed: pos.Sog,
     course: pos.Cog,
@@ -4199,10 +4309,12 @@ function fetchPolymarketUpstream(cacheKey, endpoint, params, tag) {
           polymarketCache.set(cacheKey, { data: '[]', timestamp: Date.now() - POLYMARKET_CACHE_TTL_MS + POLYMARKET_NEG_TTL_MS });
         }
       }
-      const request = https.get(gammaUrl, {
+      const fetchOpts = {
         headers: { 'Accept': 'application/json' },
         timeout: 10000,
-      }, (response) => {
+      };
+      if (httpsProxyAgent) fetchOpts.agent = httpsProxyAgent;
+      const request = https.get(gammaUrl, fetchOpts, (response) => {
         if (response.statusCode !== 200) {
           console.error(`[Relay] Polymarket upstream ${response.statusCode} (failures: ${polymarketCircuitBreaker.failures + 1})`);
           response.resume();
@@ -4255,7 +4367,7 @@ function handlePolymarketRequest(req, res) {
   params.set('ascending', url.searchParams.get('ascending') || 'false');
   params.set('limit', String(upstreamLimit));
   const tag = url.searchParams.get('tag') || url.searchParams.get('tag_slug');
-  if (tag && endpoint === 'events') params.set('tag_slug', tag.replace(/[^a-z0-9-]/gi, '').slice(0, 100));
+  if (tag) params.set('tag_slug', tag.replace(/[^a-z0-9-]/gi, '').slice(0, 100));
 
   const cacheKey = endpoint + ':' + params.toString();
 
@@ -4391,13 +4503,15 @@ function handleYahooChartRequest(req, res) {
   }
 
   const yahooUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=${encodeURIComponent(range)}&interval=${encodeURIComponent(interval)}`;
-  const yahooReq = https.get(yahooUrl, {
+  const yahooOpts = {
     headers: {
       'User-Agent': CHROME_UA,
       Accept: 'application/json',
     },
     timeout: 10000,
-  }, (upstream) => {
+  };
+  if (httpsProxyAgent) yahooOpts.agent = httpsProxyAgent;
+  const yahooReq = https.get(yahooUrl, yahooOpts, (upstream) => {
     let body = '';
     upstream.on('data', (chunk) => { body += chunk; });
     upstream.on('end', () => {
@@ -4728,6 +4842,7 @@ const ALLOWED_ORIGINS = [
   'https://worldmonitor.app',
   'https://tech.worldmonitor.app',
   'https://finance.worldmonitor.app',
+  'http://localhost:3000',   // Vite dev (worldmonitor)
   'http://localhost:5173',   // Vite dev
   'http://localhost:5174',   // Vite dev alt port
   'http://localhost:4173',   // Vite preview
@@ -4832,6 +4947,27 @@ const server = http.createServer(async (req, res) => {
         heapUsed: `${(mem.heapUsed / 1024 / 1024).toFixed(0)}MB`,
         heapTotal: `${(mem.heapTotal / 1024 / 1024).toFixed(0)}MB`,
       },
+      polymarket: {
+        enabled: POLYMARKET_ENABLED,
+        cacheSize: polymarketCache.size,
+        freshest: (() => {
+          let newest = 0;
+          for (const entry of polymarketCache.values()) {
+            if (entry.timestamp > newest) newest = entry.timestamp;
+          }
+          return newest ? new Date(newest).toISOString() : null;
+        })(),
+        circuitBreaker: {
+          failures: polymarketCircuitBreaker.failures,
+          open: Date.now() < polymarketCircuitBreaker.openUntil,
+          openUntil: polymarketCircuitBreaker.openUntil ? new Date(polymarketCircuitBreaker.openUntil).toISOString() : null,
+        },
+        concurrency: {
+          active: polymarketActiveUpstream,
+          queued: polymarketQueue.length,
+          maxConcurrent: POLYMARKET_MAX_CONCURRENT,
+        },
+      },
       cache: {
         opensky: openskyResponseCache.size,
         opensky_neg: openskyNegativeCache.size,
@@ -4882,6 +5018,23 @@ const server = http.createServer(async (req, res) => {
         'Cache-Control': 'public, max-age=2',
         'CDN-Cache-Control': 'public, max-age=10',
       }, JSON.stringify(payload));
+    }
+  } else if (pathname === '/ais/traffic') {
+    // Individual vessel positions — compact array-of-arrays
+    connectUpstream();
+    buildTrafficSnapshot();
+    if (lastTrafficJson) {
+      sendPreGzipped(req, res, 200, {
+        'Content-Type': 'application/json',
+        'Cache-Control': 'public, max-age=5',
+        'CDN-Cache-Control': 'public, max-age=15',
+      }, lastTrafficJson, lastTrafficGzip);
+    } else {
+      sendCompressed(req, res, 200, {
+        'Content-Type': 'application/json',
+        'Cache-Control': 'public, max-age=5',
+        'CDN-Cache-Control': 'public, max-age=15',
+      }, JSON.stringify({ t: Date.now(), c: 0, v: [] }));
     }
   } else if (pathname === '/opensky-reset') {
     openskyToken = null;
@@ -5105,7 +5258,7 @@ const server = http.createServer(async (req, res) => {
         if (rssCached?.lastModified) conditionalHeaders['If-Modified-Since'] = rssCached.lastModified;
 
         const protocol = url.startsWith('https') ? https : http;
-        const request = protocol.get(url, {
+        const rssOpts = {
           headers: {
             'Accept': 'application/rss+xml, application/xml, text/xml, */*',
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -5113,7 +5266,9 @@ const server = http.createServer(async (req, res) => {
             ...conditionalHeaders,
           },
           timeout: 15000
-        }, (response) => {
+        };
+        if (url.startsWith('https') && httpsProxyAgent) rssOpts.agent = httpsProxyAgent;
+        const request = protocol.get(url, rssOpts, (response) => {
           if ([301, 302, 303, 307, 308].includes(response.statusCode) && response.headers.location) {
             const redirectUrl = response.headers.location.startsWith('http')
               ? response.headers.location
@@ -5263,6 +5418,26 @@ const server = http.createServer(async (req, res) => {
     handleYahooChartRequest(req, res);
   } else if (pathname === '/notam') {
     handleNotamProxyRequest(req, res);
+  } else if (pathname === '/api/cn-command') {
+    // Proxy Telegram bot commands to cn-intel-service
+    if (req.method !== 'POST') { res.writeHead(405); return res.end(); }
+    let body = '';
+    req.on('data', chunk => { body += chunk; });
+    req.on('end', async () => {
+      try {
+        const resp = await fetch(`${CN_INTEL_BASE_URL}/api/cn/telegram/command`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body,
+          signal: AbortSignal.timeout(15000),
+        });
+        const data = await resp.text();
+        sendCompressed(req, res, resp.status, { 'Content-Type': 'application/json' }, data);
+      } catch (e) {
+        res.writeHead(502, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: 'cn-intel-service unavailable' }));
+      }
+    });
   } else {
     res.writeHead(404);
     res.end();
@@ -5331,7 +5506,7 @@ function connectUpstream() {
     socket.send(JSON.stringify({
       APIKey: API_KEY,
       BoundingBoxes: [[[-90, -180], [90, 180]]],
-      FilterMessageTypes: ['PositionReport'],
+      FilterMessageTypes: ['PositionReport', 'ShipStaticData'],
     }));
   });
 
@@ -5371,6 +5546,73 @@ function connectUpstream() {
 
 const wss = new WebSocketServer({ server });
 
+// ─────────────────────────────────────────────────────────────
+// CN-Intel Seeder — polls cn-intel-service (port 8078)
+// ─────────────────────────────────────────────────────────────
+const CN_INTEL_BASE_URL = process.env.CN_INTEL_URL || 'http://127.0.0.1:8078';
+const CN_INTEL_POLL_MS = 2 * 60 * 1000; // 2 min
+const CN_INTEL_ENDPOINTS = [
+  { path: '/api/cn/market',     key: 'cn:market',     ttl: 120 },
+  { path: '/api/cn/sentiment',  key: 'cn:sentiment',  ttl: 300 },
+  { path: '/api/cn/research',   key: 'cn:research',   ttl: 3600 },
+  { path: '/api/cn/mood',       key: 'cn:mood',       ttl: 600 },
+  { path: '/api/cn/hot-events', key: 'cn:hot-events', ttl: 1800 },
+  { path: '/api/cn/brief',      key: 'cn:brief',      ttl: 21600 },
+];
+
+async function seedCnIntel() {
+  for (const ep of CN_INTEL_ENDPOINTS) {
+    try {
+      const url = `${CN_INTEL_BASE_URL}${ep.path}`;
+      const resp = await fetch(url, { signal: AbortSignal.timeout(15000) });
+      if (!resp.ok) { console.warn(`[CN-Intel] ${ep.path} HTTP ${resp.status}`); continue; }
+      const data = await resp.json();
+      const ok = await upstashSet(ep.key, data, ep.ttl);
+      if (ok) console.log(`[CN-Intel] Seeded ${ep.key}`);
+    } catch (e) {
+      // cn-intel-service may not be running — skip silently
+    }
+  }
+}
+
+async function startCnIntelSeedLoop() {
+  if (!UPSTASH_ENABLED) return;
+  // Check if cn-intel-service is reachable
+  try {
+    const resp = await fetch(`${CN_INTEL_BASE_URL}/api/cn/health`, { signal: AbortSignal.timeout(3000) });
+    if (!resp.ok) { console.log('[CN-Intel] Service not available, skipping seed loop'); return; }
+    console.log('[CN-Intel] Service available, starting seed loop');
+  } catch {
+    console.log('[CN-Intel] Service not reachable, skipping seed loop');
+    return;
+  }
+  seedCnIntel().catch(e => console.warn('[CN-Intel] Initial seed error:', e?.message || e));
+  setInterval(() => {
+    seedCnIntel().catch(e => console.warn('[CN-Intel] Seed error:', e?.message || e));
+  }, CN_INTEL_POLL_MS).unref?.();
+}
+
+// Polymarket startup warmup — prefetch popular tags to avoid cold-start latency
+function warmupPolymarketCache() {
+  if (!POLYMARKET_ENABLED) return;
+  const warmupTags = ['politics', 'geopolitics', 'ai', 'tech'];
+  console.log(`[Relay] Polymarket warmup: prefetching ${warmupTags.length} tags`);
+  for (const tag of warmupTags) {
+    const params = new URLSearchParams();
+    params.set('closed', 'false');
+    params.set('order', 'volume');
+    params.set('ascending', 'false');
+    params.set('limit', '50');
+    params.set('tag_slug', tag);
+    const cacheKey = `markets:${params.toString()}`;
+    if (!polymarketCache.has(cacheKey)) {
+      fetchPolymarketUpstream(cacheKey, 'markets', params.toString(), tag)
+        .then(d => { if (d) console.log(`[Relay] Polymarket warmup OK: ${tag}`); })
+        .catch(() => {});
+    }
+  }
+}
+
 server.listen(PORT, () => {
   console.log(`[Relay] WebSocket relay on port ${PORT}`);
   startTelegramPollLoop();
@@ -5383,6 +5625,9 @@ server.listen(PORT, () => {
   startCiiSeedLoop();
   startPositiveEventsSeedLoop();
   startGpsJamSeedLoop();
+  startCnIntelSeedLoop();
+  // Prefetch popular Polymarket tags after 5s startup delay
+  setTimeout(warmupPolymarketCache, 5000);
 });
 
 wss.on('connection', (ws, req) => {

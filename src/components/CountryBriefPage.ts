@@ -32,12 +32,12 @@ export class CountryBriefPage implements CountryBriefPanel {
   };
 
   private static INFRA_ICONS: Record<BriefAssetType, string> = {
-    pipeline: '\u{1F50C}',
-    cable: '\u{1F310}',
-    datacenter: '\u{1F5A5}\uFE0F',
-    base: '\u{1F3DB}\uFE0F',
-    nuclear: '\u2622\uFE0F',
-    port: '\u2693',
+    pipeline: '<i class="bi bi-fuel-pump"></i>',
+    cable: '<i class="bi bi-globe"></i>',
+    datacenter: '<i class="bi bi-pc-display"></i>',
+    base: '<i class="bi bi-bank"></i>',
+    nuclear: '<i class="bi bi-radioactive"></i>',
+    port: '<i class="bi bi-life-preserver"></i>',
   };
 
   private static INFRA_LABELS: Record<BriefAssetType, string> = {
@@ -170,7 +170,7 @@ export class CountryBriefPage implements CountryBriefPanel {
         .map((c) => String.fromCodePoint(0x1f1e6 + c.charCodeAt(0) - 65))
         .join('');
     } catch {
-      return '🌍';
+      return '<i class="bi bi-globe2"></i>';
     }
   }
 
@@ -193,7 +193,7 @@ export class CountryBriefPage implements CountryBriefPanel {
   }
 
   private trendIndicator(trend: string): string {
-    const arrow = trend === 'rising' ? '↗' : trend === 'falling' ? '↘' : '→';
+    const arrow = trend === 'rising' ? '<i class="bi bi-arrow-up-right"></i>' : trend === 'falling' ? '<i class="bi bi-arrow-down-right"></i>' : '<i class="bi bi-arrow-right"></i>';
     const cls = trend === 'rising' ? 'trend-up' : trend === 'falling' ? 'trend-down' : 'trend-stable';
     const trendKey = trend as 'rising' | 'falling' | 'stable';
     const trendLabel = t(`countryBrief.trends.${trendKey}`);
@@ -221,10 +221,10 @@ export class CountryBriefPage implements CountryBriefPanel {
 
   private componentBars(components: CountryScore['components']): string {
     const items = [
-      { label: t('modals.countryBrief.components.unrest'), value: components.unrest, icon: '📢' },
-      { label: t('modals.countryBrief.components.conflict'), value: components.conflict, icon: '⚔' },
-      { label: t('modals.countryBrief.components.security'), value: components.security, icon: '🛡️' },
-      { label: t('modals.countryBrief.components.information'), value: components.information, icon: '📡' },
+      { label: t('modals.countryBrief.components.unrest'), value: components.unrest, icon: '<i class="bi bi-megaphone-fill"></i>' },
+      { label: t('modals.countryBrief.components.conflict'), value: components.conflict, icon: '<i class="bi bi-crosshair"></i>' },
+      { label: t('modals.countryBrief.components.security'), value: components.security, icon: '<i class="bi bi-shield-check"></i>' },
+      { label: t('modals.countryBrief.components.information'), value: components.information, icon: '<i class="bi bi-broadcast"></i>' },
     ];
     return items.map(({ label, value, icon }) => {
       const pct = Math.min(100, Math.max(0, value));
@@ -241,25 +241,25 @@ export class CountryBriefPage implements CountryBriefPanel {
 
   private signalChips(signals: CountryBriefSignals): string {
     const chips: string[] = [];
-    if (signals.criticalNews > 0) chips.push(`<span class="signal-chip conflict">🚨 ${signals.criticalNews} Critical News</span>`);
-    if (signals.protests > 0) chips.push(`<span class="signal-chip protest">📢 ${signals.protests} ${t('modals.countryBrief.signals.protests')}</span>`);
-    if (signals.militaryFlights > 0) chips.push(`<span class="signal-chip military">✈️ ${signals.militaryFlights} ${t('modals.countryBrief.signals.militaryAir')}</span>`);
-    if (signals.militaryVessels > 0) chips.push(`<span class="signal-chip military">⚓ ${signals.militaryVessels} ${t('modals.countryBrief.signals.militarySea')}</span>`);
-    if (signals.outages > 0) chips.push(`<span class="signal-chip outage">🌐 ${signals.outages} ${t('modals.countryBrief.signals.outages')}</span>`);
-    if (signals.aisDisruptions > 0) chips.push(`<span class="signal-chip outage">🚢 ${signals.aisDisruptions} AIS Disruptions</span>`);
-    if (signals.satelliteFires > 0) chips.push(`<span class="signal-chip climate">🔥 ${signals.satelliteFires} Satellite Fires</span>`);
-    if (signals.temporalAnomalies > 0) chips.push(`<span class="signal-chip outage">⏱️ ${signals.temporalAnomalies} Temporal Anomalies</span>`);
-    if (signals.cyberThreats > 0) chips.push(`<span class="signal-chip conflict">🛡️ ${signals.cyberThreats} Cyber Threats</span>`);
-    if (signals.earthquakes > 0) chips.push(`<span class="signal-chip quake">🌍 ${signals.earthquakes} ${t('modals.countryBrief.signals.earthquakes')}</span>`);
+    if (signals.criticalNews > 0) chips.push(`<span class="signal-chip conflict"><i class="bi bi-exclamation-octagon-fill"></i> ${signals.criticalNews} Critical News</span>`);
+    if (signals.protests > 0) chips.push(`<span class="signal-chip protest"><i class="bi bi-megaphone-fill"></i> ${signals.protests} ${t('modals.countryBrief.signals.protests')}</span>`);
+    if (signals.militaryFlights > 0) chips.push(`<span class="signal-chip military"><i class="bi bi-airplane-fill"></i> ${signals.militaryFlights} ${t('modals.countryBrief.signals.militaryAir')}</span>`);
+    if (signals.militaryVessels > 0) chips.push(`<span class="signal-chip military"><i class="bi bi-life-preserver"></i> ${signals.militaryVessels} ${t('modals.countryBrief.signals.militarySea')}</span>`);
+    if (signals.outages > 0) chips.push(`<span class="signal-chip outage"><i class="bi bi-globe"></i> ${signals.outages} ${t('modals.countryBrief.signals.outages')}</span>`);
+    if (signals.aisDisruptions > 0) chips.push(`<span class="signal-chip outage"><i class="bi bi-water"></i> ${signals.aisDisruptions} AIS Disruptions</span>`);
+    if (signals.satelliteFires > 0) chips.push(`<span class="signal-chip climate"><i class="bi bi-fire"></i> ${signals.satelliteFires} Satellite Fires</span>`);
+    if (signals.temporalAnomalies > 0) chips.push(`<span class="signal-chip outage"><i class="bi bi-stopwatch"></i> ${signals.temporalAnomalies} Temporal Anomalies</span>`);
+    if (signals.cyberThreats > 0) chips.push(`<span class="signal-chip conflict"><i class="bi bi-shield-check"></i> ${signals.cyberThreats} Cyber Threats</span>`);
+    if (signals.earthquakes > 0) chips.push(`<span class="signal-chip quake"><i class="bi bi-globe2"></i> ${signals.earthquakes} ${t('modals.countryBrief.signals.earthquakes')}</span>`);
     if (signals.displacementOutflow > 0) {
       const fmt = signals.displacementOutflow >= 1_000_000
         ? `${(signals.displacementOutflow / 1_000_000).toFixed(1)}M`
         : `${(signals.displacementOutflow / 1000).toFixed(0)}K`;
-      chips.push(`<span class="signal-chip displacement">🌊 ${fmt} ${t('modals.countryBrief.signals.displaced')}</span>`);
+      chips.push(`<span class="signal-chip displacement"><i class="bi bi-tsunami"></i> ${fmt} ${t('modals.countryBrief.signals.displaced')}</span>`);
     }
-    if (signals.climateStress > 0) chips.push(`<span class="signal-chip climate">🌡️ ${t('modals.countryBrief.signals.climate')}</span>`);
-    if (signals.conflictEvents > 0) chips.push(`<span class="signal-chip conflict">⚔️ ${signals.conflictEvents} ${t('modals.countryBrief.signals.conflictEvents')}</span>`);
-    if (signals.activeStrikes > 0) chips.push(`<span class="signal-chip conflict">\u{1F4A5} ${signals.activeStrikes} ${t('modals.countryBrief.signals.activeStrikes')}</span>`);
+    if (signals.climateStress > 0) chips.push(`<span class="signal-chip climate"><i class="bi bi-thermometer-high"></i> ${t('modals.countryBrief.signals.climate')}</span>`);
+    if (signals.conflictEvents > 0) chips.push(`<span class="signal-chip conflict"><i class="bi bi-crosshair"></i> ${signals.conflictEvents} ${t('modals.countryBrief.signals.conflictEvents')}</span>`);
+    if (signals.activeStrikes > 0) chips.push(`<span class="signal-chip conflict"><i class="bi bi-explosion"></i> ${signals.activeStrikes} ${t('modals.countryBrief.signals.activeStrikes')}</span>`);
     if (signals.travelAdvisories > 0 && signals.travelAdvisoryMaxLevel) {
       const advisoryClass = signals.travelAdvisoryMaxLevel === 'do-not-travel' ? 'conflict'
         : signals.travelAdvisoryMaxLevel === 'reconsider' ? 'outage'
@@ -267,13 +267,13 @@ export class CountryBriefPage implements CountryBriefPanel {
       const advisoryLabel = signals.travelAdvisoryMaxLevel === 'do-not-travel' ? 'Do Not Travel'
         : signals.travelAdvisoryMaxLevel === 'reconsider' ? 'Reconsider Travel'
         : 'Exercise Caution';
-      chips.push(`<span class="signal-chip ${advisoryClass}">\u26A0\uFE0F ${signals.travelAdvisories} Advisory: ${advisoryLabel}</span>`);
+      chips.push(`<span class="signal-chip ${advisoryClass}"><i class="bi bi-exclamation-triangle-fill"></i> ${signals.travelAdvisories} Advisory: ${advisoryLabel}</span>`);
     }
-    if (signals.orefSirens > 0) chips.push(`<span class="signal-chip conflict">\u{1F6A8} ${signals.orefSirens} Active Sirens</span>`);
-    if (signals.orefHistory24h > 0) chips.push(`<span class="signal-chip conflict">\u{1F553} ${signals.orefHistory24h} Sirens / 24h</span>`);
-    if (signals.aviationDisruptions > 0) chips.push(`<span class="signal-chip outage">\u{1F6AB} ${signals.aviationDisruptions} ${t('modals.countryBrief.signals.aviationDisruptions')}</span>`);
-    if (signals.gpsJammingHexes > 0) chips.push(`<span class="signal-chip outage">\u{1F4E1} ${signals.gpsJammingHexes} ${t('modals.countryBrief.signals.gpsJammingZones')}</span>`);
-    chips.push(`<span class="signal-chip stock-loading">📈 ${t('modals.countryBrief.loadingIndex')}</span>`);
+    if (signals.orefSirens > 0) chips.push(`<span class="signal-chip conflict"><i class="bi bi-exclamation-octagon-fill"></i> ${signals.orefSirens} Active Sirens</span>`);
+    if (signals.orefHistory24h > 0) chips.push(`<span class="signal-chip conflict"><i class="bi bi-clock-history"></i> ${signals.orefHistory24h} Sirens / 24h</span>`);
+    if (signals.aviationDisruptions > 0) chips.push(`<span class="signal-chip outage"><i class="bi bi-slash-circle"></i> ${signals.aviationDisruptions} ${t('modals.countryBrief.signals.aviationDisruptions')}</span>`);
+    if (signals.gpsJammingHexes > 0) chips.push(`<span class="signal-chip outage"><i class="bi bi-broadcast"></i> ${signals.gpsJammingHexes} ${t('modals.countryBrief.signals.gpsJammingZones')}</span>`);
+    chips.push(`<span class="signal-chip stock-loading"><i class="bi bi-graph-up-arrow"></i> ${t('modals.countryBrief.loadingIndex')}</span>`);
     return chips.join('');
   }
 
@@ -291,7 +291,7 @@ export class CountryBriefPage implements CountryBriefPanel {
       <div class="country-brief-page">
         <div class="cb-header">
           <div class="cb-header-left">
-            <span class="cb-flag">🌍</span>
+            <span class="cb-flag"><i class="bi bi-globe2"></i></span>
             <span class="cb-country-name">${t('modals.countryBrief.identifying')}</span>
           </div>
           <div class="cb-header-right">
@@ -380,7 +380,7 @@ export class CountryBriefPage implements CountryBriefPanel {
                 <section class="cb-section cb-risk-section">
                   <h3 class="cb-section-title">${t('modals.countryBrief.instabilityIndex')}</h3>
                   <div class="cb-not-tracked">
-                    <span class="cb-not-tracked-icon">📊</span>
+                    <span class="cb-not-tracked-icon"><i class="bi bi-bar-chart-fill"></i></span>
                     <span>${t('modals.countryBrief.notTracked', { country: escapeHtml(country) })}</span>
                   </div>
                 </section>`}
@@ -456,7 +456,7 @@ export class CountryBriefPage implements CountryBriefPanel {
     section.innerHTML = `
       <div class="cb-brief-text">${formatted}</div>
       <div class="cb-brief-footer">
-        ${data.cached ? `<span class="intel-cached">📋 ${t('modals.countryBrief.cached')}</span>` : `<span class="intel-fresh">✨ ${t('modals.countryBrief.fresh')}</span>`}
+        ${data.cached ? `<span class="intel-cached"><i class="bi bi-clipboard-check"></i> ${t('modals.countryBrief.cached')}</span>` : `<span class="intel-fresh"><i class="bi bi-stars"></i> ${t('modals.countryBrief.fresh')}</span>`}
         <span class="intel-timestamp">${data.generatedAt ? new Date(data.generatedAt).toLocaleTimeString() : ''}</span>
       </div>`;
   }
@@ -475,7 +475,7 @@ export class CountryBriefPage implements CountryBriefPanel {
       const noPct = 100 - pct;
       const vol = m.volume ? `$${(m.volume / 1000).toFixed(0)}k vol` : '';
       const safeUrl = sanitizeUrl(m.url || '');
-      const link = safeUrl ? ` <a href="${safeUrl}" target="_blank" rel="noopener" class="cb-market-link">↗</a>` : '';
+      const link = safeUrl ? ` <a href="${safeUrl}" target="_blank" rel="noopener" class="cb-market-link"><i class="bi bi-box-arrow-up-right"></i></a>` : '';
       return `
         <div class="cb-market-item">
           <div class="cb-market-title">${escapeHtml(m.title.slice(0, 100))}${link}</div>
@@ -500,7 +500,7 @@ export class CountryBriefPage implements CountryBriefPanel {
     const pct = parseFloat(data.weekChangePercent);
     const sign = pct >= 0 ? '+' : '';
     const cls = pct >= 0 ? 'stock-up' : 'stock-down';
-    const arrow = pct >= 0 ? '📈' : '📉';
+    const arrow = pct >= 0 ? '<i class="bi bi-graph-up-arrow"></i>' : '<i class="bi bi-graph-down-arrow"></i>';
     el.className = `signal-chip stock ${cls}`;
     el.innerHTML = `${arrow} ${escapeHtml(data.indexName)}: ${sign}${data.weekChangePercent}% (1W)`;
   }

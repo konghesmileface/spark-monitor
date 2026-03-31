@@ -3,6 +3,7 @@
  */
 
 import { CHROME_UA, yahooGate } from '../../../_shared/constants';
+import { proxyFetch } from '../../../_shared/proxy-fetch';
 
 /**
  * Fetch JSON from a URL with a configurable timeout.
@@ -13,7 +14,7 @@ export async function fetchJSON(url: string, timeout = 8000): Promise<any> {
   const controller = new AbortController();
   const id = setTimeout(() => controller.abort(), timeout);
   try {
-    const res = await fetch(url, { headers: { 'User-Agent': CHROME_UA }, signal: controller.signal });
+    const res = await proxyFetch(url, { headers: { 'User-Agent': CHROME_UA }, signal: controller.signal });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return await res.json();
   } finally {

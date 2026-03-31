@@ -118,7 +118,7 @@ export interface RawFlight {
   aircraftType: string;
 }
 
-export const UPSTREAM_TIMEOUT_MS = 20_000;
+export const UPSTREAM_TIMEOUT_MS = 45_000;
 
 // ========================================================================
 // Wingbits response mapper (shared by single + batch RPCs)

@@ -102,6 +102,7 @@ export const VARIANT_FEEDS: Record<string, Record<string, ServerFeed[]>> = {
     ],
     layoffs: [
       { name: 'TechCrunch Layoffs', url: 'https://techcrunch.com/tag/layoffs/feed/' },
+      { name: 'Layoffs News', url: gn('(layoffs OR "laid off" OR "job cuts" OR "workforce reduction") when:14d') },
     ],
   },
 

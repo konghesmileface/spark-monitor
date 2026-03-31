@@ -2,7 +2,9 @@
 // Constants
 // ========================================================================
 
-export const UPSTREAM_TIMEOUT_MS = 10_000;
+import { proxyFetch } from '../../../_shared/proxy-fetch';
+
+export const UPSTREAM_TIMEOUT_MS = 45_000; // NGA via proxy needs >10s
 
 // Temporal baseline constants
 export const BASELINE_TTL = 7776000; // 90 days in seconds
@@ -47,7 +49,7 @@ export async function mgetJson(keys: string[]): Promise<(unknown | null)[]> {
   const token = process.env.UPSTASH_REDIS_REST_TOKEN;
   if (!url || !token) return keys.map(() => null);
   try {
-    const resp = await fetch(`${url}`, {
+    const resp = await proxyFetch(`${url}`, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${token}`,

@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; connect-src 'self' https: http://localhost:5173 ws: wss: blob: data:; img-src 'self' data: blob: https:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; script-src 'self' 'sha256-LnMFPWZxTgVOr2VYwIh9mhQ3l/l3+a3SfNOLERnuHfY=' 'sha256-+SFBjfmi2XfnyAT3POBxf6JIKYDcNXtllPclOcaNBI0=' 'sha256-AhZAmdCW6h8iXMyBcvIrqN71FGNk4lwLD+lPxx43hxg=' 'sha256-PnEBZii+iFaNE2EyXaJhRq34g6bdjRJxpLfJALdXYt8=' 'sha256-cVhuR63Moy56DV5yG0caJCEyCugMTbYclkvkK6fSwXY=' 'wasm-unsafe-eval' https://www.youtube.com https://static.cloudflareinsights.com https://vercel.live; worker-src 'self' blob:; font-src 'self' data: https:; media-src 'self' data: blob: https: http://127.0.0.1:* http://localhost:*; frame-src 'self' http://127.0.0.1:* http://localhost:* https://worldmonitor.app https://tech.worldmonitor.app https://happy.worldmonitor.app https://www.youtube.com https://www.youtube-nocookie.com;" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; connect-src 'self' https: http://localhost:* http://127.0.0.1:* ws: wss: blob: data:; img-src 'self' data: blob: https:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; script-src 'self' 'sha256-psgpL1pErHdl/Dmf1MboAR/6duHEf0ADkrBL1nHJE/4=' 'sha256-+SFBjfmi2XfnyAT3POBxf6JIKYDcNXtllPclOcaNBI0=' 'sha256-AhZAmdCW6h8iXMyBcvIrqN71FGNk4lwLD+lPxx43hxg=' 'sha256-PnEBZii+iFaNE2EyXaJhRq34g6bdjRJxpLfJALdXYt8=' 'sha256-cVhuR63Moy56DV5yG0caJCEyCugMTbYclkvkK6fSwXY=' 'wasm-unsafe-eval' https://www.youtube.com https://static.cloudflareinsights.com https://vercel.live; worker-src 'self' blob:; font-src 'self' data: https:; media-src 'self' data: blob: https: http://127.0.0.1:* http://localhost:*; frame-src 'self' http://127.0.0.1:* http://localhost:* https://worldmonitor.app https://tech.worldmonitor.app https://happy.worldmonitor.app https://spark.worldmonitor.app https://www.youtube.com https://www.youtube-nocookie.com; frame-ancestors 'self' https://sparkfinance.cn https://*.sparkfinance.cn http://localhost:*;" />
     <meta name="referrer" content="strict-origin-when-cross-origin" />
 
     <!-- Primary Meta Tags -->
@@ -92,7 +92,7 @@
 
 
     <!-- Theme: apply stored preference before first paint to prevent FOUC -->
-    <script>(function(){try{var h=location.hostname;var v;if(h.startsWith('happy.'))v='happy';else if(h.startsWith('tech.'))v='tech';else if(h.startsWith('finance.'))v='finance';if(!v&&(h==='localhost'||h==='127.0.0.1'||'__TAURI_INTERNALS__' in window))v=localStorage.getItem('worldmonitor-variant');if(v)document.documentElement.dataset.variant=v;else document.documentElement.removeAttribute('data-variant');var t=localStorage.getItem('worldmonitor-theme');if(t==='dark'||t==='light'){document.documentElement.dataset.theme=t;}else if(v==='happy'){document.documentElement.dataset.theme='light';}}catch(e){}document.documentElement.classList.add('no-transition');})()</script>
+    <script>(function(){try{var h=location.hostname;var v;if(h.startsWith('happy.'))v='happy';else if(h.startsWith('tech.'))v='tech';else if(h.startsWith('finance.'))v='finance';else if(h.startsWith('spark.'))v='spark';if(!v&&(h==='localhost'||h==='127.0.0.1'||'__TAURI_INTERNALS__' in window))v=localStorage.getItem('worldmonitor-variant');if(v)document.documentElement.dataset.variant=v;else document.documentElement.removeAttribute('data-variant');var t=localStorage.getItem('worldmonitor-theme');if(t==='dark'||t==='light'){document.documentElement.dataset.theme=t;}else if(v==='happy'){document.documentElement.dataset.theme='light';}if(new URLSearchParams(location.search).get('embed')==='true')document.body.classList.add('embed-mode');}catch(e){}document.documentElement.classList.add('no-transition');})()</script>
 
     <!-- Critical CSS: inline skeleton visible before JS boots -->
     <style>
@@ -155,12 +155,28 @@
       [data-variant="happy"][data-theme="dark"] .skeleton-panel{background:#222E3E;border-color:#344050}
       [data-variant="happy"][data-theme="dark"] .skeleton-panel-header{border-bottom-color:#283545}
       [data-variant="happy"][data-theme="dark"] .skeleton-line{background:linear-gradient(90deg,rgba(139,175,122,.05) 25%,rgba(139,175,122,.10) 50%,rgba(139,175,122,.05) 75%);background-size:200% 100%;animation:skel-shimmer 1.5s infinite}
+
+      /* ---------- skeleton shell (spark variant) ---------- */
+      [data-variant="spark"] .skeleton-shell{background:#0C1222;font-family:'Inter',system-ui,sans-serif}
+      [data-variant="spark"] .skeleton-header{background:#141E30;border-bottom-color:rgba(232,168,56,0.12)}
+      [data-variant="spark"] .skeleton-pill{background:#1A2840;border-radius:6px}
+      [data-variant="spark"] .skeleton-dot{background:#E8A838;box-shadow:0 0 6px rgba(232,168,56,0.4)}
+      [data-variant="spark"] .skeleton-main{background:#0C1222}
+      [data-variant="spark"] .skeleton-map{border-color:rgba(232,168,56,0.12);background:#0A1525;border-radius:10px;height:65vh}
+      [data-variant="spark"] .skeleton-map-bar{background:#141E30;border-bottom-color:rgba(232,168,56,0.12)}
+      [data-variant="spark"] .skeleton-map-body::after{background:radial-gradient(ellipse 60% 50% at 50% 50%,#0F2030 0%,#0A1525 100%);opacity:.5}
+      [data-variant="spark"] .skeleton-panel{background:#141E30;border-color:rgba(232,168,56,0.12);border-radius:10px}
+      [data-variant="spark"] .skeleton-panel-header{border-bottom-color:rgba(232,168,56,0.08)}
+      [data-variant="spark"] .skeleton-line{background:linear-gradient(90deg,rgba(232,168,56,.04) 25%,rgba(232,168,56,.10) 50%,rgba(232,168,56,.04) 75%);background-size:200% 100%;animation:skel-shimmer 1.5s infinite}
+
+      /* ---------- embed mode ---------- */
+      body.embed-mode .skeleton-header{display:none}
     </style>
 
-    <!-- Google Fonts (Nunito for happy variant, Tajawal for Arabic) -->
+    <!-- Google Fonts (Nunito for happy variant, Inter for spark variant, Tajawal for Arabic) -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Nunito:ital,wght@0,300;0,400;0,600;0,700;1,400&family=Tajawal:wght@200;300;400;500;700;800;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Nunito:ital,wght@0,300;0,400;0,600;0,700;1,400&family=Tajawal:wght@200;300;400;500;700;800;900&display=swap" rel="stylesheet">
   </head>
   <body>
     <div id="app">

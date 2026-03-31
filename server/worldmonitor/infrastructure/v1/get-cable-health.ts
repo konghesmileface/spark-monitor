@@ -8,6 +8,7 @@ import type {
 } from '../../../../src/generated/server/worldmonitor/infrastructure/v1/service_server';
 
 import { cachedFetchJson } from '../../../_shared/redis';
+import { proxyFetch } from '../../../_shared/proxy-fetch';
 import { UPSTREAM_TIMEOUT_MS } from './_shared';
 import { CHROME_UA } from '../../../_shared/constants';
 
@@ -120,13 +121,14 @@ interface Signal {
 
 async function fetchNgaWarnings(): Promise<NgaWarning[]> {
   try {
-    const res = await fetch(
+    const res = await proxyFetch(
       'https://msi.nga.mil/api/publications/broadcast-warn?output=json&status=A',
       { headers: { 'User-Agent': CHROME_UA }, signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS) },
     );
     if (!res.ok) return [];
     const data = await res.json();
-    return Array.isArray(data) ? data : (data as { warnings?: NgaWarning[] })?.warnings ?? [];
+    const obj = data as Record<string, any>;
+    return Array.isArray(data) ? data : (obj?.['broadcast-warn'] ?? obj?.broadcast_warn ?? obj?.warnings ?? []);
   } catch {
     return [];
   }

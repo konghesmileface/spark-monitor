@@ -605,8 +605,9 @@ export class GlobeMap {
     this.applyRenderQuality(initialScale);
     this.applyPerformanceProfile(resolvePerformanceProfile(initialScale));
 
-    // Add overlay UI (zoom controls + layer panel)
+    // Add overlay UI (zoom controls + time slider + layer panel)
     this.createControls();
+    this.createTimeSlider();
     this.createLayerToggles();
 
     // Load static datasets
@@ -684,7 +685,7 @@ export class GlobeMap {
       const color = typeColors[d.type] ?? '#cccccc';
       el.innerHTML = `
         <div style="transform:rotate(${heading}deg);font-size:11px;color:${color};text-shadow:0 0 4px ${color}88;line-height:1;">
-          ✈
+          <i class="bi bi-airplane-fill"></i>
         </div>`;
       el.title = `${d.callsign} (${d.type})`;
     } else if (d._kind === 'vessel') {
@@ -693,21 +694,21 @@ export class GlobeMap {
         frigate: '#44aaff', amphibious: '#88ff44', support: '#aaaaaa',
       };
       const c = typeColors[d.type] ?? '#44aaff';
-      el.innerHTML = `<div style="font-size:10px;color:${c};text-shadow:0 0 4px ${c}88;">⛴</div>`;
+      el.innerHTML = `<div style="font-size:10px;color:${c};text-shadow:0 0 4px ${c}88;"><i class="bi bi-water"></i></div>`;
       el.title = `${d.name} (${d.type})`;
     } else if (d._kind === 'weather') {
       const severityColors: Record<string, string> = {
         Extreme: '#ff0044', Severe: '#ff6600', Moderate: '#ffaa00', Minor: '#88aaff',
       };
       const c = severityColors[d.severity] ?? '#88aaff';
-      el.innerHTML = `<div style="font-size:9px;color:${c};text-shadow:0 0 4px ${c}88;font-weight:bold;">⚡</div>`;
+      el.innerHTML = `<div style="font-size:9px;color:${c};text-shadow:0 0 4px ${c}88;font-weight:bold;"><i class="bi bi-lightning-charge-fill"></i></div>`;
       el.title = d.headline;
     } else if (d._kind === 'natural') {
       const typeIcons: Record<string, string> = {
-        earthquakes: '〽', volcanoes: '🌋', severeStorms: '🌀',
-        floods: '💧', wildfires: '🔥', drought: '☀',
+        earthquakes: '<i class="bi bi-activity"></i>', volcanoes: '<i class="bi bi-triangle-fill"></i>', severeStorms: '<i class="bi bi-tornado"></i>',
+        floods: '<i class="bi bi-droplet-fill"></i>', wildfires: '<i class="bi bi-fire"></i>', drought: '<i class="bi bi-sun-fill"></i>',
       };
-      const icon = typeIcons[d.category] ?? '⚠';
+      const icon = typeIcons[d.category] ?? '<i class="bi bi-exclamation-triangle-fill"></i>';
       el.innerHTML = `<div style="font-size:11px;">${icon}</div>`;
       el.title = d.title;
     } else if (d._kind === 'iran') {
@@ -720,15 +721,15 @@ export class GlobeMap {
       el.title = d.title;
     } else if (d._kind === 'outage') {
       const sc = d.severity === 'total' ? '#ff2020' : d.severity === 'major' ? '#ff8800' : '#ffcc00';
-      el.innerHTML = `<div style="font-size:12px;color:${sc};text-shadow:0 0 4px ${sc}88;">📡</div>`;
+      el.innerHTML = `<div style="font-size:12px;color:${sc};text-shadow:0 0 4px ${sc}88;"><i class="bi bi-broadcast"></i></div>`;
       el.title = `${d.country}: ${d.title}`;
     } else if (d._kind === 'cyber') {
       const sc = d.severity === 'critical' ? '#ff0044' : d.severity === 'high' ? '#ff4400' : d.severity === 'medium' ? '#ffaa00' : '#44aaff';
-      el.innerHTML = `<div style="font-size:10px;color:${sc};text-shadow:0 0 4px ${sc}88;font-weight:bold;">🛡</div>`;
+      el.innerHTML = `<div style="font-size:10px;color:${sc};text-shadow:0 0 4px ${sc}88;font-weight:bold;"><i class="bi bi-shield-check"></i></div>`;
       el.title = `${d.type}: ${d.indicator}`;
     } else if (d._kind === 'fire') {
       const intensity = d.brightness > 400 ? '#ff2020' : d.brightness > 330 ? '#ff6600' : '#ffaa00';
-      el.innerHTML = `<div style="font-size:10px;color:${intensity};text-shadow:0 0 4px ${intensity}88;">🔥</div>`;
+      el.innerHTML = `<div style="font-size:10px;color:${intensity};text-shadow:0 0 4px ${intensity}88;"><i class="bi bi-fire"></i></div>`;
       el.title = `Fire — ${d.region}`;
     } else if (d._kind === 'protest') {
       const typeColors: Record<string, string> = {
@@ -736,7 +737,7 @@ export class GlobeMap {
         demonstration: '#88ff44', civil_unrest: '#ff6600',
       };
       const c = typeColors[d.eventType] ?? '#ffaa00';
-      el.innerHTML = `<div style="font-size:11px;color:${c};text-shadow:0 0 4px ${c}88;">📢</div>`;
+      el.innerHTML = `<div style="font-size:11px;color:${c};text-shadow:0 0 4px ${c}88;"><i class="bi bi-megaphone-fill"></i></div>`;
       el.title = d.title;
     } else if (d._kind === 'ucdp') {
       const size = Math.min(10, 5 + (d.deaths || 0) * 0.3);
@@ -746,19 +747,19 @@ export class GlobeMap {
         </div>`;
       el.title = `${d.sideA} vs ${d.sideB}`;
     } else if (d._kind === 'displacement') {
-      el.innerHTML = `<div style="font-size:11px;color:#88bbff;text-shadow:0 0 4px #88bbff88;">👥</div>`;
+      el.innerHTML = `<div style="font-size:11px;color:#88bbff;text-shadow:0 0 4px #88bbff88;"><i class="bi bi-people-fill"></i></div>`;
       el.title = `${d.origin} → ${d.asylum}`;
     } else if (d._kind === 'climate') {
       const typeColors: Record<string, string> = { warm: '#ff4400', cold: '#44aaff', wet: '#00ccff', dry: '#ff8800', mixed: '#88ff88' };
       const c = typeColors[d.type] ?? '#88ff88';
-      el.innerHTML = `<div style="font-size:10px;color:${c};text-shadow:0 0 4px ${c}88;">🌡</div>`;
+      el.innerHTML = `<div style="font-size:10px;color:${c};text-shadow:0 0 4px ${c}88;"><i class="bi bi-thermometer-half"></i></div>`;
       el.title = `${d.zone} (${d.type})`;
     } else if (d._kind === 'gpsjam') {
       const c = d.level === 'high' ? '#ff2020' : '#ff8800';
-      el.innerHTML = `<div style="font-size:10px;color:${c};text-shadow:0 0 4px ${c}88;">📡</div>`;
+      el.innerHTML = `<div style="font-size:10px;color:${c};text-shadow:0 0 4px ${c}88;"><i class="bi bi-broadcast"></i></div>`;
       el.title = `GPS Jamming (${d.level})`;
     } else if (d._kind === 'tech') {
-      el.innerHTML = `<div style="font-size:10px;color:#44aaff;text-shadow:0 0 4px #44aaff88;">💻</div>`;
+      el.innerHTML = `<div style="font-size:10px;color:#44aaff;text-shadow:0 0 4px #44aaff88;"><i class="bi bi-laptop"></i></div>`;
       el.title = d.title;
     } else if (d._kind === 'conflictZone') {
       const intColor = d.intensity === 'high' ? '#ff2020' : d.intensity === 'medium' ? '#ff8800' : '#ffcc00';
@@ -773,7 +774,7 @@ export class GlobeMap {
           <div style="
             position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
             font-size:9px;line-height:1;color:${intColor};
-          ">⚔</div>
+          "><i class="bi bi-crosshair"></i></div>
         </div>`;
       el.title = d.name;
     } else if (d._kind === 'milbase') {
@@ -793,13 +794,13 @@ export class GlobeMap {
         "></div>`;
       el.title = `${d.name}${d.country ? ' · ' + d.country : ''}`;
     } else if (d._kind === 'nuclearSite') {
-      el.innerHTML = `<div style="font-size:11px;color:#ffd700;text-shadow:0 0 4px #ffd70088;">☢</div>`;
+      el.innerHTML = `<div style="font-size:11px;color:#ffd700;text-shadow:0 0 4px #ffd70088;"><i class="bi bi-radioactive"></i></div>`;
       el.title = `${d.name} (${d.type})`;
     } else if (d._kind === 'irradiator') {
-      el.innerHTML = `<div style="font-size:10px;color:#ff8800;text-shadow:0 0 3px #ff880088;">⚠</div>`;
+      el.innerHTML = `<div style="font-size:10px;color:#ff8800;text-shadow:0 0 3px #ff880088;"><i class="bi bi-exclamation-triangle-fill"></i></div>`;
       el.title = `${d.city}, ${d.country}`;
     } else if (d._kind === 'spaceport') {
-      el.innerHTML = `<div style="font-size:11px;color:#88ddff;text-shadow:0 0 4px #88ddff88;">🚀</div>`;
+      el.innerHTML = `<div style="font-size:11px;color:#88ddff;text-shadow:0 0 4px #88ddff88;"><i class="bi bi-rocket-takeoff"></i></div>`;
       el.title = `${d.name} (${d.operator})`;
     } else if (d._kind === 'earthquake') {
       const mc = d.magnitude >= 6 ? '#ff2020' : d.magnitude >= 4 ? '#ff8800' : '#ffcc00';
@@ -808,28 +809,28 @@ export class GlobeMap {
       el.title = `M${d.magnitude.toFixed(1)} — ${d.place}`;
     } else if (d._kind === 'economic') {
       const ec = d.type === 'exchange' ? '#ffd700' : d.type === 'central-bank' ? '#4488ff' : '#44cc88';
-      el.innerHTML = `<div style="font-size:11px;color:${ec};text-shadow:0 0 4px ${ec}88;">💰</div>`;
+      el.innerHTML = `<div style="font-size:11px;color:${ec};text-shadow:0 0 4px ${ec}88;"><i class="bi bi-cash-stack"></i></div>`;
       el.title = `${d.name} · ${d.country}`;
     } else if (d._kind === 'datacenter') {
-      el.innerHTML = `<div style="font-size:10px;color:#88aaff;text-shadow:0 0 3px #88aaff88;">🖥</div>`;
+      el.innerHTML = `<div style="font-size:10px;color:#88aaff;text-shadow:0 0 3px #88aaff88;"><i class="bi bi-pc-display"></i></div>`;
       el.title = `${d.name} (${d.owner})`;
     } else if (d._kind === 'waterway') {
-      el.innerHTML = `<div style="font-size:10px;color:#44aadd;text-shadow:0 0 3px #44aadd88;">⚓</div>`;
+      el.innerHTML = `<div style="font-size:10px;color:#44aadd;text-shadow:0 0 3px #44aadd88;"><i class="bi bi-life-preserver"></i></div>`;
       el.title = d.name;
     } else if (d._kind === 'mineral') {
-      el.innerHTML = `<div style="font-size:10px;color:#cc88ff;text-shadow:0 0 3px #cc88ff88;">💎</div>`;
+      el.innerHTML = `<div style="font-size:10px;color:#cc88ff;text-shadow:0 0 3px #cc88ff88;"><i class="bi bi-diamond"></i></div>`;
       el.title = `${d.mineral} — ${d.name}`;
     } else if (d._kind === 'flightDelay') {
       const sc = d.severity === 'severe' ? '#ff2020' : d.severity === 'major' ? '#ff6600' : d.severity === 'moderate' ? '#ffaa00' : '#ffee44';
-      el.innerHTML = `<div style="font-size:11px;color:${sc};text-shadow:0 0 4px ${sc}88;">✈</div>`;
+      el.innerHTML = `<div style="font-size:11px;color:${sc};text-shadow:0 0 4px ${sc}88;"><i class="bi bi-airplane-fill"></i></div>`;
       el.title = `${d.iata} — ${d.severity}`;
     } else if (d._kind === 'cableAdvisory') {
       const sc = d.severity === 'fault' ? '#ff2020' : '#ff8800';
-      el.innerHTML = `<div style="font-size:11px;color:${sc};text-shadow:0 0 4px ${sc}88;">🔌</div>`;
+      el.innerHTML = `<div style="font-size:11px;color:${sc};text-shadow:0 0 4px ${sc}88;"><i class="bi bi-plug"></i></div>`;
       el.title = `${d.title} (${d.severity})`;
     } else if (d._kind === 'repairShip') {
       const sc = d.status === 'on-station' ? '#44ff88' : '#44aaff';
-      el.innerHTML = `<div style="font-size:11px;color:${sc};text-shadow:0 0 4px ${sc}88;">🚢</div>`;
+      el.innerHTML = `<div style="font-size:11px;color:${sc};text-shadow:0 0 4px ${sc}88;"><i class="bi bi-water"></i></div>`;
       el.title = d.name;
     } else if (d._kind === 'newsLocation') {
       const tc = d.threatLevel === 'critical' ? '#ff2020'
@@ -844,7 +845,7 @@ export class GlobeMap {
       el.title = d.title;
     } else if (d._kind === 'aisDisruption') {
       const sc = d.severity === 'high' ? '#ff2020' : d.severity === 'elevated' ? '#ff8800' : '#44aaff';
-      el.innerHTML = `<div style="font-size:11px;color:${sc};text-shadow:0 0 4px ${sc}88;">⛴</div>`;
+      el.innerHTML = `<div style="font-size:11px;color:${sc};text-shadow:0 0 4px ${sc}88;"><i class="bi bi-water"></i></div>`;
       el.title = d.name;
     } else if (d._kind === 'flash') {
       el.style.pointerEvents = 'none';
@@ -901,136 +902,136 @@ export class GlobeMap {
 
     let html = '';
     if (d._kind === 'conflict') {
-      html = `<span style="color:#ff5050;font-weight:bold;">⚔ ${esc(d.location)}</span>` +
+      html = `<span style="color:#ff5050;font-weight:bold;"><i class="bi bi-crosshair"></i> ${esc(d.location)}</span>` +
              (d.fatalities ? `<br><span style="opacity:.7;">Casualties: ${d.fatalities}</span>` : '');
     } else if (d._kind === 'hotspot') {
       const sc = ['', '#88ff44', '#ffdd00', '#ffaa00', '#ff6600', '#ff2020'][d.escalationScore] ?? '#ffaa00';
-      html = `<span style="color:${sc};font-weight:bold;">🎯 ${esc(d.name)}</span>` +
+      html = `<span style="color:${sc};font-weight:bold;"><i class="bi bi-bullseye"></i> ${esc(d.name)}</span>` +
              `<br><span style="opacity:.7;">Escalation: ${d.escalationScore}/5</span>`;
     } else if (d._kind === 'flight') {
-      html = `<span style="font-weight:bold;">✈ ${esc(d.callsign)}</span><br><span style="opacity:.7;">${esc(d.type)}</span>`;
+      html = `<span style="font-weight:bold;"><i class="bi bi-airplane-fill"></i> ${esc(d.callsign)}</span><br><span style="opacity:.7;">${esc(d.type)}</span>`;
     } else if (d._kind === 'vessel') {
-      html = `<span style="font-weight:bold;">⛴ ${esc(d.name)}</span><br><span style="opacity:.7;">${esc(d.type)}</span>`;
+      html = `<span style="font-weight:bold;"><i class="bi bi-water"></i> ${esc(d.name)}</span><br><span style="opacity:.7;">${esc(d.type)}</span>`;
     } else if (d._kind === 'weather') {
       const wc = d.severity === 'Extreme' ? '#ff0044' : d.severity === 'Severe' ? '#ff6600' : '#88aaff';
-      html = `<span style="color:${wc};font-weight:bold;">⚡ ${esc(d.severity)}</span>` +
+      html = `<span style="color:${wc};font-weight:bold;"><i class="bi bi-lightning-charge-fill"></i> ${esc(d.severity)}</span>` +
              `<br><span style="opacity:.7;white-space:normal;display:block;">${esc(d.headline.slice(0, 90))}</span>`;
     } else if (d._kind === 'natural') {
       html = `<span style="font-weight:bold;">${esc(d.title.slice(0, 60))}</span>` +
              `<br><span style="opacity:.7;">${esc(d.category)}</span>`;
     } else if (d._kind === 'iran') {
       const sc = (d.severity === 'high' || d.severity === 'critical') ? '#ff3030' : d.severity === 'medium' ? '#ff8800' : '#ffcc00';
-      html = `<span style="color:${sc};font-weight:bold;">🎯 ${esc(d.title.slice(0, 60))}</span>` +
+      html = `<span style="color:${sc};font-weight:bold;"><i class="bi bi-bullseye"></i> ${esc(d.title.slice(0, 60))}</span>` +
              `<br><span style="opacity:.7;">${esc(d.category)}${d.location ? ' · ' + esc(d.location) : ''}</span>`;
     } else if (d._kind === 'outage') {
       const sc = d.severity === 'total' ? '#ff2020' : d.severity === 'major' ? '#ff8800' : '#ffcc00';
-      html = `<span style="color:${sc};font-weight:bold;">📡 ${d.severity.toUpperCase()} Outage</span>` +
+      html = `<span style="color:${sc};font-weight:bold;"><i class="bi bi-broadcast"></i> ${d.severity.toUpperCase()} Outage</span>` +
              `<br><span style="opacity:.7;">${esc(d.country)}</span>` +
              `<br><span style="opacity:.7;white-space:normal;display:block;">${esc(d.title.slice(0, 70))}</span>`;
     } else if (d._kind === 'cyber') {
       const sc = d.severity === 'critical' ? '#ff0044' : d.severity === 'high' ? '#ff4400' : '#ffaa00';
-      html = `<span style="color:${sc};font-weight:bold;">🛡 ${d.severity.toUpperCase()}</span>` +
+      html = `<span style="color:${sc};font-weight:bold;"><i class="bi bi-shield-check"></i> ${d.severity.toUpperCase()}</span>` +
              `<br><span style="opacity:.7;">${esc(d.type)}</span>` +
              `<br><span style="opacity:.5;font-size:10px;">${esc(d.indicator.slice(0, 40))}</span>`;
     } else if (d._kind === 'fire') {
-      html = `<span style="color:#ff6600;font-weight:bold;">🔥 Wildfire</span>` +
+      html = `<span style="color:#ff6600;font-weight:bold;"><i class="bi bi-fire"></i> Wildfire</span>` +
              `<br><span style="opacity:.7;">${esc(d.region)}</span>` +
              `<br><span style="opacity:.5;">Brightness: ${d.brightness.toFixed(0)} K</span>`;
     } else if (d._kind === 'protest') {
       const typeColors: Record<string, string> = { riot: '#ff3030', strike: '#44aaff', protest: '#ffaa00' };
       const c = typeColors[d.eventType] ?? '#ffaa00';
-      html = `<span style="color:${c};font-weight:bold;">📢 ${esc(d.eventType)}</span>` +
+      html = `<span style="color:${c};font-weight:bold;"><i class="bi bi-megaphone-fill"></i> ${esc(d.eventType)}</span>` +
              `<br><span style="opacity:.7;">${esc(d.country)}</span>` +
              `<br><span style="opacity:.7;white-space:normal;display:block;">${esc(d.title.slice(0, 70))}</span>`;
     } else if (d._kind === 'ucdp') {
-      html = `<span style="color:#ff6400;font-weight:bold;">⚔ ${esc(d.country)}</span>` +
+      html = `<span style="color:#ff6400;font-weight:bold;"><i class="bi bi-crosshair"></i> ${esc(d.country)}</span>` +
              `<br><span style="opacity:.7;">${esc(d.sideA)} vs ${esc(d.sideB)}</span>` +
              (d.deaths ? `<br><span style="opacity:.5;">Deaths: ${d.deaths}</span>` : '');
     } else if (d._kind === 'displacement') {
-      html = `<span style="color:#88bbff;font-weight:bold;">👥 Displacement</span>` +
+      html = `<span style="color:#88bbff;font-weight:bold;"><i class="bi bi-people-fill"></i> Displacement</span>` +
              `<br><span style="opacity:.7;">${esc(d.origin)} → ${esc(d.asylum)}</span>` +
              `<br><span style="opacity:.5;">Refugees: ${d.refugees.toLocaleString()}</span>`;
     } else if (d._kind === 'climate') {
       const tc = d.type === 'warm' ? '#ff4400' : d.type === 'cold' ? '#44aaff' : '#88ff88';
-      html = `<span style="color:${tc};font-weight:bold;">🌡 ${esc(d.type.toUpperCase())}</span>` +
+      html = `<span style="color:${tc};font-weight:bold;"><i class="bi bi-thermometer-half"></i> ${esc(d.type.toUpperCase())}</span>` +
              `<br><span style="opacity:.7;">${esc(d.zone)}</span>` +
              `<br><span style="opacity:.5;">ΔT: ${d.tempDelta > 0 ? '+' : ''}${d.tempDelta.toFixed(1)}°C · ${esc(d.severity)}</span>`;
     } else if (d._kind === 'gpsjam') {
       const gc = d.level === 'high' ? '#ff2020' : '#ff8800';
-      html = `<span style="color:${gc};font-weight:bold;">📡 GPS Jamming</span>` +
+      html = `<span style="color:${gc};font-weight:bold;"><i class="bi bi-broadcast"></i> GPS Jamming</span>` +
              `<br><span style="opacity:.7;">Level: ${esc(d.level)}</span>` +
              `<br><span style="opacity:.5;">${d.pct.toFixed(0)}% affected</span>`;
     } else if (d._kind === 'tech') {
-      html = `<span style="color:#44aaff;font-weight:bold;">💻 ${esc(d.title.slice(0, 50))}</span>` +
+      html = `<span style="color:#44aaff;font-weight:bold;"><i class="bi bi-laptop"></i> ${esc(d.title.slice(0, 50))}</span>` +
              `<br><span style="opacity:.7;">${esc(d.country)}</span>` +
              (d.daysUntil >= 0 ? `<br><span style="opacity:.5;">In ${d.daysUntil} days</span>` : '');
     } else if (d._kind === 'conflictZone') {
       const ic = d.intensity === 'high' ? '#ff3030' : d.intensity === 'medium' ? '#ff8800' : '#ffcc00';
-      html = `<span style="color:${ic};font-weight:bold;">⚔ ${esc(d.name)}</span>` +
+      html = `<span style="color:${ic};font-weight:bold;"><i class="bi bi-crosshair"></i> ${esc(d.name)}</span>` +
              (d.parties.length ? `<br><span style="opacity:.7;">${d.parties.map(esc).join(', ')}</span>` : '') +
              (d.casualties ? `<br><span style="opacity:.5;">Casualties: ${esc(d.casualties)}</span>` : '');
     } else if (d._kind === 'milbase') {
-      html = `<span style="color:#4488ff;font-weight:bold;">🏛 ${esc(d.name)}</span>` +
+      html = `<span style="color:#4488ff;font-weight:bold;"><i class="bi bi-bank"></i> ${esc(d.name)}</span>` +
              `<br><span style="opacity:.7;">${esc(d.type)}${d.country ? ' · ' + esc(d.country) : ''}</span>`;
     } else if (d._kind === 'nuclearSite') {
       const nc = d.status === 'active' ? '#ffd700' : d.status === 'construction' ? '#ff8800' : '#888888';
-      html = `<span style="color:${nc};font-weight:bold;">☢ ${esc(d.name)}</span>` +
+      html = `<span style="color:${nc};font-weight:bold;"><i class="bi bi-radioactive"></i> ${esc(d.name)}</span>` +
              `<br><span style="opacity:.7;">${esc(d.type)} · ${esc(d.status)}</span>`;
     } else if (d._kind === 'irradiator') {
-      html = `<span style="color:#ff8800;font-weight:bold;">⚠ Gamma Irradiator</span>` +
+      html = `<span style="color:#ff8800;font-weight:bold;"><i class="bi bi-exclamation-triangle-fill"></i> Gamma Irradiator</span>` +
              `<br><span style="opacity:.7;">${esc(d.city)}, ${esc(d.country)}</span>`;
     } else if (d._kind === 'spaceport') {
       const lc = d.launches === 'High' ? '#88ddff' : d.launches === 'Medium' ? '#44aaff' : '#aaaaaa';
-      html = `<span style="color:${lc};font-weight:bold;">🚀 ${esc(d.name)}</span>` +
+      html = `<span style="color:${lc};font-weight:bold;"><i class="bi bi-rocket-takeoff"></i> ${esc(d.name)}</span>` +
              `<br><span style="opacity:.7;">${esc(d.operator)} · ${esc(d.country)}</span>` +
              `<br><span style="opacity:.5;">Launch frequency: ${esc(d.launches)}</span>`;
     } else if (d._kind === 'earthquake') {
       const mc = d.magnitude >= 6 ? '#ff3030' : d.magnitude >= 4 ? '#ff8800' : '#ffcc00';
-      html = `<span style="color:${mc};font-weight:bold;">🌍 M${d.magnitude.toFixed(1)}</span>` +
+      html = `<span style="color:${mc};font-weight:bold;"><i class="bi bi-globe2"></i> M${d.magnitude.toFixed(1)}</span>` +
              `<br><span style="opacity:.7;white-space:normal;display:block;">${esc(d.place.slice(0, 70))}</span>`;
     } else if (d._kind === 'economic') {
       const ec = d.type === 'exchange' ? '#ffd700' : d.type === 'central-bank' ? '#4488ff' : '#44cc88';
-      html = `<span style="color:${ec};font-weight:bold;">💰 ${esc(d.name)}</span>` +
+      html = `<span style="color:${ec};font-weight:bold;"><i class="bi bi-cash-stack"></i> ${esc(d.name)}</span>` +
              `<br><span style="opacity:.7;">${esc(d.type)} · ${esc(d.country)}</span>` +
              (d.description ? `<br><span style="opacity:.5;white-space:normal;display:block;">${esc(d.description.slice(0, 70))}</span>` : '');
     } else if (d._kind === 'datacenter') {
-      html = `<span style="color:#88aaff;font-weight:bold;">🖥 ${esc(d.name)}</span>` +
+      html = `<span style="color:#88aaff;font-weight:bold;"><i class="bi bi-pc-display"></i> ${esc(d.name)}</span>` +
              `<br><span style="opacity:.7;">${esc(d.owner)} · ${esc(d.country)}</span>` +
              `<br><span style="opacity:.5;">${esc(d.chipType)}</span>`;
     } else if (d._kind === 'waterway') {
-      html = `<span style="color:#44aadd;font-weight:bold;">⚓ ${esc(d.name)}</span>` +
+      html = `<span style="color:#44aadd;font-weight:bold;"><i class="bi bi-life-preserver"></i> ${esc(d.name)}</span>` +
              (d.description ? `<br><span style="opacity:.7;white-space:normal;display:block;">${esc(d.description.slice(0, 80))}</span>` : '');
     } else if (d._kind === 'mineral') {
       const mc2 = d.status === 'producing' ? '#cc88ff' : '#8866bb';
-      html = `<span style="color:${mc2};font-weight:bold;">💎 ${esc(d.mineral)}</span>` +
+      html = `<span style="color:${mc2};font-weight:bold;"><i class="bi bi-diamond"></i> ${esc(d.mineral)}</span>` +
              `<br><span style="opacity:.7;">${esc(d.name)} · ${esc(d.country)}</span>` +
              `<br><span style="opacity:.5;">${esc(d.status)}</span>`;
     } else if (d._kind === 'flightDelay') {
       const sc = d.severity === 'severe' ? '#ff3030' : d.severity === 'major' ? '#ff6600' : d.severity === 'moderate' ? '#ffaa00' : '#ffee44';
-      html = `<span style="color:${sc};font-weight:bold;">✈ ${esc(d.iata)} — ${esc(d.severity.toUpperCase())}</span>` +
+      html = `<span style="color:${sc};font-weight:bold;"><i class="bi bi-airplane-fill"></i> ${esc(d.iata)} — ${esc(d.severity.toUpperCase())}</span>` +
              `<br><span style="opacity:.7;">${esc(d.name)}, ${esc(d.country)}</span>` +
              `<br><span style="opacity:.7;">${esc(d.delayType.replace(/_/g, ' '))}` +
              (d.avgDelayMinutes > 0 ? ` · avg ${d.avgDelayMinutes}min` : '') + `</span>` +
              (d.reason ? `<br><span style="opacity:.5;white-space:normal;display:block;">${esc(d.reason.slice(0, 70))}</span>` : '');
     } else if (d._kind === 'cableAdvisory') {
       const sc = d.severity === 'fault' ? '#ff2020' : '#ff8800';
-      html = `<span style="color:${sc};font-weight:bold;">🔌 ${esc(d.severity.toUpperCase())} — ${esc(d.title.slice(0, 50))}</span>` +
+      html = `<span style="color:${sc};font-weight:bold;"><i class="bi bi-plug"></i> ${esc(d.severity.toUpperCase())} — ${esc(d.title.slice(0, 50))}</span>` +
              (d.impact ? `<br><span style="opacity:.7;white-space:normal;display:block;">${esc(d.impact.slice(0, 70))}</span>` : '') +
              (d.repairEta ? `<br><span style="opacity:.5;">ETA: ${esc(d.repairEta)}</span>` : '');
     } else if (d._kind === 'repairShip') {
       const sc = d.status === 'on-station' ? '#44ff88' : '#44aaff';
-      html = `<span style="color:${sc};font-weight:bold;">🚢 ${esc(d.name)}</span>` +
+      html = `<span style="color:${sc};font-weight:bold;"><i class="bi bi-water"></i> ${esc(d.name)}</span>` +
              `<br><span style="opacity:.7;">${esc(d.status.replace(/-/g, ' '))}${d.operator ? ' · ' + esc(d.operator) : ''}</span>` +
              (d.eta ? `<br><span style="opacity:.5;">ETA: ${esc(d.eta)}</span>` : '');
     } else if (d._kind === 'aisDisruption') {
       const sc = d.severity === 'high' ? '#ff2020' : d.severity === 'elevated' ? '#ff8800' : '#44aaff';
       const typeLabel = d.type === 'gap_spike' ? 'Gap Spike' : 'Chokepoint Congestion';
-      html = `<span style="color:${sc};font-weight:bold;">⛴ ${esc(typeLabel)}</span>` +
+      html = `<span style="color:${sc};font-weight:bold;"><i class="bi bi-water"></i> ${esc(typeLabel)}</span>` +
              `<br><span style="opacity:.7;">${esc(d.name)}</span>` +
              `<br><span style="opacity:.5;">${esc(d.severity)} · ${esc(d.description.slice(0, 60))}</span>`;
     } else if (d._kind === 'newsLocation') {
       const tc = d.threatLevel === 'critical' ? '#ff2020' : d.threatLevel === 'high' ? '#ff6600' : d.threatLevel === 'elevated' ? '#ffaa00' : '#44aaff';
-      html = `<span style="color:${tc};font-weight:bold;">📰 ${esc(d.title.slice(0, 60))}</span>` +
+      html = `<span style="color:${tc};font-weight:bold;"><i class="bi bi-newspaper"></i> ${esc(d.title.slice(0, 60))}</span>` +
              `<br><span style="opacity:.5;">${esc(d.threatLevel)}</span>`;
     }
     el.innerHTML = html;
@@ -1076,6 +1077,32 @@ export class GlobeMap {
     });
   }
 
+  private createTimeSlider(): void {
+    const slider = document.createElement('div');
+    slider.className = 'time-slider deckgl-time-slider globe-time-slider';
+    slider.innerHTML = `
+      <div class="time-options">
+        <button class="time-btn ${this.timeRange === '1h' ? 'active' : ''}" data-range="1h">1h</button>
+        <button class="time-btn ${this.timeRange === '6h' ? 'active' : ''}" data-range="6h">6h</button>
+        <button class="time-btn ${this.timeRange === '24h' ? 'active' : ''}" data-range="24h">24h</button>
+        <button class="time-btn ${this.timeRange === '48h' ? 'active' : ''}" data-range="48h">48h</button>
+        <button class="time-btn ${this.timeRange === '7d' ? 'active' : ''}" data-range="7d">7d</button>
+        <button class="time-btn ${this.timeRange === 'all' ? 'active' : ''}" data-range="all">${t('components.deckgl.timeAll')}</button>
+      </div>
+    `;
+
+    this.container.appendChild(slider);
+
+    slider.querySelectorAll('.time-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const range = (btn as HTMLElement).dataset.range as TimeRange;
+        this.setTimeRange(range);
+        slider.querySelectorAll('.time-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+      });
+    });
+  }
+
   private zoomInGlobe(): void {
     if (!this.globe) return;
     const pov = this.globe.pointOfView();
@@ -1108,7 +1135,7 @@ export class GlobeMap {
     el.innerHTML = `
       <div class="toggle-header">
         <span>${t('components.deckgl.layersTitle')}</span>
-        <button class="toggle-collapse">&#9660;</button>
+        <button class="toggle-collapse"><i class="bi bi-chevron-down"></i></button>
       </div>
       <div class="toggle-list" style="max-height:32vh;overflow-y:auto;scrollbar-width:thin;">
         ${layers.map(({ key, label, icon }) => `
@@ -1138,7 +1165,7 @@ export class GlobeMap {
     collapseBtn?.addEventListener('click', () => {
       collapsed = !collapsed;
       if (list) list.style.display = collapsed ? 'none' : '';
-      if (collapseBtn) (collapseBtn as HTMLElement).innerHTML = collapsed ? '&#9654;' : '&#9660;';
+      if (collapseBtn) (collapseBtn as HTMLElement).innerHTML = collapsed ? '<i class="bi bi-chevron-right"></i>' : '<i class="bi bi-chevron-down"></i>';
     });
 
     // Intercept wheel on layer panel — scroll list, don't zoom globe
@@ -1449,8 +1476,8 @@ export class GlobeMap {
       _lng: f.lon,
       id: f.id,
       callsign: f.callsign ?? '',
-      type: (f as any).aircraftType ?? (f as any).type ?? 'fighter',
-      heading: (f as any).heading ?? 0,
+      type: f.aircraftType ?? 'fighter',
+      heading: f.heading ?? 0,
     }));
     this.flushMarkers();
   }
@@ -1461,8 +1488,8 @@ export class GlobeMap {
       _lat: v.lat,
       _lng: v.lon,
       id: v.id,
-      name: (v as any).name ?? 'vessel',
-      type: (v as any).vesselType ?? 'destroyer',
+      name: v.name ?? 'vessel',
+      type: v.vesselType ?? 'destroyer',
     }));
     this.flushMarkers();
   }

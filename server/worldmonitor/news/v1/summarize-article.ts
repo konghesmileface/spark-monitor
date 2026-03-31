@@ -5,6 +5,7 @@ import type {
 } from '../../../../src/generated/server/worldmonitor/news/v1/service_server';
 
 import { cachedFetchJsonWithMeta } from '../../../_shared/redis';
+import { proxyFetch } from '../../../_shared/proxy-fetch';
 import {
   CACHE_TTL_SECONDS,
   deduplicateHeadlines,
@@ -102,7 +103,7 @@ export async function summarizeArticle(
           lang,
         });
 
-        const response = await fetch(apiUrl, {
+        const response = await proxyFetch(apiUrl, {
           method: 'POST',
           headers: { ...providerHeaders, 'User-Agent': CHROME_UA },
           body: JSON.stringify({

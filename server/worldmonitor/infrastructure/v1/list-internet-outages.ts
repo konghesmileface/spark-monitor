@@ -8,6 +8,7 @@ import type {
 
 import { UPSTREAM_TIMEOUT_MS } from './_shared';
 import { CHROME_UA } from '../../../_shared/constants';
+import { proxyFetch } from '../../../_shared/proxy-fetch';
 import { cachedFetchJson, getCachedJson } from '../../../_shared/redis';
 
 const REDIS_CACHE_KEY = 'infra:outages:v1';
@@ -156,7 +157,7 @@ export async function listInternetOutages(
       const token = process.env.CLOUDFLARE_API_TOKEN;
       if (!token) return null;
 
-      const response = await fetch(
+      const response = await proxyFetch(
         `${CLOUDFLARE_RADAR_URL}?dateRange=7d&limit=50`,
         {
           headers: { Authorization: `Bearer ${token}`, 'User-Agent': CHROME_UA },

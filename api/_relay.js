@@ -19,11 +19,26 @@ export function getRelayHeaders(baseHeaders = {}) {
   return headers;
 }
 
+// Dev-only: preload a non-proxied dispatcher for localhost relay requests.
+// Vite's setGlobalDispatcher(ProxyAgent) routes ALL fetch() through the proxy,
+// including localhost:3004 (AIS relay). We need a plain Agent to bypass this.
+// On Vercel edge runtime, __proxyDispatcher is undefined → skipped entirely.
+const _bypassDispatcher = globalThis.__proxyDispatcher
+  ? import('undici').then(({ Agent }) => new Agent()).catch(() => null)
+  : Promise.resolve(null);
+
 export async function fetchWithTimeout(url, options, timeoutMs = 15000) {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    return await fetch(url, { ...options, signal: controller.signal });
+    const fetchOptions = { ...options, signal: controller.signal };
+    // Bypass global proxy for localhost URLs (dev mode only)
+    const urlStr = typeof url === 'string' ? url : String(url);
+    if (/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?\//.test(urlStr)) {
+      const bypass = await _bypassDispatcher;
+      if (bypass) fetchOptions.dispatcher = bypass;
+    }
+    return await fetch(url, fetchOptions);
   } finally {
     clearTimeout(timeout);
   }

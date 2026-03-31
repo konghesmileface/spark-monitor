@@ -9,9 +9,10 @@ import type {
 } from '../../../../src/generated/server/worldmonitor/aviation/v1/service_server';
 import { cachedFetchJson } from '../../../_shared/redis';
 import { CHROME_UA } from '../../../_shared/constants';
+import { proxyFetch } from '../../../_shared/proxy-fetch';
 import { AVIATIONSTACK_URL } from './_shared';
 
-const CACHE_TTL = 300;
+const CACHE_TTL = 86400; // 24h — AviationStack free tier (250 req/month)
 
 interface AVSFlight {
     flight?: { iata?: string; icao?: string; codeshared?: { flight_iata?: string; airline_iata?: string }[] };
@@ -167,7 +168,7 @@ export async function listAirportFlights(
                 const url = `${AVIATIONSTACK_URL}?${params}`;
 
                 try {
-                    const resp = await fetch(url, {
+                    const resp = await proxyFetch(url, {
                         headers: { 'User-Agent': CHROME_UA },
                         signal: AbortSignal.timeout(10_000),
                     });

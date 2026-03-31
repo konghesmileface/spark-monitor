@@ -7,6 +7,7 @@ import type {
   ThreatLevel as ProtoThreatLevel,
 } from '../../../../src/generated/server/worldmonitor/news/v1/service_server';
 import { cachedFetchJson } from '../../../_shared/redis';
+import { proxyFetch } from '../../../_shared/proxy-fetch';
 import { CHROME_UA } from '../../../_shared/constants';
 import { VARIANT_FEEDS, INTEL_SOURCES, type ServerFeed } from './_feeds';
 import { classifyByKeyword, type ThreatLevel } from './_classifier';
@@ -33,12 +34,14 @@ function getRelayHeaders(): Record<string, string> {
 }
 
 const VALID_VARIANTS = new Set(['full', 'tech', 'finance', 'happy']);
+// Spark variant uses the same feeds as 'full'
+const VARIANT_ALIAS: Record<string, string> = { spark: 'full' };
 const fallbackDigestCache = new Map<string, { data: ListFeedDigestResponse; ts: number }>();
 const ITEMS_PER_FEED = 5;
 const MAX_ITEMS_PER_CATEGORY = 20;
 const FEED_TIMEOUT_MS = 8_000;
-const OVERALL_DEADLINE_MS = 25_000;
-const BATCH_CONCURRENCY = 20;
+const OVERALL_DEADLINE_MS = 35_000;
+const BATCH_CONCURRENCY = 40;
 
 const LEVEL_TO_PROTO: Record<ThreatLevel, ProtoThreatLevel> = {
   critical: 'THREAT_LEVEL_CRITICAL',
@@ -70,7 +73,7 @@ async function fetchRssText(
   signal.addEventListener('abort', onAbort, { once: true });
 
   try {
-    const resp = await fetch(url, {
+    const resp = await proxyFetch(url, {
       headers: {
         'User-Agent': CHROME_UA,
         'Accept': 'application/rss+xml, application/xml, text/xml, */*',
@@ -108,7 +111,7 @@ async function fetchAndParseRss(
           const onAbort = () => controller.abort();
           signal.addEventListener('abort', onAbort, { once: true });
           try {
-            const resp = await fetch(relayUrl, {
+            const resp = await proxyFetch(relayUrl, {
               headers: getRelayHeaders(),
               signal: controller.signal,
             });
@@ -232,15 +235,15 @@ export async function listFeedDigest(
   _ctx: ServerContext,
   req: ListFeedDigestRequest,
 ): Promise<ListFeedDigestResponse> {
-  const variant = VALID_VARIANTS.has(req.variant) ? req.variant : 'full';
+  const rawVariant = VARIANT_ALIAS[req.variant] ?? (VALID_VARIANTS.has(req.variant) ? req.variant : 'full');
   const lang = req.lang || 'en';
 
-  const digestCacheKey = `news:digest:v1:${variant}:${lang}`;
+  const digestCacheKey = `news:digest:v1:${rawVariant}:${lang}`;
 
-  const fallbackKey = `${variant}:${lang}`;
+  const fallbackKey = `${rawVariant}:${lang}`;
   try {
     const cached = await cachedFetchJson<ListFeedDigestResponse>(digestCacheKey, 900, async () => {
-      return buildDigest(variant, lang);
+      return buildDigest(rawVariant, lang);
     });
     if (cached) {
       if (fallbackDigestCache.size > 50) fallbackDigestCache.clear();
@@ -323,3 +326,25 @@ async function buildDigest(variant: string, lang: string): Promise<ListFeedDiges
     clearTimeout(deadlineTimeout);
   }
 }
+
+// Pre-warm digest cache on server start so first browser request is instant.
+// Build once then copy to all lang variants (feeds are identical for en/zh).
+setTimeout(async () => {
+  try {
+    console.log('[Digest] Pre-warming cache for full variant ...');
+    const data = await buildDigest('full', 'en');
+    if (data) {
+      const { setCachedJson } = await import('../../../_shared/redis');
+      await Promise.all([
+        setCachedJson('news:digest:v1:full:en', data, 900),
+        setCachedJson('news:digest:v1:full:zh', data, 900),
+      ]);
+      fallbackDigestCache.set('full:en', { data, ts: Date.now() });
+      fallbackDigestCache.set('full:zh', { data, ts: Date.now() });
+      const catCount = Object.keys(data.categories ?? {}).length;
+      console.log(`[Digest] Pre-warm complete: ${catCount} categories cached for en+zh`);
+    }
+  } catch (e) {
+    console.warn('[Digest] Pre-warm failed:', (e as Error)?.message);
+  }
+}, 3_000);

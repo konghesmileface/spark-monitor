@@ -15,7 +15,7 @@ import {
     DEFAULT_WATCHED_AIRPORTS,
 } from './_shared';
 
-const CACHE_TTL = 300; // 5 minutes
+const CACHE_TTL = 86400; // 24h — AviationStack free tier only allows ~8 req/day (250/month)
 
 export async function getAirportOpsSummary(
     _ctx: ServerContext,

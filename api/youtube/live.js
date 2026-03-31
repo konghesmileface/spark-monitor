@@ -6,6 +6,13 @@ import { getRelayBaseUrl, getRelayHeaders } from '../_relay.js';
 
 export const config = { runtime: 'edge' };
 
+/** In dev mode, vite.config.ts sets globalThis.__proxyDispatcher for GFW bypass. */
+function pFetch(url, init) {
+  const dispatcher = globalThis.__proxyDispatcher;
+  if (dispatcher) return fetch(url, { ...init, dispatcher });
+  return fetch(url, init);
+}
+
 export default async function handler(request) {
   const cors = getCorsHeaders(request);
   if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
@@ -52,7 +59,7 @@ export default async function handler(request) {
   // Fallback: direct fetch (works for oembed, limited for live detection from datacenter IPs)
   if (videoIdParam && /^[A-Za-z0-9_-]{11}$/.test(videoIdParam)) {
     try {
-      const oembedRes = await fetch(
+      const oembedRes = await pFetch(
         `https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoIdParam}&format=json`,
         { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' } },
       );
@@ -80,7 +87,7 @@ export default async function handler(request) {
   // Fallback: direct scrape (limited from datacenter IPs)
   try {
     const channelHandle = channel.startsWith('@') ? channel : `@${channel}`;
-    const response = await fetch(`https://www.youtube.com/${channelHandle}/live`, {
+    const response = await pFetch(`https://www.youtube.com/${channelHandle}/live`, {
       headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
       redirect: 'follow',
     });

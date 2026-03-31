@@ -79,7 +79,7 @@ export class CountryIntelModal {
         .map((c) => String.fromCodePoint(0x1f1e6 + c.charCodeAt(0) - 65))
         .join('');
     } catch {
-      return '🌍';
+      return '<i class="bi bi-globe2"></i>';
     }
   }
 
@@ -109,7 +109,7 @@ export class CountryIntelModal {
   public showLoading(): void {
     this.currentCode = '__loading__';
     this.headerEl.innerHTML = `
-      <span class="country-flag">🌍</span>
+      <span class="country-flag"><i class="bi bi-globe2"></i></span>
       <span class="country-name">${t('modals.countryIntel.identifying')}</span>
     `;
     this.contentEl.innerHTML = `
@@ -143,11 +143,11 @@ export class CountryIntelModal {
         <div class="cii-section">
           <div class="cii-label">${t('modals.countryIntel.instabilityIndex')} ${this.scoreBar(score.score)}</div>
           <div class="cii-components">
-            <span title="${t('common.unrest')}">📢 ${score.components.unrest.toFixed(0)}</span>
-            <span title="${t('common.conflict')}">⚔ ${score.components.conflict.toFixed(0)}</span>
-            <span title="${t('common.security')}">🛡️ ${score.components.security.toFixed(0)}</span>
-            <span title="${t('common.information')}">📡 ${score.components.information.toFixed(0)}</span>
-            <span class="cii-trend ${score.trend}">${score.trend === 'rising' ? '↗' : score.trend === 'falling' ? '↘' : '→'} ${score.trend}</span>
+            <span title="${t('common.unrest')}"><i class="bi bi-megaphone-fill"></i> ${score.components.unrest.toFixed(0)}</span>
+            <span title="${t('common.conflict')}"><i class="bi bi-crosshair"></i> ${score.components.conflict.toFixed(0)}</span>
+            <span title="${t('common.security')}"><i class="bi bi-shield-check"></i> ${score.components.security.toFixed(0)}</span>
+            <span title="${t('common.information')}"><i class="bi bi-broadcast"></i> ${score.components.information.toFixed(0)}</span>
+            <span class="cii-trend ${score.trend}">${score.trend === 'rising' ? '<i class="bi bi-arrow-up-right"></i>' : score.trend === 'falling' ? '<i class="bi bi-arrow-down-right"></i>' : '<i class="bi bi-arrow-right"></i>'} ${score.trend}</span>
           </div>
         </div>
       `;
@@ -155,13 +155,13 @@ export class CountryIntelModal {
 
     const chips: string[] = [];
     if (signals) {
-      if (signals.protests > 0) chips.push(`<span class="signal-chip protest">📢 ${signals.protests} ${t('modals.countryIntel.protests')}</span>`);
-      if (signals.militaryFlights > 0) chips.push(`<span class="signal-chip military">✈️ ${signals.militaryFlights} ${t('modals.countryIntel.militaryAircraft')}</span>`);
-      if (signals.militaryVessels > 0) chips.push(`<span class="signal-chip military">⚓ ${signals.militaryVessels} ${t('modals.countryIntel.militaryVessels')}</span>`);
-      if (signals.outages > 0) chips.push(`<span class="signal-chip outage">🌐 ${signals.outages} ${t('modals.countryIntel.outages')}</span>`);
-      if (signals.earthquakes > 0) chips.push(`<span class="signal-chip quake">🌍 ${signals.earthquakes} ${t('modals.countryIntel.earthquakes')}</span>`);
+      if (signals.protests > 0) chips.push(`<span class="signal-chip protest"><i class="bi bi-megaphone-fill"></i> ${signals.protests} ${t('modals.countryIntel.protests')}</span>`);
+      if (signals.militaryFlights > 0) chips.push(`<span class="signal-chip military"><i class="bi bi-airplane-fill"></i> ${signals.militaryFlights} ${t('modals.countryIntel.militaryAircraft')}</span>`);
+      if (signals.militaryVessels > 0) chips.push(`<span class="signal-chip military"><i class="bi bi-life-preserver"></i> ${signals.militaryVessels} ${t('modals.countryIntel.militaryVessels')}</span>`);
+      if (signals.outages > 0) chips.push(`<span class="signal-chip outage"><i class="bi bi-globe"></i> ${signals.outages} ${t('modals.countryIntel.outages')}</span>`);
+      if (signals.earthquakes > 0) chips.push(`<span class="signal-chip quake"><i class="bi bi-globe2"></i> ${signals.earthquakes} ${t('modals.countryIntel.earthquakes')}</span>`);
     }
-    chips.push(`<span class="signal-chip stock-loading">📈 ${t('modals.countryIntel.loadingIndex')}</span>`);
+    chips.push(`<span class="signal-chip stock-loading"><i class="bi bi-graph-up-arrow"></i> ${t('modals.countryIntel.loadingIndex')}</span>`);
     html += `<div class="active-signals">${chips.join('')}</div>`;
 
     html += `<div class="country-markets-section"><span class="intel-loading-text">${t('modals.countryIntel.loadingMarkets')}</span></div>`;
@@ -211,7 +211,7 @@ export class CountryIntelModal {
     briefSection.innerHTML = `
       <div class="intel-brief">${formatted}</div>
       <div class="intel-footer">
-        ${data.cached ? `<span class="intel-cached">📋 ${t('modals.countryIntel.cached')}</span>` : `<span class="intel-fresh">✨ ${t('modals.countryIntel.fresh')}</span>`}
+        ${data.cached ? `<span class="intel-cached"><i class="bi bi-clipboard-check"></i> ${t('modals.countryIntel.cached')}</span>` : `<span class="intel-fresh"><i class="bi bi-stars"></i> ${t('modals.countryIntel.fresh')}</span>`}
         <span class="intel-timestamp">${data.generatedAt ? new Date(data.generatedAt).toLocaleTimeString() : ''}</span>
       </div>
     `;
@@ -238,7 +238,7 @@ export class CountryIntelModal {
     `;
     }).join('');
 
-    section.innerHTML = `<div class="markets-label">📊 ${t('modals.countryIntel.predictionMarkets')}</div>${items}`;
+    section.innerHTML = `<div class="markets-label"><i class="bi bi-bar-chart-fill"></i> ${t('modals.countryIntel.predictionMarkets')}</div>${items}`;
   }
 
   public updateStock(data: StockIndexData): void {
@@ -253,7 +253,7 @@ export class CountryIntelModal {
     const pct = parseFloat(data.weekChangePercent);
     const sign = pct >= 0 ? '+' : '';
     const cls = pct >= 0 ? 'stock-up' : 'stock-down';
-    const arrow = pct >= 0 ? '📈' : '📉';
+    const arrow = pct >= 0 ? '<i class="bi bi-graph-up-arrow"></i>' : '<i class="bi bi-graph-down-arrow"></i>';
     el.className = `signal-chip stock ${cls}`;
     el.innerHTML = `${arrow} ${escapeHtml(data.indexName)}: ${sign}${data.weekChangePercent}% (1W)`;
   }

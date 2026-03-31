@@ -57,8 +57,8 @@ const TABS = ['ops', 'flights', 'airlines', 'tracking', 'news', 'prices'] as con
 type Tab = typeof TABS[number];
 
 const TAB_LABELS: Record<Tab, string> = {
-    ops: '🛫 Ops', flights: '✈️ Flights', airlines: '🏢 Airlines',
-    tracking: '📡 Track', news: '📰 News', prices: '💸 Prices',
+    ops: '<i class="bi bi-airplane-fill"></i> Ops', flights: '<i class="bi bi-airplane-fill"></i> Flights', airlines: '<i class="bi bi-building"></i> Airlines',
+    tracking: '<i class="bi bi-broadcast"></i> Track', news: '<i class="bi bi-newspaper"></i> News', prices: '<i class="bi bi-cash-coin"></i> Prices',
 };
 
 // ---- Panel class ----
@@ -83,7 +83,7 @@ export class AirlineIntelPanel extends Panel {
     private tabBar!: HTMLElement;
 
     constructor() {
-        super({ id: 'airline-intel', title: '✈️ Airline Intelligence', trackActivity: true });
+        super({ id: 'airline-intel', title: '<i class="bi bi-airplane-fill"></i> Airline Intelligence', trackActivity: true });
 
         const wl = aviationWatchlist.get();
         this.airports = wl.airports.slice(0, 8);
@@ -92,7 +92,7 @@ export class AirlineIntelPanel extends Panel {
         const refreshBtn = document.createElement('button');
         refreshBtn.className = 'icon-btn';
         refreshBtn.title = 'Refresh';
-        refreshBtn.textContent = '↻';
+        refreshBtn.innerHTML = '<i class="bi bi-arrow-clockwise"></i>';
         refreshBtn.addEventListener('click', () => this.refresh());
         this.header.appendChild(refreshBtn);
 
@@ -109,7 +109,7 @@ export class AirlineIntelPanel extends Panel {
         TABS.forEach(tab => {
             const btn = document.createElement('button');
             btn.className = `tab-btn${tab === this.activeTab ? ' active' : ''}`;
-            btn.textContent = TAB_LABELS[tab];
+            btn.innerHTML = TAB_LABELS[tab];
             btn.dataset.tab = tab;
             btn.addEventListener('click', () => this.switchTab(tab as Tab));
             this.tabBar.appendChild(btn);
@@ -252,7 +252,7 @@ export class AirlineIntelPanel extends Panel {
         <div class="ops-delay">${s.avgDelayMinutes > 0 ? `+${s.avgDelayMinutes}m` : '—'}</div>
         <div class="ops-cancel">${s.cancellationRate > 0 ? `${s.cancellationRate.toFixed(1)}% cxl` : ''}</div>
         ${s.closureStatus ? '<div class="ops-closed">CLOSED</div>' : ''}
-        ${s.notamFlags.length ? `<div class="ops-notam">⚠️ NOTAM</div>` : ''}
+        ${s.notamFlags.length ? `<div class="ops-notam"><i class="bi bi-exclamation-triangle-fill"></i> NOTAM</div>` : ''}
       </div>`).join('');
         this.content.innerHTML = `<div class="ops-grid">${rows}</div>`;
     }
@@ -268,7 +268,7 @@ export class AirlineIntelPanel extends Panel {
             return `
         <div class="flight-row">
           <div class="flight-num">${escapeHtml(f.flightNumber)}</div>
-          <div class="flight-route">${escapeHtml(f.origin.iata)} → ${escapeHtml(f.destination.iata)}</div>
+          <div class="flight-route">${escapeHtml(f.origin.iata)} <i class="bi bi-arrow-right"></i> ${escapeHtml(f.destination.iata)}</div>
           <div class="flight-time">${fmtTime(f.scheduledDeparture)}</div>
           <div class="flight-delay" style="color:${f.delayMinutes > 0 ? '#f97316' : '#aaa'}">${f.delayMinutes > 0 ? `+${f.delayMinutes}m` : ''}</div>
           <div class="flight-status" style="color:${color}">${f.status}</div>

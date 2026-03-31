@@ -179,7 +179,7 @@ export async function initLiveChannelsWindow(containerEl?: HTMLElement): Promise
 
       const removeX = document.createElement('span');
       removeX.className = 'live-news-manage-row-remove-x';
-      removeX.textContent = '✕';
+      removeX.innerHTML = '<i class="bi bi-x-lg"></i>';
       removeX.addEventListener('click', (e) => {
         e.stopPropagation();
         channels = channels.filter((c) => c.id !== ch.id);
@@ -391,17 +391,17 @@ export async function initLiveChannelsWindow(containerEl?: HTMLElement): Promise
 
     const action = document.createElement('span');
     action.className = 'live-news-manage-card-action';
-    action.textContent = isAdded ? '✓' : '+';
+    action.innerHTML = isAdded ? '<i class="bi bi-check-lg"></i>' : '+';
 
     card.appendChild(icon);
     card.appendChild(info);
     card.appendChild(action);
 
     card.addEventListener('mouseenter', () => {
-      if (card.classList.contains('added')) action.textContent = '✕';
+      if (card.classList.contains('added')) action.innerHTML = '<i class="bi bi-x-lg"></i>';
     });
     card.addEventListener('mouseleave', () => {
-      if (card.classList.contains('added')) action.textContent = '✓';
+      if (card.classList.contains('added')) action.innerHTML = '<i class="bi bi-check-lg"></i>';
     });
 
     card.addEventListener('click', () => {

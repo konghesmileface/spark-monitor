@@ -8,6 +8,7 @@ import type {
 import { mapWingbitsDetails } from './_shared';
 import { CHROME_UA } from '../../../_shared/constants';
 import { cachedFetchJson } from '../../../_shared/redis';
+import { proxyFetch } from '../../../_shared/proxy-fetch';
 
 const REDIS_CACHE_KEY = 'military:aircraft:v1';
 const REDIS_CACHE_TTL = 24 * 60 * 60; // 24 hours — aircraft metadata is mostly static
@@ -30,7 +31,7 @@ export async function getAircraftDetails(
 
   try {
     const result = await cachedFetchJson<CachedAircraftDetails>(cacheKey, REDIS_CACHE_TTL, async () => {
-      const resp = await fetch(`https://customer-api.wingbits.com/v1/flights/details/${icao24}`, {
+      const resp = await proxyFetch(`https://customer-api.wingbits.com/v1/flights/details/${icao24}`, {
         headers: { 'x-api-key': apiKey, Accept: 'application/json', 'User-Agent': CHROME_UA },
         signal: AbortSignal.timeout(10_000),
       });

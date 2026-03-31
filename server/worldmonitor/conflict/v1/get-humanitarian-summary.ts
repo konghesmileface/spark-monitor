@@ -14,6 +14,7 @@ import type {
 } from '../../../../src/generated/server/worldmonitor/conflict/v1/service_server';
 
 import { CHROME_UA } from '../../../_shared/constants';
+import { proxyFetch } from '../../../_shared/proxy-fetch';
 import { cachedFetchJson } from '../../../_shared/redis';
 
 const REDIS_CACHE_KEY = 'conflict:humanitarian:v1';
@@ -44,7 +45,11 @@ interface HapiCountryAgg {
 async function fetchHapiSummary(countryCode: string): Promise<HumanitarianCountrySummary | undefined> {
   try {
     const appId = btoa('worldmonitor:monitor@worldmonitor.app');
-    let url = `https://hapi.humdata.org/api/v2/coordination-context/conflict-events?output_format=json&limit=1000&offset=0&app_identifier=${appId}`;
+    // Request recent data (last 2 years) to avoid getting ancient records from 2018
+    const twoYearsAgo = new Date();
+    twoYearsAgo.setFullYear(twoYearsAgo.getFullYear() - 2);
+    const refStart = twoYearsAgo.toISOString().split('T')[0]!;
+    let url = `https://hapi.humdata.org/api/v2/coordination-context/conflict-events?output_format=json&limit=1000&offset=0&app_identifier=${appId}&reference_period_start=${refStart}`;
 
     // Filter by country — if a specific country was requested but has no ISO3 mapping,
     // return undefined immediately rather than silently returning unrelated data (BLOCKING-1 fix)
@@ -54,7 +59,7 @@ async function fetchHapiSummary(countryCode: string): Promise<HumanitarianCountr
       url += `&location_code=${iso3}`;
     }
 
-    const response = await fetch(url, {
+    const response = await proxyFetch(url, {
       headers: { Accept: 'application/json', 'User-Agent': CHROME_UA },
       signal: AbortSignal.timeout(15000),
     });
@@ -144,16 +149,18 @@ async function fetchHapiSummary(countryCode: string): Promise<HumanitarianCountr
   }
 }
 
+const DEFAULT_CONFLICT_COUNTRIES = ['UA', 'SY', 'YE', 'AF', 'SD', 'SS', 'MM', 'SO', 'ET', 'CD', 'PS'];
+
 export async function getHumanitarianSummary(
   _ctx: ServerContext,
   req: GetHumanitarianSummaryRequest,
 ): Promise<GetHumanitarianSummaryResponse> {
-  if (!req.countryCode) return { summary: undefined };
+  const countryCode = req.countryCode || DEFAULT_CONFLICT_COUNTRIES[0]!;
   try {
-    const cacheKey = `${REDIS_CACHE_KEY}:${req.countryCode || 'all'}`;
+    const cacheKey = `${REDIS_CACHE_KEY}:${countryCode}`;
 
     const result = await cachedFetchJson<GetHumanitarianSummaryResponse>(cacheKey, REDIS_CACHE_TTL, async () => {
-      const summary = await fetchHapiSummary(req.countryCode);
+      const summary = await fetchHapiSummary(countryCode);
       return summary ? { summary } : null;
     });
 

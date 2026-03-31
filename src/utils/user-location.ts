@@ -116,6 +116,11 @@ export function resolvePreciseUserCoordinates(timeout = 5000): Promise<PreciseCo
     .catch(() => null);
 }
 
+export async function isUserInChina(): Promise<boolean> {
+  const country = await resolveUserCountryCode();
+  return country === 'CN';
+}
+
 export async function resolveUserRegion(): Promise<MapView> {
   let tzRegion: MapView = 'global';
   try {

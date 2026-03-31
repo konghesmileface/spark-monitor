@@ -173,9 +173,9 @@ export function formatAwardAmount(amount: number): string {
  */
 export function getAwardTypeIcon(type: GovernmentAward['awardType']): string {
   switch (type) {
-    case 'contract': return '📄';
-    case 'grant': return '🎁';
-    case 'loan': return '💰';
-    default: return '📋';
+    case 'contract': return '\u{1F4C4}';
+    case 'grant': return '\u{1F381}';
+    case 'loan': return '\u{1F4B2}';
+    default: return '\u{1F4CB}';
   }
 }

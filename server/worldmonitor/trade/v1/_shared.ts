@@ -3,6 +3,7 @@
  * WTO Timeseries API integration.
  */
 import { CHROME_UA } from '../../../_shared/constants';
+import { proxyFetch } from '../../../_shared/proxy-fetch';
 
 /** WTO Timeseries API base URL. */
 export const WTO_API_BASE = 'https://api.wto.org/timeseries/v1';
@@ -61,12 +62,12 @@ export async function wtoFetch(
       }
     }
 
-    const res = await fetch(url.toString(), {
+    const res = await proxyFetch(url.toString(), {
       headers: {
         'Ocp-Apim-Subscription-Key': apiKey,
         'User-Agent': CHROME_UA,
       },
-      signal: AbortSignal.timeout(15000),
+      signal: AbortSignal.timeout(25000),
     });
 
     // 204 = No Content (valid query, no matching data)

@@ -18,6 +18,7 @@ import type {
 } from '../../../../src/generated/server/worldmonitor/climate/v1/service_server';
 
 import { CHROME_UA } from '../../../_shared/constants';
+import { proxyFetch } from '../../../_shared/proxy-fetch';
 import { cachedFetchJson, getCachedJson } from '../../../_shared/redis';
 
 const REDIS_CACHE_KEY = 'climate:anomalies:v1';
@@ -92,7 +93,7 @@ async function fetchZone(
 ): Promise<ClimateAnomaly | null> {
   const url = `https://archive-api.open-meteo.com/v1/archive?latitude=${zone.lat}&longitude=${zone.lon}&start_date=${startDate}&end_date=${endDate}&daily=temperature_2m_mean,precipitation_sum&timezone=UTC`;
 
-  const response = await fetch(url, { headers: { 'User-Agent': CHROME_UA }, signal: AbortSignal.timeout(20_000) });
+  const response = await proxyFetch(url, { headers: { 'User-Agent': CHROME_UA }, signal: AbortSignal.timeout(20_000) });
   if (!response.ok) {
     throw new Error(`Open-Meteo ${response.status} for ${zone.name}`);
   }
@@ -178,9 +179,16 @@ export const listClimateAnomalies: ClimateServiceHandler['listClimateAnomalies']
           .toISOString()
           .slice(0, 10);
 
-        const results = await Promise.allSettled(
-          ZONES.map((zone) => fetchZone(zone, startDate, endDate)),
-        );
+        // Fetch in batches of 3 to avoid Open-Meteo 429 rate limiting
+        const results: PromiseSettledResult<ClimateAnomaly | null>[] = [];
+        for (let batch = 0; batch < ZONES.length; batch += 3) {
+          const batchZones = ZONES.slice(batch, batch + 3);
+          const batchResults = await Promise.allSettled(
+            batchZones.map((zone) => fetchZone(zone, startDate, endDate)),
+          );
+          results.push(...batchResults);
+          if (batch + 3 < ZONES.length) await new Promise(r => setTimeout(r, 500));
+        }
 
         const anomalies: ClimateAnomaly[] = [];
         for (const r of results) {

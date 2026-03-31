@@ -15,6 +15,7 @@ import type {
 } from '../../../../src/generated/server/worldmonitor/wildfire/v1/service_server';
 
 import { CHROME_UA } from '../../../_shared/constants';
+import { proxyFetch } from '../../../_shared/proxy-fetch';
 import { cachedFetchJson, getCachedJson } from '../../../_shared/redis';
 
 const REDIS_CACHE_KEY = 'wildfire:fires:v1';
@@ -104,6 +105,42 @@ export const listFireDetections: WildfireServiceHandler['listFireDetections'] = 
     process.env.NASA_FIRMS_API_KEY || process.env.FIRMS_API_KEY || '';
 
   if (!apiKey) {
+    // Fallback: NASA EONET (no API key needed)
+    try {
+      const eonetResult = await cachedFetchJson<ListFireDetectionsResponse>(
+        'wildfire:eonet:v1',
+        REDIS_CACHE_TTL,
+        async () => {
+          const resp = await proxyFetch(
+            'https://eonet.gsfc.nasa.gov/api/v3/events?category=wildfires&status=open&limit=50',
+            { headers: { Accept: 'application/json', 'User-Agent': CHROME_UA }, signal: AbortSignal.timeout(15_000) },
+          );
+          if (!resp.ok) return null;
+          const data = await resp.json() as { events?: Array<{ id: string; title: string; categories: Array<{ title: string }>; geometry: Array<{ coordinates: [number, number]; date: string }> }> };
+          const events = data.events || [];
+          if (events.length === 0) return null;
+          const fireDetections: ListFireDetectionsResponse['fireDetections'] = [];
+          for (const evt of events) {
+            const geo = evt.geometry?.[evt.geometry.length - 1];
+            if (!geo) continue;
+            const [lng, lat] = geo.coordinates;
+            fireDetections.push({
+              id: evt.id,
+              location: { latitude: lat, longitude: lng },
+              brightness: 0,
+              frp: 0,
+              confidence: 'FIRE_CONFIDENCE_NOMINAL',
+              satellite: 'EONET',
+              detectedAt: new Date(geo.date).getTime() || Date.now(),
+              region: evt.title,
+              dayNight: '',
+            });
+          }
+          return fireDetections.length > 0 ? { fireDetections, pagination: undefined } : null;
+        },
+      );
+      if (eonetResult?.fireDetections?.length) return eonetResult;
+    } catch { /* fall through */ }
     return { fireDetections: [], pagination: undefined };
   }
 
@@ -117,7 +154,7 @@ export const listFireDetections: WildfireServiceHandler['listFireDetections'] = 
         const results = await Promise.allSettled(
           entries.map(async ([regionName, bbox]) => {
             const url = `https://firms.modaps.eosdis.nasa.gov/api/area/csv/${apiKey}/${FIRMS_SOURCE}/${bbox}/1`;
-            const res = await fetch(url, {
+            const res = await proxyFetch(url, {
               headers: { Accept: 'text/csv', 'User-Agent': CHROME_UA },
               signal: AbortSignal.timeout(15_000),
             });

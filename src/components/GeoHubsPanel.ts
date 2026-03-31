@@ -11,14 +11,14 @@ const COUNTRY_FLAGS: Record<string, string> = {
   'Turkey': '🇹🇷', 'France': '🇫🇷', 'Germany': '🇩🇪', 'Egypt': '🇪🇬', 'Pakistan': '🇵🇰',
   'Palestine': '🇵🇸', 'Yemen': '🇾🇪', 'Syria': '🇸🇾', 'Lebanon': '🇱🇧',
   'Sudan': '🇸🇩', 'Ethiopia': '🇪🇹', 'Myanmar': '🇲🇲', 'Austria': '🇦🇹',
-  'International': '🌐',
+  'International': '<i class="bi bi-globe"></i>',
 };
 
 const TYPE_ICONS: Record<string, string> = {
-  capital: '🏛️',
-  conflict: '⚔️',
-  strategic: '⚓',
-  organization: '🏢',
+  capital: '<i class="bi bi-bank"></i>',
+  conflict: '<i class="bi bi-crosshair"></i>',
+  strategic: '<i class="bi bi-life-preserver"></i>',
+  organization: '<i class="bi bi-building"></i>',
 };
 
 const TYPE_LABELS: Record<string, string> = {
@@ -57,11 +57,11 @@ export class GeoHubsPanel extends Panel {
   }
 
   private getFlag(country: string): string {
-    return COUNTRY_FLAGS[country] || '🌐';
+    return COUNTRY_FLAGS[country] || '<i class="bi bi-globe"></i>';
   }
 
   private getTypeIcon(type: string): string {
-    return TYPE_ICONS[type] || '📍';
+    return TYPE_ICONS[type] || '<i class="bi bi-geo-alt-fill"></i>';
   }
 
   private getTypeLabel(type: string): string {

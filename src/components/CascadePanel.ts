@@ -56,21 +56,21 @@ export class CascadePanel extends Panel {
 
   private getImpactEmoji(level: CascadeImpactLevel): string {
     switch (level) {
-      case 'critical': return '🔴';
-      case 'high': return '🟠';
-      case 'medium': return '🟡';
-      case 'low': return '🟢';
+      case 'critical': return '<i class="bi bi-circle-fill" style="color:var(--color-critical)"></i>';
+      case 'high': return '<i class="bi bi-circle-fill" style="color:var(--color-high)"></i>';
+      case 'medium': return '<i class="bi bi-circle-fill" style="color:var(--color-elevated)"></i>';
+      case 'low': return '<i class="bi bi-circle-fill" style="color:var(--color-normal)"></i>';
     }
   }
 
   private getNodeTypeEmoji(type: string): string {
     switch (type) {
-      case 'cable': return '🔌';
-      case 'pipeline': return '🛢️';
-      case 'port': return '⚓';
-      case 'chokepoint': return '🚢';
-      case 'country': return '🏳️';
-      default: return '📍';
+      case 'cable': return '<i class="bi bi-plug-fill"></i>';
+      case 'pipeline': return '<i class="bi bi-fuel-pump"></i>';
+      case 'port': return '<i class="bi bi-life-preserver"></i>';
+      case 'chokepoint': return '<i class="bi bi-water"></i>';
+      case 'country': return '<i class="bi bi-flag"></i>';
+      default: return '<i class="bi bi-geo-alt-fill"></i>';
     }
   }
 
@@ -181,12 +181,12 @@ export class CascadePanel extends Panel {
     const stats = getGraphStats();
     const statsHtml = `
       <div class="cascade-stats">
-        <span>🔌 ${stats.cables}</span>
-        <span>🛢️ ${stats.pipelines}</span>
-        <span>⚓ ${stats.ports}</span>
-        <span>🌊 ${stats.chokepoints}</span>
-        <span>🏳️ ${stats.countries}</span>
-        <span>📊 ${stats.edges} ${t('components.cascade.links')}</span>
+        <span><i class="bi bi-plug-fill"></i> ${stats.cables}</span>
+        <span><i class="bi bi-fuel-pump"></i> ${stats.pipelines}</span>
+        <span><i class="bi bi-life-preserver"></i> ${stats.ports}</span>
+        <span><i class="bi bi-tsunami"></i> ${stats.chokepoints}</span>
+        <span><i class="bi bi-flag"></i> ${stats.countries}</span>
+        <span><i class="bi bi-bar-chart-fill"></i> ${stats.edges} ${t('components.cascade.links')}</span>
       </div>
     `;
 

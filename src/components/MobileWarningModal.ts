@@ -12,7 +12,7 @@ export class MobileWarningModal {
     this.element.innerHTML = `
       <div class="mobile-warning-modal">
         <div class="mobile-warning-header">
-          <span class="mobile-warning-icon">📱</span>
+          <span class="mobile-warning-icon"><i class="bi bi-phone"></i></span>
           <span class="mobile-warning-title">${t('modals.mobileWarning.title')}</span>
         </div>
         <div class="mobile-warning-content">

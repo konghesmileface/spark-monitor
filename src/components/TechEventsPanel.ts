@@ -1,7 +1,7 @@
 import { Panel } from './Panel';
 import { t } from '@/services/i18n';
 import { sanitizeUrl } from '@/utils/sanitize';
-import { h, replaceChildren } from '@/utils/dom-utils';
+import { h, replaceChildren, rawHtml } from '@/utils/dom-utils';
 import { isDesktopRuntime } from '@/services/runtime';
 import { ResearchServiceClient } from '@/generated/client/worldmonitor/research/v1/service_client';
 import type { TechEvent } from '@/generated/client/worldmonitor/research/v1/service_client';
@@ -82,7 +82,7 @@ export class TechEventsPanel extends Panel {
     if (this.error) {
       replaceChildren(this.content,
         h('div', { className: 'tech-events-error' },
-          h('span', { className: 'error-icon' }, '⚠️'),
+          h('span', { className: 'error-icon' }, rawHtml('<i class="bi bi-exclamation-triangle-fill"></i>')),
           h('span', { className: 'error-text' }, this.error),
           h('button', { className: 'retry-btn', onClick: () => this.refresh() }, t('common.retry')),
         ),
@@ -113,8 +113,8 @@ export class TechEventsPanel extends Panel {
           ),
         ),
         h('div', { className: 'tech-events-stats' },
-          h('span', { className: 'stat' }, `📅 ${t('components.techEvents.conferencesCount', { count: String(upcomingConferences.length) })}`),
-          h('span', { className: 'stat' }, `📍 ${t('components.techEvents.onMap', { count: String(mappableCount) })}`),
+          rawHtml(`<span class="stat"><i class="bi bi-calendar-event"></i> ${t('components.techEvents.conferencesCount', { count: String(upcomingConferences.length) })}</span>`),
+          h('span', { className: 'stat' }, rawHtml(`<i class="bi bi-geo-alt-fill"></i> ${t('components.techEvents.onMap', { count: String(mappableCount) })}`)),
           h('a', { href: 'https://www.techmeme.com/events', target: '_blank', rel: 'noopener', className: 'source-link' }, t('components.techEvents.techmemeEvents')),
         ),
         h('div', { className: 'tech-events-list' },
@@ -166,10 +166,10 @@ export class TechEventsPanel extends Panel {
       : '';
 
     const typeIcons: Record<string, string> = {
-      conference: '🎤',
-      earnings: '📊',
-      ipo: '🔔',
-      other: '📌',
+      conference: '<i class="bi bi-mic-fill"></i>',
+      earnings: '<i class="bi bi-bar-chart-fill"></i>',
+      ipo: '<i class="bi bi-bell-fill"></i>',
+      other: '<i class="bi bi-pin-fill"></i>',
     };
 
     const typeClasses: Record<string, string> = {
@@ -198,10 +198,10 @@ export class TechEventsPanel extends Panel {
       ),
       h('div', { className: 'event-content' },
         h('div', { className: 'event-header' },
-          h('span', { className: 'event-icon' }, typeIcons[event.type] ?? '📌'),
+          rawHtml(`<span class="event-icon">${typeIcons[event.type] ?? '<i class="bi bi-pin-fill"></i>'}</span>`),
           h('span', { className: 'event-title' }, event.title),
           safeEventUrl
-            ? h('a', { href: safeEventUrl, target: '_blank', rel: 'noopener', className: 'event-url', title: t('components.techEvents.moreInfo') }, '↗')
+            ? rawHtml(`<a href="${safeEventUrl}" target="_blank" rel="noopener" class="event-url" title="${t('components.techEvents.moreInfo')}"><i class="bi bi-box-arrow-up-right"></i></a>`)
             : false,
         ),
         h('div', { className: 'event-meta' },
@@ -240,7 +240,7 @@ export class TechEventsPanel extends Panel {
                 e.preventDefault();
                 this.panToLocation(event.coords!.lat, event.coords!.lng);
               },
-            }, '📍')
+            }, '<i class="bi bi-geo-alt-fill"></i>')
             : false,
         ),
       ),

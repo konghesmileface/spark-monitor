@@ -155,7 +155,8 @@ export async function getTradeBarriers(
   req: GetTradeBarriersRequest,
 ): Promise<GetTradeBarriersResponse> {
   try {
-    const countries = (req.countries ?? []).filter(isValidCountry);
+    const rawCountries = req.countries;
+    const countries = (Array.isArray(rawCountries) ? rawCountries : typeof rawCountries === 'string' && rawCountries ? rawCountries.split(',') : []).filter(isValidCountry);
     const limit = Math.max(1, Math.min(req.limit > 0 ? req.limit : 50, 100));
 
     const cacheKey = `trade:barriers:v1:tariff-gap:${limit}`;

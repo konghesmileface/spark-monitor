@@ -20,7 +20,7 @@ export class SignalModal {
     this.element.innerHTML = `
       <div class="signal-modal">
         <div class="signal-modal-header">
-          <span class="signal-modal-title">🎯 ${t('modals.signal.title')}</span>
+          <span class="signal-modal-title"><i class="bi bi-bullseye"></i> ${t('modals.signal.title')}</span>
           <button class="signal-modal-close" aria-label="Close">×</button>
         </div>
         <div class="signal-modal-content"></div>
@@ -132,13 +132,13 @@ export class SignalModal {
       low: getCSSColor('--text-dim'),
     };
     const typeIcons: Record<string, string> = {
-      cii_spike: '📊',
-      convergence: '🌍',
-      cascade: '⚡',
-      composite: '🔗',
+      cii_spike: '<i class="bi bi-bar-chart-fill"></i>',
+      convergence: '<i class="bi bi-globe2"></i>',
+      cascade: '<i class="bi bi-lightning-charge-fill"></i>',
+      composite: '<i class="bi bi-link-45deg"></i>',
     };
 
-    const icon = typeIcons[alert.type] || '⚠️';
+    const icon = typeIcons[alert.type] || '<i class="bi bi-exclamation-triangle-fill"></i>';
     const color = priorityColors[alert.priority] || '#ff9944';
 
     let detailsHtml = '';
@@ -173,7 +173,7 @@ export class SignalModal {
       detailsHtml += `
         <div class="signal-context-item">
           <span class="context-label">${t('modals.signal.location')}</span>
-          <button class="location-link" data-lat="${conv.lat}" data-lon="${conv.lon}">${conv.lat.toFixed(2)}°, ${conv.lon.toFixed(2)}° ↗</button>
+          <button class="location-link" data-lat="${conv.lat}" data-lon="${conv.lon}">${conv.lat.toFixed(2)}°, ${conv.lon.toFixed(2)}° <i class="bi bi-box-arrow-up-right"></i></button>
         </div>
         <div class="signal-context-item">
           <span class="context-label">${t('modals.signal.eventTypes')}</span>
@@ -245,19 +245,19 @@ export class SignalModal {
     const content = this.element.querySelector('.signal-modal-content')!;
 
     const signalTypeLabels: Record<string, string> = {
-      prediction_leads_news: `🔮 ${t('modals.signal.predictionLeading')}`,
-      news_leads_markets: `📰 ${t('modals.signal.newsLeading')}`,
-      silent_divergence: `🔇 ${t('modals.signal.silentDivergence')}`,
-      velocity_spike: `🔥 ${t('modals.signal.velocitySpike')}`,
-      keyword_spike: `📊 ${t('modals.signal.keywordSpike')}`,
+      prediction_leads_news: `<i class="bi bi-eye-fill"></i> ${t('modals.signal.predictionLeading')}`,
+      news_leads_markets: `<i class="bi bi-newspaper"></i> ${t('modals.signal.newsLeading')}`,
+      silent_divergence: `<i class="bi bi-volume-mute-fill"></i> ${t('modals.signal.silentDivergence')}`,
+      velocity_spike: `<i class="bi bi-fire"></i> ${t('modals.signal.velocitySpike')}`,
+      keyword_spike: `<i class="bi bi-bar-chart-fill"></i> ${t('modals.signal.keywordSpike')}`,
       convergence: `◉ ${t('modals.signal.convergence')}`,
       triangulation: `△ ${t('modals.signal.triangulation')}`,
-      flow_drop: `🛢️ ${t('modals.signal.flowDrop')}`,
-      flow_price_divergence: `📈 ${t('modals.signal.flowPriceDivergence')}`,
-      geo_convergence: `🌐 ${t('modals.signal.geoConvergence')}`,
-      explained_market_move: `✓ ${t('modals.signal.marketMove')}`,
-      sector_cascade: `📊 ${t('modals.signal.sectorCascade')}`,
-      military_surge: `🛩️ ${t('modals.signal.militarySurge')}`,
+      flow_drop: `<i class="bi bi-fuel-pump"></i> ${t('modals.signal.flowDrop')}`,
+      flow_price_divergence: `<i class="bi bi-graph-up-arrow"></i> ${t('modals.signal.flowPriceDivergence')}`,
+      geo_convergence: `<i class="bi bi-globe"></i> ${t('modals.signal.geoConvergence')}`,
+      explained_market_move: `<i class="bi bi-check-lg"></i> ${t('modals.signal.marketMove')}`,
+      sector_cascade: `<i class="bi bi-bar-chart-fill"></i> ${t('modals.signal.sectorCascade')}`,
+      military_surge: `<i class="bi bi-airplane-fill"></i> ${t('modals.signal.militarySurge')}`,
     };
 
     const html = this.currentSignals.map(signal => {
@@ -282,20 +282,20 @@ export class SignalModal {
           ` : ''}
           ${focalPoints && focalPoints.length > 0 ? `
             <div class="signal-focal-points">
-              <div class="focal-points-header">📡 ${t('modals.signal.focalPoints')}</div>
+              <div class="focal-points-header"><i class="bi bi-broadcast"></i> ${t('modals.signal.focalPoints')}</div>
               ${focalPoints.map(fp => `<div class="focal-point-item">${escapeHtml(fp)}</div>`).join('')}
             </div>
           ` : ''}
           ${newsCorrelation ? `
             <div class="signal-news-correlation">
-              <div class="news-correlation-header">📰 ${t('modals.signal.newsCorrelation')}</div>
+              <div class="news-correlation-header"><i class="bi bi-newspaper"></i> ${t('modals.signal.newsCorrelation')}</div>
               <pre class="news-correlation-text">${escapeHtml(newsCorrelation)}</pre>
             </div>
           ` : ''}
           ${locationData.lat && locationData.lon ? `
             <div class="signal-location">
               <button class="location-link" data-lat="${locationData.lat}" data-lon="${locationData.lon}">
-                📍 ${t('modals.signal.viewOnMap')}: ${locationData.regionName ? escapeHtml(locationData.regionName) : `${locationData.lat.toFixed(2)}°, ${locationData.lon.toFixed(2)}°`}
+                <i class="bi bi-geo-alt-fill"></i> ${t('modals.signal.viewOnMap')}: ${locationData.regionName ? escapeHtml(locationData.regionName) : `${locationData.lat.toFixed(2)}°, ${locationData.lon.toFixed(2)}°`}
               </button>
             </div>
           ` : ''}

@@ -42,10 +42,30 @@ async function fetchArxivPapers(req: ListArxivPapersRequest): Promise<ArxivPaper
 
   const url = `https://export.arxiv.org/api/query?search_query=${searchQuery}&start=0&max_results=${pageSize}`;
 
-  const response = await fetch(url, {
-    headers: { Accept: 'application/xml', 'User-Agent': CHROME_UA },
-    signal: AbortSignal.timeout(15000),
-  });
+  // ArXiv aggressively rate-limits (429). Use direct fetch (no proxy) to avoid
+  // shared-IP limits, and retry once after a brief backoff.
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      headers: { Accept: 'application/xml', 'User-Agent': CHROME_UA },
+      signal: AbortSignal.timeout(15000),
+    });
+  } catch {
+    return [];
+  }
+
+  if (response.status === 429) {
+    // ArXiv asks for 3s between requests; wait and retry once
+    await new Promise((r) => setTimeout(r, 4000));
+    try {
+      response = await fetch(url, {
+        headers: { Accept: 'application/xml', 'User-Agent': CHROME_UA },
+        signal: AbortSignal.timeout(15000),
+      });
+    } catch {
+      return [];
+    }
+  }
 
   if (!response.ok) return [];
 

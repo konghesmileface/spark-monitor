@@ -8,6 +8,7 @@ import type {
 import { isMilitaryCallsign, isMilitaryHex, detectAircraftType, UPSTREAM_TIMEOUT_MS } from './_shared';
 import { CHROME_UA } from '../../../_shared/constants';
 import { cachedFetchJson } from '../../../_shared/redis';
+import { proxyFetch } from '../../../_shared/proxy-fetch';
 import { markNoCacheResponse } from '../../../_shared/response-headers';
 
 const REDIS_CACHE_KEY = 'military:flights:v1';
@@ -95,7 +96,47 @@ export async function listMilitaryFlights(
           ? 'https://opensky-network.org/api/states/all'
           : process.env.WS_RELAY_URL ? process.env.WS_RELAY_URL + '/opensky' : null;
 
-        if (!baseUrl) return null;
+        if (!baseUrl) {
+          // Direct OpenSky API fallback (no auth needed for anonymous access)
+          const directUrl = 'https://opensky-network.org/api/states/all';
+          const directParams = new URLSearchParams();
+          directParams.set('lamin', String(quantize(req.swLat, BBOX_GRID_STEP) - BBOX_GRID_STEP / 2));
+          directParams.set('lamax', String(quantize(req.neLat, BBOX_GRID_STEP) + BBOX_GRID_STEP / 2));
+          directParams.set('lomin', String(quantize(req.swLon, BBOX_GRID_STEP) - BBOX_GRID_STEP / 2));
+          directParams.set('lomax', String(quantize(req.neLon, BBOX_GRID_STEP) + BBOX_GRID_STEP / 2));
+          try {
+            const directResp = await proxyFetch(`${directUrl}?${directParams}`, {
+              headers: { Accept: 'application/json', 'User-Agent': CHROME_UA },
+              signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
+            });
+            if (directResp.ok) {
+              const directData = (await directResp.json()) as { states?: Array<[string, string, ...unknown[]]> };
+              if (directData.states) {
+                const directFlights: ListMilitaryFlightsResponse['flights'] = [];
+                for (const state of directData.states) {
+                  const [icao24, callsign, , , , lon, lat, altitude, onGround, velocity, heading] = state as [
+                    string, string, unknown, unknown, unknown, number | null, number | null, number | null, boolean, number | null, number | null,
+                  ];
+                  if (lat == null || lon == null || onGround) continue;
+                  if (!isMilitaryCallsign(callsign) && !isMilitaryHex(icao24)) continue;
+                  const aircraftType = detectAircraftType(callsign);
+                  directFlights.push({
+                    id: icao24, callsign: (callsign || '').trim(), hexCode: icao24, registration: '',
+                    aircraftType: (AIRCRAFT_TYPE_MAP[aircraftType] || 'MILITARY_AIRCRAFT_TYPE_UNKNOWN') as MilitaryAircraftType,
+                    aircraftModel: '', operator: 'MILITARY_OPERATOR_OTHER', operatorCountry: '',
+                    location: { latitude: lat, longitude: lon },
+                    altitude: altitude ?? 0, heading: heading ?? 0, speed: (velocity as number) ?? 0,
+                    verticalRate: 0, onGround: false, squawk: '', origin: '', destination: '',
+                    lastSeenAt: Date.now(), firstSeenAt: 0, confidence: 'MILITARY_CONFIDENCE_LOW',
+                    isInteresting: false, note: '', enrichment: undefined,
+                  });
+                }
+                return directFlights.length > 0 ? { flights: directFlights, clusters: [], pagination: undefined } : null;
+              }
+            }
+          } catch { /* OpenSky direct also failed */ }
+          return null;
+        }
 
         const fetchBB = {
           lamin: quantize(req.swLat, BBOX_GRID_STEP) - BBOX_GRID_STEP / 2,
@@ -110,7 +151,7 @@ export async function listMilitaryFlights(
         params.set('lomax', String(fetchBB.lomax));
 
         const url = `${baseUrl!}${params.toString() ? '?' + params.toString() : ''}`;
-        const resp = await fetch(url, {
+        const resp = await proxyFetch(url, {
           headers: getRelayRequestHeaders(),
           signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
         });

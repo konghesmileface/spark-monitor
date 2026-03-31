@@ -10,6 +10,7 @@ import type {
 
 import { getCachedJson, setCachedJson, cachedFetchJsonWithMeta } from '../../../_shared/redis';
 import { CHROME_UA } from '../../../_shared/constants';
+import { proxyFetch } from '../../../_shared/proxy-fetch';
 
 const USNI_CACHE_KEY = 'usni-fleet:sebuf:v1';
 const USNI_STALE_CACHE_KEY = 'usni-fleet:sebuf:stale:v1';
@@ -363,7 +364,7 @@ async function fetchUSNIReport(): Promise<USNIFleetReport | null> {
 
   let wpData: Array<Record<string, unknown>>;
   try {
-    const response = await fetch(
+    const response = await proxyFetch(
       'https://news.usni.org/wp-json/wp/v2/posts?categories=4137&per_page=1',
       {
         headers: { Accept: 'application/json', 'User-Agent': CHROME_UA },

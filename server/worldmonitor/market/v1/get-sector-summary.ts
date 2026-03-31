@@ -28,11 +28,11 @@ export async function getSectorSummary(
     const sectors: SectorPerformance[] = [];
 
     if (apiKey) {
-      const results = await Promise.all(
-        sectorSymbols.map((s) => fetchFinnhubQuote(s, apiKey)),
-      );
-      for (const r of results) {
+      // Stagger calls (100ms gap) to respect Finnhub free-tier 60/min limit
+      for (const s of sectorSymbols) {
+        const r = await fetchFinnhubQuote(s, apiKey);
         if (r) sectors.push({ symbol: r.symbol, name: r.symbol, change: r.changePercent });
+        if (sectors.length < sectorSymbols.length) await new Promise(ok => setTimeout(ok, 100));
       }
     }
 

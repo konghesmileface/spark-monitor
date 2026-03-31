@@ -13,6 +13,7 @@ import type {
 } from '../../../../src/generated/server/worldmonitor/research/v1/service_server';
 
 import { CHROME_UA, clampInt } from '../../../_shared/constants';
+import { proxyFetch } from '../../../_shared/proxy-fetch';
 import { cachedFetchJson } from '../../../_shared/redis';
 
 const REDIS_CACHE_KEY = 'research:hackernews:v1';
@@ -31,7 +32,7 @@ async function fetchHackernewsItems(req: ListHackernewsItemsRequest): Promise<Ha
 
   // Step 1: Fetch story IDs
   const idsUrl = `https://hacker-news.firebaseio.com/v0/${feedType}stories.json`;
-  const idsResponse = await fetch(idsUrl, {
+  const idsResponse = await proxyFetch(idsUrl, {
     headers: { 'User-Agent': CHROME_UA },
     signal: AbortSignal.timeout(10000),
   });
@@ -50,7 +51,7 @@ async function fetchHackernewsItems(req: ListHackernewsItemsRequest): Promise<Ha
     const results = await Promise.all(
       batch.map(async (id): Promise<HackernewsItem | null> => {
         try {
-          const res = await fetch(
+          const res = await proxyFetch(
             `https://hacker-news.firebaseio.com/v0/item/${id}.json`,
             { headers: { 'User-Agent': CHROME_UA }, signal: AbortSignal.timeout(5000) },
           );

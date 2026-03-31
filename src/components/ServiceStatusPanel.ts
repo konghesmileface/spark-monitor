@@ -11,7 +11,7 @@ import {
   fetchServiceStatuses,
   type ServiceStatusResult as ServiceStatus,
 } from '@/services/infrastructure';
-import { h, replaceChildren, type DomChild } from '@/utils/dom-utils';
+import { h, replaceChildren, rawHtml, type DomChild } from '@/utils/dom-utils';
 
 interface LocalBackendStatus {
   enabled?: boolean;
@@ -176,7 +176,7 @@ export class ServiceStatusPanel extends Panel {
       ),
       h('ul', { className: 'service-status-desktop-list' },
         ...checks.map(check =>
-          h('li', null, `${check.ready ? '✅' : '⚠️'} ${check.label}`),
+          h('li', null, rawHtml(`${check.ready ? '<i class="bi bi-check-circle-fill"></i>' : '<i class="bi bi-exclamation-triangle-fill"></i>'} ${check.label}`)),
         ),
       ),
       h('details', { className: 'service-status-non-parity' },

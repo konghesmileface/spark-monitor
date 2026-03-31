@@ -1,6 +1,7 @@
 import { Panel } from './Panel';
 import { sanitizeUrl } from '@/utils/sanitize';
-import { t } from '@/services/i18n';
+import { t, getCurrentLanguage } from '@/services/i18n';
+import { translateText } from '@/services/summarization';
 import { h, replaceChildren } from '@/utils/dom-utils';
 import {
   TELEGRAM_TOPICS,
@@ -9,11 +10,19 @@ import {
   type TelegramFeedResponse,
 } from '@/services/telegram-intel';
 
+/** Max items to auto-translate per render cycle (avoid burning API quota) */
+const AUTO_TRANSLATE_LIMIT = 20;
+
 export class TelegramIntelPanel extends Panel {
   private items: TelegramItem[] = [];
   private activeTopic = 'all';
   private tabsEl: HTMLElement | null = null;
   private relayEnabled = true;
+
+  // Translation state
+  private translationCache = new Map<string, string>(); // item.id → translated text
+  private autoTranslateAbort: AbortController | null = null;
+  private autoTranslateRunning = false;
 
   constructor() {
     super({
@@ -48,6 +57,7 @@ export class TelegramIntelPanel extends Panel {
       tab.classList.toggle('active', (tab as HTMLElement).dataset.topicId === topicId);
     });
 
+    this.stopAutoTranslate();
     this.renderItems();
   }
 
@@ -57,12 +67,14 @@ export class TelegramIntelPanel extends Panel {
 
     if (!this.relayEnabled) {
       this.setCount(0);
+      this.stopAutoTranslate();
       replaceChildren(this.content,
         h('div', { className: 'empty-state' }, t('components.telegramIntel.disabled')),
       );
       return;
     }
 
+    this.stopAutoTranslate();
     this.renderItems();
   }
 
@@ -85,24 +97,88 @@ export class TelegramIntelPanel extends Panel {
         ...filtered.map(item => this.buildItem(item)),
       ),
     );
+
+    // Auto-translate for non-English UI
+    if (getCurrentLanguage() !== 'en' && !this.autoTranslateRunning) {
+      this.startAutoTranslate();
+    }
   }
 
   private buildItem(item: TelegramItem): HTMLElement {
     const timeAgo = formatTelegramTime(item.ts);
+    const cached = this.translationCache.get(item.id);
 
     return h('a', {
       href: sanitizeUrl(item.url),
       target: '_blank',
       rel: 'noopener noreferrer',
       className: 'telegram-intel-item',
+      dataset: { itemId: item.id },
     },
       h('div', { className: 'telegram-intel-item-header' },
         h('span', { className: 'telegram-intel-channel' }, item.channelTitle || item.channel),
         h('span', { className: 'telegram-intel-topic' }, item.topic),
         h('span', { className: 'telegram-intel-time' }, timeAgo),
       ),
-      h('div', { className: 'telegram-intel-text' }, item.text),
+      h('div', { className: 'telegram-intel-text' }, cached || item.text),
     );
+  }
+
+  /** Serial auto-translate of visible items (limited to AUTO_TRANSLATE_LIMIT) */
+  private startAutoTranslate(): void {
+    if (this.autoTranslateRunning) return;
+    const lang = getCurrentLanguage();
+    if (lang === 'en') return;
+
+    const ac = new AbortController();
+    this.autoTranslateAbort = ac;
+    this.autoTranslateRunning = true;
+
+    (async () => {
+      // Small delay to let DOM settle
+      await new Promise(r => setTimeout(r, 500));
+
+      const itemEls = this.content.querySelectorAll<HTMLElement>('.telegram-intel-item');
+      let translated = 0;
+
+      for (const el of itemEls) {
+        if (ac.signal.aborted || !this.element?.isConnected) break;
+        if (translated >= AUTO_TRANSLATE_LIMIT) break;
+
+        const itemId = el.dataset.itemId;
+        if (!itemId) continue;
+
+        // Skip if already translated
+        if (this.translationCache.has(itemId)) continue;
+
+        const textEl = el.querySelector('.telegram-intel-text') as HTMLElement;
+        if (!textEl) continue;
+
+        const originalText = textEl.textContent || '';
+        if (!originalText.trim()) continue;
+
+        try {
+          const result = await translateText(originalText, lang);
+          if (ac.signal.aborted || !this.element?.isConnected) break;
+
+          if (result) {
+            this.translationCache.set(itemId, result);
+            textEl.textContent = result;
+            translated++;
+          }
+        } catch {
+          // Translation failed for this item, continue with next
+        }
+      }
+
+      this.autoTranslateRunning = false;
+    })();
+  }
+
+  private stopAutoTranslate(): void {
+    this.autoTranslateAbort?.abort();
+    this.autoTranslateAbort = null;
+    this.autoTranslateRunning = false;
   }
 
   public async refresh(): Promise<void> {
@@ -110,6 +186,7 @@ export class TelegramIntelPanel extends Panel {
   }
 
   public destroy(): void {
+    this.stopAutoTranslate();
     if (this.tabsEl) {
       this.tabsEl.remove();
       this.tabsEl = null;

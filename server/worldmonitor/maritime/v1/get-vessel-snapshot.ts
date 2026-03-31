@@ -10,6 +10,7 @@ import type {
 } from '../../../../src/generated/server/worldmonitor/maritime/v1/service_server';
 
 import { CHROME_UA } from '../../../_shared/constants';
+import { proxyFetch } from '../../../_shared/proxy-fetch';
 
 // ========================================================================
 // Helpers
@@ -85,7 +86,7 @@ async function fetchVesselSnapshotFromRelay(): Promise<VesselSnapshot | undefine
     const relayBaseUrl = getRelayBaseUrl();
     if (!relayBaseUrl) return undefined;
 
-    const response = await fetch(
+    const response = await proxyFetch(
       `${relayBaseUrl}/ais/snapshot?candidates=false`,
       {
         headers: getRelayRequestHeaders(),

@@ -87,7 +87,7 @@ export class TechHubsPanel extends Panel {
   }
 
   private getFlag(country: string): string {
-    return COUNTRY_FLAGS[country] || '🌐';
+    return COUNTRY_FLAGS[country] || '<i class="bi bi-globe"></i>';
   }
 
   private render(): void {

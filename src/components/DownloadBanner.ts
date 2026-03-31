@@ -28,11 +28,11 @@ export interface DlButton { cls: string; href: string; label: string }
 
 export function allButtons(): DlButton[] {
   return [
-    { cls: 'mac', href: '/api/download?platform=macos-arm64', label: `\uF8FF ${t('modals.downloadBanner.macSilicon')}` },
-    { cls: 'mac', href: '/api/download?platform=macos-x64', label: `\uF8FF ${t('modals.downloadBanner.macIntel')}` },
-    { cls: 'win', href: '/api/download?platform=windows-msi', label: `\u229E ${t('modals.downloadBanner.windows')}` },
-    { cls: 'linux', href: '/api/download?platform=linux-appimage', label: `\u{1F427} ${t('modals.downloadBanner.linux')} (x64)` },
-    { cls: 'linux', href: '/api/download?platform=linux-appimage-arm64', label: `\u{1F427} ${t('modals.downloadBanner.linux')} (ARM64)` },
+    { cls: 'mac', href: '/api/download?platform=macos-arm64', label: `<i class="bi bi-apple"></i> ${t('modals.downloadBanner.macSilicon')}` },
+    { cls: 'mac', href: '/api/download?platform=macos-x64', label: `<i class="bi bi-apple"></i> ${t('modals.downloadBanner.macIntel')}` },
+    { cls: 'win', href: '/api/download?platform=windows-msi', label: `<i class="bi bi-windows"></i> ${t('modals.downloadBanner.windows')}` },
+    { cls: 'linux', href: '/api/download?platform=linux-appimage', label: `<i class="bi bi-ubuntu"></i> ${t('modals.downloadBanner.linux')} (x64)` },
+    { cls: 'linux', href: '/api/download?platform=linux-appimage-arm64', label: `<i class="bi bi-ubuntu"></i> ${t('modals.downloadBanner.linux')} (ARM64)` },
   ];
 }
 

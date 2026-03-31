@@ -8,7 +8,8 @@ import type {
 // API URLs
 // ========================================================================
 
-export const GDELT_GEO_URL = 'https://api.gdeltproject.org/api/v2/geo/geo';
+/** GDELT GEO v2 API was removed (404). Using DOC API artlist mode instead. */
+export const GDELT_DOC_URL = 'https://api.gdeltproject.org/api/v2/doc/doc';
 
 // ========================================================================
 // ACLED Event Type Mapping (ported from src/services/protests.ts lines 39-46)

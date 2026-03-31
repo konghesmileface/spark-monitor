@@ -93,11 +93,11 @@ export class RegulationPanel extends Panel {
     });
 
     const typeIcons: Record<RegulatoryAction['type'], string> = {
-      'law-passed': '📜',
-      'executive-order': '🏛️',
-      'guideline': '📋',
-      'enforcement': '⚖️',
-      'consultation': '💬',
+      'law-passed': '<i class="bi bi-file-earmark-text"></i>',
+      'executive-order': '<i class="bi bi-bank"></i>',
+      'guideline': '<i class="bi bi-clipboard-check"></i>',
+      'enforcement': '<i class="bi bi-shield-exclamation"></i>',
+      'consultation': '<i class="bi bi-chat-dots"></i>',
     };
 
     const impactColors: Record<RegulatoryAction['impact'], string> = {
@@ -169,10 +169,10 @@ export class RegulationPanel extends Panel {
           <h5>${escapeHtml(regulation.shortName)}</h5>
           <p class="deadline-name">${escapeHtml(regulation.name)}</p>
           <div class="deadline-meta">
-            <span class="deadline-date">📅 ${formattedDate}</span>
-            <span class="deadline-country">🌍 ${escapeHtml(regulation.country)}</span>
+            <span class="deadline-date"><i class="bi bi-calendar-event"></i> ${formattedDate}</span>
+            <span class="deadline-country"><i class="bi bi-globe2"></i> ${escapeHtml(regulation.country)}</span>
           </div>
-          ${regulation.penalties ? `<p class="deadline-penalties">⚠️ Penalties: ${escapeHtml(regulation.penalties)}</p>` : ''}
+          ${regulation.penalties ? `<p class="deadline-penalties"><i class="bi bi-exclamation-triangle-fill"></i> Penalties: ${escapeHtml(regulation.penalties)}</p>` : ''}
           <div class="deadline-scope">
             ${regulation.scope.map(s => `<span class="scope-tag">${escapeHtml(s)}</span>`).join('')}
           </div>
@@ -224,8 +224,8 @@ export class RegulationPanel extends Panel {
         </div>
         <p class="regulation-full-name">${escapeHtml(regulation.name)}</p>
         <div class="regulation-meta">
-          <span>🌍 ${escapeHtml(regulation.country)}</span>
-          <span>📅 ${effectiveDate}</span>
+          <span><i class="bi bi-globe2"></i> ${escapeHtml(regulation.country)}</span>
+          <span><i class="bi bi-calendar-event"></i> ${effectiveDate}</span>
           <span class="status-badge status-${regulation.status}">${regulation.status}</span>
         </div>
         ${regulation.description ? `<p class="regulation-description">${escapeHtml(regulation.description)}</p>` : ''}

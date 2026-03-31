@@ -22,6 +22,7 @@ import {
 } from './_shared';
 import { CHROME_UA } from '../../../_shared/constants';
 import { cachedFetchJson, getCachedJson, setCachedJson } from '../../../_shared/redis';
+import { proxyFetch } from '../../../_shared/proxy-fetch';
 
 const FAA_CACHE_KEY = 'aviation:delays:faa:v1';
 const INTL_CACHE_KEY = 'aviation:delays:intl:v3';
@@ -65,7 +66,7 @@ export async function listAirportDelays(
     const result = await cachedFetchJson<{ alerts: AirportDelayAlert[] }>(
       FAA_CACHE_KEY, CACHE_TTL, async () => {
         const alerts: AirportDelayAlert[] = [];
-        const faaResponse = await fetch(FAA_URL, {
+        const faaResponse = await proxyFetch(FAA_URL, {
           headers: { Accept: 'application/xml', 'User-Agent': CHROME_UA },
           signal: AbortSignal.timeout(15_000),
         });

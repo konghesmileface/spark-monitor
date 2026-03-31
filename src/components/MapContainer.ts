@@ -5,8 +5,10 @@
  */
 import { isMobileDevice } from '@/utils';
 import { MapComponent } from './Map';
-import { DeckGLMap, type DeckMapView, type CountryClickPayload } from './DeckGLMap';
-import { GlobeMap } from './GlobeMap';
+// DeckGLMap & GlobeMap are lazily imported to avoid loading ~1MB of 3D libs on initial page load
+import type { DeckMapView, CountryClickPayload } from './DeckGLMap';
+type DeckGLMapType = import('./DeckGLMap').DeckGLMap;
+type GlobeMapType = import('./GlobeMap').GlobeMap;
 import type {
   MapLayers,
   Hotspot,
@@ -40,6 +42,7 @@ import type { SpeciesRecovery } from '@/services/conservation-data';
 import type { RenewableInstallation } from '@/services/renewable-installations';
 import type { GpsJamHex } from '@/services/gps-interference';
 import type { IranEvent } from '@/services/conflict';
+import type { CompactVessel } from '@/services/maritime/vessel-traffic';
 
 export type TimeRange = '1h' | '6h' | '24h' | '48h' | '7d' | 'all';
 export type MapView = 'global' | 'america' | 'mena' | 'eu' | 'asia' | 'latam' | 'africa' | 'oceania';
@@ -76,9 +79,9 @@ type CIIScore = { code: string; score: number; level: string };
 export class MapContainer {
   private container: HTMLElement;
   private isMobile: boolean;
-  private deckGLMap: DeckGLMap | null = null;
+  private deckGLMap: DeckGLMapType | null = null;
   private svgMap: MapComponent | null = null;
-  private globeMap: GlobeMap | null = null;
+  private globeMap: GlobeMapType | null = null;
   private initialState: MapContainerState;
   private useDeckGL: boolean;
   private useGlobe: boolean;
@@ -99,6 +102,7 @@ export class MapContainer {
   private cachedOutages: InternetOutage[] | null = null;
   private cachedAisDisruptions: AisDisruptionEvent[] | null = null;
   private cachedAisDensity: AisDensityZone[] | null = null;
+  private cachedVesselTraffic: CompactVessel[] | null = null;
   private cachedCableAdvisories: CableAdvisory[] | null = null;
   private cachedRepairShips: RepairShip[] | null = null;
   private cachedCableHealth: Record<string, CableHealthRecord> | null = null;
@@ -174,22 +178,43 @@ export class MapContainer {
     this.svgMap = new MapComponent(this.container, this.initialState);
   }
 
+  /** Inject maplibre-gl CSS once (lazy, not in main bundle). */
+  private static maplibreCssLoaded = false;
+  private static loadMaplibreCss(): void {
+    if (MapContainer.maplibreCssLoaded) return;
+    MapContainer.maplibreCssLoaded = true;
+    import('maplibre-gl/dist/maplibre-gl.css');
+  }
+
   private init(): void {
     if (this.useGlobe) {
       console.log('[MapContainer] Initializing 3D globe (globe.gl mode)');
-      this.globeMap = new GlobeMap(this.container, this.initialState);
+      import('./GlobeMap').then(({ GlobeMap }) => {
+        this.globeMap = new GlobeMap(this.container, this.initialState);
+        this.rehydrateActiveMap();
+      }).catch(err => {
+        console.warn('[MapContainer] GlobeMap load failed, falling back to SVG', err);
+        this.initSvgMap('[MapContainer] Initializing SVG map (globe fallback mode)');
+      });
     } else if (this.useDeckGL) {
       console.log('[MapContainer] Initializing deck.gl map (desktop mode)');
-      try {
-        this.container.classList.add('deckgl-mode');
-        this.deckGLMap = new DeckGLMap(this.container, {
-          ...this.initialState,
-          view: this.initialState.view as DeckMapView,
-        });
-      } catch (error) {
-        console.warn('[MapContainer] DeckGL initialization failed, falling back to SVG map', error);
-        this.initSvgMap('[MapContainer] Initializing SVG map (DeckGL fallback mode)');
-      }
+      MapContainer.loadMaplibreCss();
+      import('./DeckGLMap').then(({ DeckGLMap }) => {
+        try {
+          this.container.classList.add('deckgl-mode');
+          this.deckGLMap = new DeckGLMap(this.container, {
+            ...this.initialState,
+            view: this.initialState.view as DeckMapView,
+          });
+          this.rehydrateActiveMap();
+        } catch (error) {
+          console.warn('[MapContainer] DeckGL initialization failed, falling back to SVG map', error);
+          this.initSvgMap('[MapContainer] Initializing SVG map (DeckGL fallback mode)');
+        }
+      }).catch(err => {
+        console.warn('[MapContainer] DeckGLMap load failed, falling back to SVG', err);
+        this.initSvgMap('[MapContainer] Initializing SVG map (DeckGL load fallback mode)');
+      });
     } else {
       this.initSvgMap('[MapContainer] Initializing SVG map (mobile/fallback mode)');
     }
@@ -215,9 +240,11 @@ export class MapContainer {
     this.destroyFlatMap();
     this.useGlobe = true;
     this.useDeckGL = false;
-    this.globeMap = new GlobeMap(this.container, this.initialState);
-    this.restoreViewport(snapshot, center);
-    this.rehydrateActiveMap();
+    import('./GlobeMap').then(({ GlobeMap }) => {
+      this.globeMap = new GlobeMap(this.container, this.initialState);
+      this.restoreViewport(snapshot, center);
+      this.rehydrateActiveMap();
+    });
   }
 
   /** Switch back to flat map at runtime (called from Settings). */
@@ -257,6 +284,7 @@ export class MapContainer {
     if (this.cachedWeatherAlerts) this.setWeatherAlerts(this.cachedWeatherAlerts);
     if (this.cachedOutages) this.setOutages(this.cachedOutages);
     if (this.cachedAisDisruptions != null && this.cachedAisDensity != null) this.setAisData(this.cachedAisDisruptions, this.cachedAisDensity);
+    if (this.cachedVesselTraffic) this.setVesselTraffic(this.cachedVesselTraffic);
     if (this.cachedCableAdvisories != null && this.cachedRepairShips != null) this.setCableActivity(this.cachedCableAdvisories, this.cachedRepairShips);
     if (this.cachedCableHealth) this.setCableHealth(this.cachedCableHealth);
     if (this.cachedProtests) this.setProtests(this.cachedProtests);
@@ -401,6 +429,17 @@ export class MapContainer {
       this.deckGLMap?.setAisData(disruptions, density);
     } else {
       this.svgMap?.setAisData(disruptions, density);
+    }
+  }
+
+  public setVesselTraffic(vessels: CompactVessel[]): void {
+    this.cachedVesselTraffic = vessels;
+    // Vessel canvas is only implemented in SVG map for now (DeckGL/Globe can be added later)
+    if (this.useGlobe) return;
+    if (this.useDeckGL) {
+      // DeckGL could use ScatterplotLayer — not yet implemented
+    } else {
+      this.svgMap?.setVesselTraffic(vessels);
     }
   }
 

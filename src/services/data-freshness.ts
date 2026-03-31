@@ -326,7 +326,7 @@ export function getStatusIcon(status: FreshnessStatus): string {
     case 'fresh': return '●';
     case 'stale': return '◐';
     case 'very_stale': return '○';
-    case 'error': return '✕';
+    case 'error': return '✗';
     case 'disabled': return '○';
     case 'no_data': return '○';
   }
@@ -395,7 +395,7 @@ export function getIntelligenceGaps(): { source: DataSourceId; message: string; 
 export function getIntelligenceGapSummary(): string[] {
   const gaps = getIntelligenceGaps();
   return gaps.map(gap => {
-    const icon = gap.severity === 'critical' ? '⚠️ CRITICAL' : '⚡';
+    const icon = gap.severity === 'critical' ? '[!] CRITICAL' : '[*]';
     return `${icon}: ${gap.message}`;
   });
 }

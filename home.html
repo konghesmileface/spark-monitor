@@ -1,0 +1,1350 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Spark Monitor — AI驱动的企业级全球情报决策平台</title>
+  <meta name="description" content="AI实时扫描395+全球数据源，从新闻·政策·舆情·市场中精准捕获企业风险与机遇，浓缩为CEO可执行的行动清单。" />
+  <link rel="icon" href="/favico/favicon.ico" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0a0e1a;
+      --bg-card: #111827;
+      --bg-card-hover: #1a2332;
+      --accent: #00d4ff;
+      --accent2: #00e88f;
+      --accent3: #a855f7;
+      --text: #e8eef5;
+      --text-sec: #8b96b1;
+      --text-muted: #4b5563;
+      --glass: rgba(255,255,255,0.06);
+      --glass-border: rgba(255,255,255,0.1);
+      --glow-cyan: rgba(0,212,255,0.15);
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.7;
+      overflow-x: hidden;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    a { color: var(--accent); text-decoration: none; transition: color .2s; }
+    a:hover { color: #33e0ff; }
+
+    /* ===== NAV ===== */
+    .nav {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+      padding: 0 40px; height: 64px;
+      display: flex; align-items: center; justify-content: space-between;
+      background: transparent;
+      border-bottom: 1px solid transparent;
+      transition: background .4s, border-color .4s, backdrop-filter .4s;
+    }
+    .nav.scrolled {
+      background: rgba(10,14,26,0.82);
+      backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+      border-bottom-color: var(--glass-border);
+    }
+    .nav-brand {
+      display: flex; align-items: center; gap: 10px;
+      font-weight: 800; font-size: 18px; letter-spacing: -0.3px;
+      background: linear-gradient(135deg, #fff 30%, var(--accent));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .nav-brand svg { width: 26px; height: 26px; color: var(--accent); flex-shrink: 0; }
+    .nav-links { display: flex; gap: 32px; align-items: center; }
+    .nav-links a {
+      color: var(--text-sec); font-size: 14px; font-weight: 500;
+      transition: color .2s; letter-spacing: 0.2px;
+    }
+    .nav-links a:hover { color: #fff; -webkit-text-fill-color: unset; }
+    .nav-links a.nav-cta {
+      background: linear-gradient(135deg, #00d4ff, #00e88f);
+      color: #0a0e1a; padding: 8px 22px; border-radius: 8px;
+      font-weight: 700; font-size: 13px; letter-spacing: 0.3px;
+      position: relative; overflow: hidden; transition: transform .2s, box-shadow .2s;
+      box-shadow: 0 0 16px rgba(0,212,255,0.25);
+    }
+    .nav-links a.nav-cta:hover {
+      color: #0a0e1a; transform: translateY(-1px);
+      box-shadow: 0 4px 24px rgba(0,212,255,0.45);
+    }
+    .nav-links a.nav-cta::after {
+      content: ''; position: absolute; inset: 0;
+      background: linear-gradient(105deg, transparent 40%, rgba(255,255,255,0.25) 50%, transparent 60%);
+      transform: translateX(-100%); transition: transform .5s;
+    }
+    .nav-links a.nav-cta:hover::after { transform: translateX(100%); }
+
+    /* ===== HERO ===== */
+    .hero {
+      min-height: 100vh; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; text-align: center;
+      padding: 100px 24px 80px; position: relative; overflow: hidden;
+    }
+    .hero-orbs { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+    .hero-orb {
+      position: absolute; border-radius: 50%; filter: blur(80px); opacity: 0.5;
+    }
+    .hero-orb--cyan {
+      width: 500px; height: 500px; top: 10%; left: 15%;
+      background: radial-gradient(circle, rgba(0,212,255,0.25), transparent 70%);
+      animation: orb-drift-1 25s ease-in-out infinite;
+    }
+    .hero-orb--purple {
+      width: 400px; height: 400px; top: 30%; right: 10%;
+      background: radial-gradient(circle, rgba(168,85,247,0.2), transparent 70%);
+      animation: orb-drift-2 30s ease-in-out infinite;
+    }
+    .hero-orb--mint {
+      width: 350px; height: 350px; bottom: 15%; left: 40%;
+      background: radial-gradient(circle, rgba(0,232,143,0.18), transparent 70%);
+      animation: orb-drift-3 20s ease-in-out infinite;
+    }
+    @keyframes orb-drift-1 {
+      0%, 100% { transform: translate(0, 0); }
+      33% { transform: translate(60px, -40px); }
+      66% { transform: translate(-30px, 30px); }
+    }
+    @keyframes orb-drift-2 {
+      0%, 100% { transform: translate(0, 0); }
+      33% { transform: translate(-50px, 30px); }
+      66% { transform: translate(40px, -20px); }
+    }
+    @keyframes orb-drift-3 {
+      0%, 100% { transform: translate(0, 0); }
+      33% { transform: translate(30px, 30px); }
+      66% { transform: translate(-40px, -25px); }
+    }
+
+    .hero-badge {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: rgba(0,212,255,0.08); border: 1px solid rgba(0,212,255,0.2);
+      padding: 6px 18px; border-radius: 24px;
+      font-size: 13px; font-weight: 500; color: var(--accent);
+      letter-spacing: 0.5px; margin-bottom: 32px;
+      position: relative; z-index: 1;
+    }
+    .hero-badge .dot {
+      width: 6px; height: 6px; border-radius: 50%; background: var(--accent2);
+      animation: pulse-dot 2s ease-in-out infinite;
+    }
+    @keyframes pulse-dot { 0%,100% { opacity: .5; transform: scale(1); } 50% { opacity: 1; transform: scale(1.3); } }
+
+    .hero h1 {
+      font-size: clamp(32px, 5vw, 48px); font-weight: 800;
+      line-height: 1.15; letter-spacing: -1px; margin-bottom: 20px;
+      position: relative; z-index: 1;
+    }
+    .hero h1 .gradient-text {
+      background: linear-gradient(135deg, #fff 20%, var(--accent) 50%, var(--accent2) 80%);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .hero .subtitle {
+      font-size: clamp(16px, 2.2vw, 20px); color: var(--text-sec);
+      max-width: 640px; margin-bottom: 12px; line-height: 1.6;
+      position: relative; z-index: 1;
+    }
+    .hero .subtitle .sep { margin: 0 6px; color: var(--text-muted); }
+    .hero .subtitle b { color: var(--accent); font-weight: 600; }
+    .hero .sub-desc {
+      font-size: 16px; color: var(--text-muted); margin-bottom: 40px;
+      position: relative; z-index: 1;
+    }
+
+    .hero-actions {
+      display: flex; gap: 16px; flex-wrap: wrap; justify-content: center;
+      margin-bottom: 72px; position: relative; z-index: 1;
+    }
+    .btn-primary {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: linear-gradient(135deg, var(--accent), #0099cc);
+      color: #fff; padding: 14px 36px; border-radius: 10px;
+      font-weight: 700; font-size: 15px; border: none; cursor: pointer;
+      position: relative; overflow: hidden; transition: transform .2s, box-shadow .2s;
+      letter-spacing: 0.3px;
+    }
+    .btn-primary:hover {
+      color: #fff; transform: translateY(-2px);
+      box-shadow: 0 8px 30px rgba(0,212,255,0.35);
+    }
+    .btn-primary::after {
+      content: ''; position: absolute; inset: 0;
+      background: linear-gradient(105deg, transparent 40%, rgba(255,255,255,0.2) 50%, transparent 60%);
+      transform: translateX(-100%); transition: transform .6s;
+    }
+    .btn-primary:hover::after { transform: translateX(100%); }
+
+    .btn-outline {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: transparent; color: var(--text);
+      padding: 14px 36px; border-radius: 10px;
+      font-weight: 600; font-size: 15px;
+      border: 1px solid rgba(255,255,255,0.15); cursor: pointer;
+      transition: all .2s;
+    }
+    .btn-outline:hover {
+      border-color: var(--accent); color: var(--accent);
+    }
+
+    /* Hero Stats Row */
+    .hero-stats {
+      display: flex; gap: 24px; flex-wrap: wrap; justify-content: center;
+      position: relative; z-index: 1;
+    }
+    .stat-card {
+      background: var(--glass); border: 1px solid var(--glass-border);
+      backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+      border-radius: 14px; padding: 24px 32px; text-align: center;
+      min-width: 140px; transition: all .3s;
+    }
+    .stat-card:hover {
+      border-color: var(--accent);
+      box-shadow: 0 0 20px rgba(0,212,255,0.12);
+      transform: translateY(-4px);
+    }
+    .stat-num {
+      font-size: 28px; font-weight: 800; letter-spacing: -0.5px;
+      background: linear-gradient(135deg, #fff, var(--accent));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .stat-label { font-size: 13px; color: var(--text-sec); margin-top: 4px; font-weight: 500; }
+
+    /* ===== HERO SCENARIOS ===== */
+    .hero-lead {
+      font-size: 14px; color: var(--text-sec); letter-spacing: 0.5px;
+      margin-bottom: 12px; position: relative; z-index: 1;
+    }
+    .hero-sub {
+      font-size: 15px; color: var(--text-sec); max-width: 640px;
+      line-height: 1.8; margin-bottom: 32px; position: relative; z-index: 1;
+    }
+    .hero-scenarios {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px;
+      max-width: 900px; width: 100%;
+      margin-bottom: 36px; position: relative; z-index: 1;
+    }
+    .scenario-card {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 14px; padding: 22px 20px;
+      text-align: left; transition: all .3s;
+    }
+    .scenario-card:hover {
+      border-color: rgba(0,212,255,0.3);
+      background: rgba(255,255,255,0.07);
+      transform: translateY(-4px);
+    }
+    .scenario-icon {
+      width: 36px; height: 36px; border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px; margin-bottom: 12px;
+    }
+    .scenario-icon--cyan { background: rgba(0,212,255,0.1); color: var(--accent); }
+    .scenario-icon--green { background: rgba(0,232,143,0.1); color: var(--accent2); }
+    .scenario-icon--purple { background: rgba(168,85,247,0.1); color: var(--accent3); }
+    .scenario-title { font-size: 15px; font-weight: 700; margin-bottom: 8px; color: var(--text); }
+    .scenario-desc { font-size: 13px; color: var(--text-sec); line-height: 1.7; }
+    .scenario-desc b { color: var(--accent); font-weight: 600; }
+    .hero-data-bar {
+      display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+      justify-content: center;
+      font-size: 13px; color: var(--text-sec);
+      position: relative; z-index: 1;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 24px; padding: 12px 28px;
+    }
+    .hero-data-bar b { color: var(--accent); font-weight: 700; }
+    .hero-data-bar .bar-sep { color: var(--text-muted); margin: 0 4px; }
+    @media (max-width: 768px) {
+      .hero-scenarios { grid-template-columns: 1fr; max-width: 400px; margin: 0 auto 28px; }
+      .hero-data-bar { padding: 10px 16px; font-size: 12px; }
+    }
+
+    /* ===== SECTIONS COMMON ===== */
+    .section-wrap { max-width: 1200px; margin: 0 auto; padding: 100px 24px; }
+    .section-label {
+      color: var(--accent); font-size: 12px; font-weight: 600;
+      text-transform: uppercase; letter-spacing: 3px; margin-bottom: 16px;
+    }
+    .section-title {
+      font-size: clamp(24px, 3.5vw, 32px); font-weight: 700;
+      line-height: 1.2; letter-spacing: -0.5px; margin-bottom: 20px;
+    }
+    .section-desc {
+      color: var(--text-sec); font-size: 15px; max-width: 600px;
+      margin-bottom: 56px; line-height: 1.7;
+    }
+
+    /* ===== PROBLEM-SOLUTION ===== */
+    .ps-section { background: linear-gradient(180deg, transparent, rgba(0,212,255,0.02), transparent); }
+    .ps-grid { display: flex; flex-direction: column; gap: 20px; max-width: 900px; }
+    .ps-row {
+      display: grid; grid-template-columns: 1fr auto 1fr; gap: 24px; align-items: center;
+      background: var(--glass); border: 1px solid var(--glass-border);
+      border-radius: 14px; padding: 24px 28px;
+      transition: border-color .3s;
+    }
+    .ps-row:hover { border-color: rgba(0,212,255,0.25); }
+    .ps-problem { color: var(--text-sec); font-size: 15px; line-height: 1.6; }
+    .ps-problem .x-mark { color: #ef4444; font-weight: 700; margin-right: 8px; font-size: 16px; }
+    .ps-arrow {
+      width: 40px; height: 40px; border-radius: 50%;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      display: flex; align-items: center; justify-content: center;
+      color: #0a0e1a; font-size: 16px; font-weight: 700; flex-shrink: 0;
+    }
+    .ps-solution { color: var(--text); font-size: 15px; line-height: 1.6; font-weight: 500; }
+    .ps-solution .check-mark { color: var(--accent2); font-weight: 700; margin-right: 8px; font-size: 16px; }
+
+    /* ===== COMPARE TABLE ===== */
+    .compare-section { background: linear-gradient(180deg, transparent, rgba(0,232,143,0.015), transparent); }
+    .compare-grid {
+      display: grid; grid-template-columns: 110px repeat(3, 1fr);
+      border: 1px solid var(--glass-border); border-radius: 14px; overflow: hidden;
+    }
+    .cg-cell {
+      padding: 14px 16px; font-size: 13px; color: var(--text-sec);
+      border-bottom: 1px solid rgba(255,255,255,0.04);
+      line-height: 1.5;
+    }
+    .cg-header {
+      background: rgba(255,255,255,0.03); font-weight: 700;
+      font-size: 13px; color: var(--text); text-align: center;
+      padding: 16px 14px; border-bottom: 1px solid var(--glass-border);
+    }
+    .cg-dim {
+      font-weight: 600; color: var(--text); font-size: 12px;
+      background: rgba(255,255,255,0.02); display: flex; align-items: center;
+    }
+    .cg-spark {
+      background: rgba(0,212,255,0.04); color: var(--accent); font-weight: 600;
+    }
+    .cg-spark b { color: #fff; }
+    .cg-muted { color: var(--text-muted); }
+    .cg-row-last .cg-cell { border-bottom: none; }
+    .cg-cost { font-size: 16px; font-weight: 800; }
+    .cg-cost--spark {
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+    }
+    @media (max-width: 768px) {
+      .compare-grid { grid-template-columns: 80px repeat(3, 1fr); font-size: 12px; }
+      .cg-cell { padding: 10px 8px; font-size: 12px; }
+    }
+
+    /* ===== FEATURES GRID ===== */
+    .feat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
+    .feat-card {
+      background: var(--bg-card); border: 1px solid var(--glass-border);
+      border-radius: 16px; padding: 32px 28px;
+      transition: all .35s cubic-bezier(.4,0,.2,1);
+      position: relative; overflow: hidden;
+    }
+    .feat-card::before {
+      content: ''; position: absolute; inset: -1px;
+      border-radius: 17px; padding: 1px;
+      background: linear-gradient(135deg, transparent 40%, var(--accent) 100%);
+      -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+      mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+      -webkit-mask-composite: xor; mask-composite: exclude;
+      opacity: 0; transition: opacity .35s;
+    }
+    .feat-card:hover::before { opacity: 1; }
+    .feat-card:hover {
+      transform: translateY(-8px);
+      box-shadow: 0 12px 40px rgba(0,0,0,0.3);
+      background: var(--bg-card-hover);
+    }
+    .feat-badge {
+      display: inline-block; font-size: 11px; font-weight: 600;
+      text-transform: uppercase; letter-spacing: 1px;
+      color: var(--accent); background: rgba(0,212,255,0.1);
+      padding: 3px 10px; border-radius: 6px; margin-bottom: 14px;
+    }
+    .feat-badge--green { color: var(--accent2); background: rgba(0,232,143,0.1); }
+    .feat-badge--purple { color: var(--accent3); background: rgba(168,85,247,0.1); }
+    .feat-icon {
+      width: 48px; height: 48px; border-radius: 12px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 22px; margin-bottom: 16px;
+      background: rgba(0,212,255,0.08); color: var(--accent);
+    }
+    .feat-icon--green { background: rgba(0,232,143,0.08); color: var(--accent2); }
+    .feat-icon--purple { background: rgba(168,85,247,0.08); color: var(--accent3); }
+    .feat-card h3 {
+      font-size: 18px; font-weight: 700; margin-bottom: 10px;
+      letter-spacing: -0.3px;
+    }
+    .feat-card p {
+      font-size: 14px; color: var(--text-sec); line-height: 1.75;
+    }
+    .feat-highlight {
+      margin-top: 16px; padding-top: 14px;
+      border-top: 1px solid var(--glass-border);
+      font-size: 12px; color: var(--text-muted); font-weight: 500;
+      letter-spacing: 0.3px;
+    }
+    .feat-highlight b { color: var(--accent); font-weight: 600; }
+
+    /* ===== DATA SOURCES PANORAMA ===== */
+    .ds-section { background: linear-gradient(180deg, transparent, rgba(0,212,255,0.015), transparent); }
+    .ds-grid {
+      display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px;
+    }
+    .ds-cell {
+      background: var(--bg-card); border: 1px solid var(--glass-border);
+      border-radius: 12px; padding: 20px; text-align: center;
+      transition: all .3s;
+    }
+    .ds-cell:hover {
+      border-color: rgba(0,212,255,0.3);
+      background: var(--bg-card-hover);
+    }
+    .ds-count {
+      font-size: 22px; font-weight: 800; letter-spacing: -0.3px;
+      color: var(--accent);
+    }
+    .ds-name {
+      font-size: 14px; font-weight: 600; color: var(--text);
+      margin-top: 4px;
+    }
+    .ds-examples {
+      font-size: 12px; color: var(--text-muted); margin-top: 6px;
+      line-height: 1.5;
+    }
+
+    /* ===== AI ENGINE ===== */
+    .ai-section .section-wrap { text-align: center; }
+    .ai-pipeline {
+      display: flex; align-items: center; justify-content: center;
+      gap: 16px; flex-wrap: wrap; margin-bottom: 48px;
+    }
+    .ai-node {
+      background: var(--bg-card); border: 1px solid var(--glass-border);
+      border-radius: 12px; padding: 20px 28px; text-align: center;
+      transition: all .3s;
+    }
+    .ai-node:hover { border-color: var(--accent); transform: translateY(-4px); }
+    .ai-node-name { font-size: 16px; font-weight: 700; margin-bottom: 2px; }
+    .ai-node-role { font-size: 12px; color: var(--text-muted); font-weight: 500; }
+    .ai-arrow { color: var(--accent); font-size: 20px; font-weight: 300; }
+    .ai-metrics {
+      display: flex; gap: 40px; justify-content: center; flex-wrap: wrap;
+    }
+    .ai-metric { text-align: center; }
+    .ai-metric-val {
+      font-size: 24px; font-weight: 800; color: var(--accent);
+      letter-spacing: -0.5px;
+    }
+    .ai-metric-label { font-size: 13px; color: var(--text-sec); margin-top: 4px; }
+
+    /* ===== PRICING ===== */
+    .pricing-wrap { display: flex; justify-content: center; }
+    .pricing-card {
+      max-width: 540px; width: 100%;
+      background: var(--bg-card);
+      border: 2px solid transparent;
+      border-image: linear-gradient(135deg, var(--accent), var(--accent2)) 1;
+      border-radius: 20px; padding: 48px 44px; text-align: center;
+      position: relative; overflow: hidden;
+    }
+    /* border-image breaks border-radius, use pseudo element instead */
+    .pricing-card {
+      border: none; border-radius: 20px; position: relative;
+    }
+    .pricing-card::before {
+      content: ''; position: absolute; inset: -2px;
+      border-radius: 22px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      z-index: -1;
+    }
+    .pricing-card::after {
+      content: ''; position: absolute; inset: 0;
+      border-radius: 20px;
+      background: var(--bg-card);
+      z-index: -1;
+    }
+    .pricing-label {
+      font-size: 14px; font-weight: 600; color: var(--accent);
+      text-transform: uppercase; letter-spacing: 2px; margin-bottom: 8px;
+    }
+    .pricing-title {
+      font-size: 20px; font-weight: 700; margin-bottom: 24px;
+    }
+    .price {
+      font-size: 40px; font-weight: 800; letter-spacing: -1px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .price-unit { font-size: 16px; color: var(--text-sec); font-weight: 500; }
+    .pricing-features {
+      list-style: none; text-align: left; margin: 28px 0 32px;
+    }
+    .pricing-features li {
+      padding: 10px 0; font-size: 14px; color: var(--text-sec);
+      display: flex; align-items: flex-start; gap: 12px;
+      line-height: 1.5; border-bottom: 1px solid rgba(255,255,255,0.04);
+    }
+    .pricing-features li:last-child { border-bottom: none; }
+    .pricing-features .check {
+      color: var(--accent2); font-weight: 700; font-size: 15px;
+      flex-shrink: 0; margin-top: 1px;
+    }
+
+    /* ===== FOOTER ===== */
+    .footer {
+      border-top: 1px solid var(--glass-border);
+      padding: 40px 24px; text-align: center;
+    }
+    .footer-brand {
+      font-size: 16px; font-weight: 700; margin-bottom: 12px;
+      background: linear-gradient(135deg, #fff 30%, var(--accent));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .footer-links {
+      display: flex; gap: 24px; justify-content: center; flex-wrap: wrap;
+      margin-bottom: 12px;
+    }
+    .footer-links a { color: var(--text-sec); font-size: 13px; font-weight: 500; }
+    .footer-links a:hover { color: #fff; }
+    .footer-copy { font-size: 12px; color: var(--text-muted); }
+
+    /* ===== REVEAL ANIMATION ===== */
+    [data-reveal] {
+      opacity: 0; transform: translateY(30px);
+      transition: opacity .7s cubic-bezier(.4,0,.2,1), transform .7s cubic-bezier(.4,0,.2,1);
+    }
+    [data-reveal].revealed {
+      opacity: 1; transform: translateY(0);
+    }
+
+    /* ===== RESPONSIVE ===== */
+    @media (max-width: 1024px) {
+      .feat-grid { grid-template-columns: repeat(2, 1fr); }
+      .ds-grid { grid-template-columns: repeat(3, 1fr); }
+    }
+    @media (max-width: 768px) {
+      .nav { padding: 0 20px; height: 56px; }
+      .nav-links { display: none; }
+      .hero { padding: 90px 16px 60px; min-height: auto; }
+      .hero h1 { letter-spacing: -1px; }
+      .section-wrap { padding: 64px 16px; }
+      .feat-grid { grid-template-columns: 1fr; }
+      .ds-grid { grid-template-columns: repeat(2, 1fr); }
+      .ps-row {
+        grid-template-columns: 1fr;
+        text-align: center;
+      }
+      .ps-arrow { margin: 0 auto; }
+      .hero-stats { gap: 12px; }
+      .stat-card { padding: 16px 20px; min-width: 120px; }
+      .stat-num { font-size: 28px; }
+      .ai-pipeline { flex-direction: column; }
+      .ai-arrow { transform: rotate(90deg); }
+      .ai-metrics { gap: 24px; }
+      .pricing-card { padding: 32px 24px; }
+      .price { font-size: 42px; }
+    }
+    @media (max-width: 480px) {
+      .ds-grid { grid-template-columns: 1fr 1fr; }
+      .hero-stats { gap: 8px; }
+      .stat-card { min-width: 100px; padding: 14px 16px; }
+    }
+
+    /* ===== HERO AI ENHANCEMENT ===== */
+    .hero-grid-bg {
+      position: absolute; inset: 0; pointer-events: none; overflow: hidden;
+      background:
+        linear-gradient(rgba(0,212,255,0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(0,212,255,0.03) 1px, transparent 1px);
+      background-size: 60px 60px;
+      -webkit-mask-image: radial-gradient(ellipse 60% 50% at 50% 50%, black 20%, transparent 70%);
+      mask-image: radial-gradient(ellipse 60% 50% at 50% 50%, black 20%, transparent 70%);
+    }
+    .hero-scan {
+      position: absolute; inset: 0; pointer-events: none; overflow: hidden;
+    }
+    .hero-scan::after {
+      content: '';
+      position: absolute; top: 0; left: -100%; width: 200%; height: 100%;
+      background: linear-gradient(90deg, transparent 0%, transparent 45%, rgba(0,212,255,0.04) 50%, transparent 55%, transparent 100%);
+      animation: hero-scan-sweep 8s ease-in-out infinite;
+    }
+    @keyframes hero-scan-sweep {
+      0%, 100% { transform: translateX(-25%); }
+      50% { transform: translateX(25%); }
+    }
+    .ai-tag {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: linear-gradient(135deg, rgba(0,212,255,0.15), rgba(168,85,247,0.15));
+      border: 1px solid rgba(0,212,255,0.3);
+      padding: 2px 14px; border-radius: 8px;
+      font-size: inherit; font-weight: 800;
+      color: var(--accent); letter-spacing: 1px;
+      position: relative;
+      animation: ai-tag-glow 3s ease-in-out infinite;
+      -webkit-text-fill-color: var(--accent);
+    }
+    .ai-tag .bi { font-size: 0.75em; }
+    @keyframes ai-tag-glow {
+      0%, 100% { box-shadow: 0 0 12px rgba(0,212,255,0.15); }
+      50% { box-shadow: 0 0 24px rgba(0,212,255,0.35), 0 0 48px rgba(0,212,255,0.08); }
+    }
+
+    /* ===== POLICY NETWORK GRAPH ===== */
+    .pn-section {
+      background: linear-gradient(180deg, rgba(0,212,255,0.015) 0%, var(--bg) 25%, var(--bg) 75%, rgba(0,212,255,0.015) 100%);
+      position: relative; overflow: hidden;
+    }
+    .pn-section::before {
+      content: '';
+      position: absolute; inset: 0;
+      background: radial-gradient(circle at 50% 55%, rgba(0,212,255,0.04) 0%, transparent 45%);
+      pointer-events: none;
+    }
+    .pn-stats {
+      display: flex; gap: 40px; justify-content: center; flex-wrap: wrap;
+      margin-bottom: 52px;
+    }
+    .pn-stat { text-align: center; }
+    .pn-stat-num {
+      font-size: 36px; font-weight: 800; letter-spacing: -0.5px;
+      background: linear-gradient(135deg, var(--accent), #fff);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .pn-stat-label { font-size: 13px; color: var(--text-sec); margin-top: 2px; }
+    .pn-map {
+      display: grid; grid-template-columns: 1fr 220px 1fr;
+      align-items: center;
+      max-width: 1060px; margin: 0 auto 44px;
+      position: relative;
+    }
+    .pn-map::after {
+      content: '';
+      position: absolute; top: 50%; left: 50%;
+      width: 80%; height: 80%;
+      transform: translate(-50%, -50%);
+      background: radial-gradient(circle, rgba(0,212,255,0.05), transparent 55%);
+      border-radius: 50%; pointer-events: none; z-index: 0;
+    }
+    .pn-col { display: flex; flex-direction: column; gap: 10px; position: relative; z-index: 1; }
+    .pn-node {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 12px; padding: 14px 18px;
+      transition: all .3s; cursor: default; overflow: visible;
+    }
+    .pn-node:hover {
+      border-color: var(--node-color, rgba(0,212,255,0.4));
+      background: rgba(255,255,255,0.06);
+    }
+    .pn-col-left .pn-node { text-align: right; }
+    .pn-col-left .pn-node:hover { transform: translateX(4px); }
+    .pn-col-right .pn-node { text-align: left; }
+    .pn-col-right .pn-node:hover { transform: translateX(-4px); }
+    .pn-node-head {
+      display: flex; align-items: center; gap: 8px;
+      margin-bottom: 5px;
+    }
+    .pn-col-left .pn-node-head { justify-content: flex-end; flex-direction: row-reverse; }
+    .pn-node-count {
+      display: inline-flex; align-items: center; justify-content: center;
+      min-width: 26px; height: 26px; border-radius: 7px;
+      font-size: 13px; font-weight: 800;
+      background: var(--node-bg, rgba(0,212,255,0.1));
+      color: var(--node-color, var(--accent));
+    }
+    .pn-node-name { font-size: 14px; font-weight: 700; color: var(--text); }
+    .pn-node-tags { font-size: 11px; color: var(--text-muted); line-height: 1.6; letter-spacing: 0.2px; }
+    /* Connection glow on hub-facing edge */
+    .pn-col-left .pn-node { border-right-color: rgba(0,212,255,0.12); }
+    .pn-col-left .pn-node:hover { border-right-color: var(--node-color, rgba(0,212,255,0.4)); }
+    .pn-col-right .pn-node { border-left-color: rgba(0,212,255,0.12); }
+    .pn-col-right .pn-node:hover { border-left-color: var(--node-color, rgba(0,212,255,0.4)); }
+    /* Node color variants */
+    .pn-node--red { --node-color: #ef4444; --node-bg: rgba(239,68,68,0.1); }
+    .pn-node--blue { --node-color: #3b82f6; --node-bg: rgba(59,130,246,0.1); }
+    .pn-node--teal { --node-color: #14b8a6; --node-bg: rgba(20,184,166,0.1); }
+    .pn-node--amber { --node-color: #f59e0b; --node-bg: rgba(245,158,11,0.1); }
+    .pn-node--purple { --node-color: #a855f7; --node-bg: rgba(168,85,247,0.1); }
+    .pn-node--green { --node-color: #22c55e; --node-bg: rgba(34,197,94,0.1); }
+    .pn-node--indigo { --node-color: #6366f1; --node-bg: rgba(99,102,241,0.1); }
+    .pn-node--cyan { --node-color: #06b6d4; --node-bg: rgba(6,182,212,0.1); }
+    /* Hub */
+    .pn-hub { display: flex; align-items: center; justify-content: center; position: relative; z-index: 2; }
+    .pn-hub-core {
+      width: 160px; height: 160px; border-radius: 50%;
+      background: radial-gradient(circle, rgba(0,212,255,0.12), rgba(0,212,255,0.02));
+      border: 2px solid rgba(0,212,255,0.25);
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      position: relative;
+      box-shadow: 0 0 40px rgba(0,212,255,0.1), inset 0 0 30px rgba(0,212,255,0.05);
+    }
+    .pn-hub-icon { font-size: 26px; margin-bottom: 2px; }
+    .pn-hub-title { font-size: 16px; font-weight: 800; color: var(--accent); text-align: center; line-height: 1.2; }
+    .pn-hub-sub { font-size: 11px; color: var(--text-sec); margin-top: 4px; letter-spacing: 0.5px; }
+    .pn-hub-ring {
+      position: absolute; inset: -14px; border-radius: 50%;
+      border: 1px dashed rgba(0,212,255,0.15);
+      animation: pn-ring-spin 30s linear infinite;
+    }
+    .pn-hub-ring::before {
+      content: '';
+      position: absolute; top: -3px; left: 50%; transform: translateX(-50%);
+      width: 6px; height: 6px; border-radius: 50%;
+      background: var(--accent); box-shadow: 0 0 10px var(--accent);
+    }
+    .pn-hub-ring2 {
+      position: absolute; inset: -28px; border-radius: 50%;
+      border: 1px dashed rgba(0,212,255,0.08);
+      animation: pn-ring-spin 45s linear infinite reverse;
+    }
+    .pn-hub-ring2::before {
+      content: '';
+      position: absolute; bottom: -3px; left: 50%; transform: translateX(-50%);
+      width: 4px; height: 4px; border-radius: 50%;
+      background: var(--accent2); box-shadow: 0 0 6px var(--accent2);
+    }
+    @keyframes pn-ring-spin { to { transform: rotate(360deg); } }
+    .pn-hub-glow {
+      position: absolute; inset: -70px; border-radius: 50%;
+      background: radial-gradient(circle, rgba(0,212,255,0.08), transparent 65%);
+      animation: pn-glow-pulse 4s ease-in-out infinite; z-index: -1;
+    }
+    @keyframes pn-glow-pulse {
+      0%, 100% { opacity: .5; transform: scale(1); }
+      50% { opacity: 1; transform: scale(1.08); }
+    }
+    /* Flow bar */
+    .pn-flow {
+      display: flex; align-items: center; justify-content: center; gap: 10px;
+      background: rgba(0,212,255,0.04); border: 1px solid rgba(0,212,255,0.1);
+      border-radius: 24px; padding: 12px 28px;
+      font-size: 13px; color: var(--text-sec); max-width: 640px; margin: 0 auto;
+    }
+    .pn-flow b { color: var(--accent); font-weight: 700; }
+    .pn-flow-dot {
+      width: 8px; height: 8px; border-radius: 50%; background: var(--accent); flex-shrink: 0;
+      animation: pn-flow-blink 2s ease-in-out infinite;
+    }
+    @keyframes pn-flow-blink {
+      0%, 100% { opacity: .3; box-shadow: none; }
+      50% { opacity: 1; box-shadow: 0 0 8px var(--accent); }
+    }
+    /* Ticker */
+    .pn-ticker-wrap {
+      overflow: hidden; margin: 32px auto 0; max-width: 900px;
+      -webkit-mask-image: linear-gradient(90deg, transparent, black 10%, black 90%, transparent);
+      mask-image: linear-gradient(90deg, transparent, black 10%, black 90%, transparent);
+    }
+    .pn-ticker {
+      display: flex; gap: 16px; white-space: nowrap;
+      animation: pn-ticker-scroll 40s linear infinite;
+    }
+    .pn-ticker-item {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-size: 12px; color: var(--text-muted);
+      background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 6px; padding: 4px 12px; flex-shrink: 0;
+    }
+    .pn-ticker-item .dot {
+      width: 4px; height: 4px; border-radius: 50%; background: var(--accent2); flex-shrink: 0;
+    }
+    @keyframes pn-ticker-scroll {
+      0% { transform: translateX(0); }
+      100% { transform: translateX(-50%); }
+    }
+    @media (max-width: 768px) {
+      .pn-map { grid-template-columns: 1fr; gap: 20px; }
+      .pn-hub { order: -1; margin-bottom: 8px; }
+      .pn-hub-core { width: 120px; height: 120px; }
+      .pn-hub-icon { font-size: 20px; }
+      .pn-hub-title { font-size: 13px; }
+      .pn-hub-ring { inset: -10px; } .pn-hub-ring2 { inset: -20px; }
+      .pn-hub-glow { inset: -40px; }
+      .pn-col-left .pn-node, .pn-col-right .pn-node { text-align: left; }
+      .pn-col-left .pn-node-head { justify-content: flex-start; flex-direction: row; }
+      .pn-col-left .pn-node:hover, .pn-col-right .pn-node:hover { transform: none; }
+      .pn-col-left .pn-node, .pn-col-right .pn-node { border-left-color: rgba(0,212,255,0.12); border-right-color: rgba(255,255,255,0.08); }
+      .pn-stats { gap: 20px; }
+      .pn-stat-num { font-size: 28px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ===== NAVIGATION ===== -->
+<nav class="nav" id="mainNav">
+  <div class="nav-brand">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+    </svg>
+    Spark Monitor
+  </div>
+  <div class="nav-links">
+    <a href="#features">功能</a>
+    <a href="#sources">数据源</a>
+    <a href="#ai-engine">AI引擎</a>
+    <a href="#pricing">定价</a>
+    <a href="login.html">登录</a>
+    <a href="register.html" class="nav-cta">申请试用</a>
+  </div>
+</nav>
+
+<!-- ===== HERO ===== -->
+<section class="hero">
+  <div class="hero-orbs">
+    <div class="hero-orb hero-orb--cyan"></div>
+    <div class="hero-orb hero-orb--purple"></div>
+    <div class="hero-orb hero-orb--mint"></div>
+  </div>
+  <div class="hero-grid-bg"></div>
+  <div class="hero-scan"></div>
+
+  <div class="hero-badge"><span class="dot"></span> AI驱动的企业情报决策平台</div>
+
+  <p class="hero-lead">AI读懂政策 · 追踪新闻 · 监控舆情 · 扫描全球情报</p>
+
+  <h1>
+    <span class="ai-tag"><i class="bi bi-cpu"></i> AI</span> <span class="gradient-text">帮企业快速发现机遇</span><br>
+    <span class="gradient-text">提前规避风险</span>
+  </h1>
+
+  <p class="hero-sub">接入395+全球数据源，AI自动分析与你企业的关联，从海量信息中筛选真正重要的情报</p>
+
+  <div class="hero-scenarios">
+    <div class="scenario-card" data-reveal>
+      <div class="scenario-icon scenario-icon--cyan"><i class="bi bi-collection"></i></div>
+      <div class="scenario-title">告别人工搜集</div>
+      <div class="scenario-desc">政策文件、行业新闻、全球舆情、市场数据<br><b>395+数据源 · 49政策源 · 34情报频道</b>自动采集，不再遗漏</div>
+    </div>
+    <div class="scenario-card" data-reveal>
+      <div class="scenario-icon scenario-icon--green"><i class="bi bi-search"></i></div>
+      <div class="scenario-title">AI挖掘风险与机遇</div>
+      <div class="scenario-desc">不是信息堆砌 — AI理解<b>你的行业和供应链</b><br>自动识别威胁和机会，量化对营收、成本的影响</div>
+    </div>
+    <div class="scenario-card" data-reveal>
+      <div class="scenario-icon scenario-icon--purple"><i class="bi bi-clipboard-check"></i></div>
+      <div class="scenario-title">AI帮你做决策</div>
+      <div class="scenario-desc">CEO/CFO/CMO/CSO <b>四维视角</b>出具分析报告<br>从"发生了什么"到"你应该做什么"一步到位</div>
+    </div>
+  </div>
+
+  <div class="hero-actions">
+    <a href="register.html" class="btn-primary">申请免费试用 <span>&rarr;</span></a>
+    <a href="#features" class="btn-outline">查看产品能力</a>
+  </div>
+
+  <div class="hero-data-bar">
+    <span><b>395+</b> 全球数据源</span>
+    <span class="bar-sep">·</span>
+    <span><b>49</b> 政策源头</span>
+    <span class="bar-sep">·</span>
+    <span><b>3855+</b> 政策库</span>
+    <span class="bar-sep">·</span>
+    <span><b>4</b> AI引擎冗余</span>
+    <span class="bar-sep">·</span>
+    <span><b>24/7</b> 全天候</span>
+  </div>
+</section>
+
+<!-- ===== PROBLEM → SOLUTION ===== -->
+<section class="ps-section">
+  <div class="section-wrap">
+    <p class="section-label" data-reveal>为什么需要 Spark Monitor</p>
+    <h2 class="section-title" data-reveal>你的竞争对手已经在用AI做决策了</h2>
+    <p class="section-desc" data-reveal>传统信息获取方式正在被淘汰。Spark Monitor 把信息差变成决策优势。</p>
+
+    <div class="ps-grid">
+      <div class="ps-row" data-reveal>
+        <div class="ps-problem">
+          <span class="x-mark">&times;</span>每天花2小时看新闻和研报，还经常漏掉关键信号
+        </div>
+        <div class="ps-arrow">&rarr;</div>
+        <div class="ps-solution">
+          <span class="check-mark">&check;</span>5分钟读完AI晨间简报，直接按行动清单执行
+        </div>
+      </div>
+      <div class="ps-row" data-reveal>
+        <div class="ps-problem">
+          <span class="x-mark">&times;</span>政策出来不知道对公司有什么影响，等到明白已经晚了
+        </div>
+        <div class="ps-arrow">&rarr;</div>
+        <div class="ps-solution">
+          <span class="check-mark">&check;</span>3步传导链推演: 政策 &rarr; 行业效应 &rarr; 你的营收影响
+        </div>
+      </div>
+      <div class="ps-row" data-reveal>
+        <div class="ps-problem">
+          <span class="x-mark">&times;</span>报告模版千篇一律，结论都是"建议关注"
+        </div>
+        <div class="ps-arrow">&rarr;</div>
+        <div class="ps-solution">
+          <span class="check-mark">&check;</span>CEO行动清单: 做什么 + 找谁 + 何时完成
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== POLICY INTELLIGENCE NETWORK ===== -->
+<section class="pn-section">
+  <div class="section-wrap" style="text-align:center">
+    <p class="section-label" data-reveal>政策覆盖图谱</p>
+    <h2 class="section-title" data-reveal>实时追踪中国全部关键政策机构</h2>
+    <p class="section-desc" data-reveal style="margin-left:auto;margin-right:auto;">从国务院到交易所、央行到部委、央媒到智库 — 49个源头 &times; 17大分类，政策信号无死角</p>
+
+    <div class="pn-stats" data-reveal>
+      <div class="pn-stat"><div class="pn-stat-num">49</div><div class="pn-stat-label">政策源头</div></div>
+      <div class="pn-stat"><div class="pn-stat-num">17</div><div class="pn-stat-label">覆盖分类</div></div>
+      <div class="pn-stat"><div class="pn-stat-num">3855+</div><div class="pn-stat-label">政策文件库</div></div>
+      <div class="pn-stat"><div class="pn-stat-num">16</div><div class="pn-stat-label">政策标签体系</div></div>
+    </div>
+
+    <div class="pn-map" data-reveal>
+      <!-- Left column: 4 categories -->
+      <div class="pn-col pn-col-left">
+        <div class="pn-node pn-node--red">
+          <div class="pn-node-head">
+            <span class="pn-node-count">7</span>
+            <span class="pn-node-name">核心决策层</span>
+          </div>
+          <div class="pn-node-tags">国务院 · 央行 · 财政部 · 发改委 · 统计局 · 海关总署</div>
+        </div>
+        <div class="pn-node pn-node--blue">
+          <div class="pn-node-head">
+            <span class="pn-node-count">4</span>
+            <span class="pn-node-name">金融监管</span>
+          </div>
+          <div class="pn-node-tags">证监会 · 金监总局 · 上交所 · 深交所</div>
+        </div>
+        <div class="pn-node pn-node--teal">
+          <div class="pn-node-head">
+            <span class="pn-node-count">11</span>
+            <span class="pn-node-name">行业部委</span>
+          </div>
+          <div class="pn-node-tags">工信 · 住建 · 人社 · 卫健 · 交通 · 农业 · 科技 · 环境 · 水利 · 应急 · 税务</div>
+        </div>
+        <div class="pn-node pn-node--amber">
+          <div class="pn-node-head">
+            <span class="pn-node-count">6</span>
+            <span class="pn-node-name">央媒矩阵</span>
+          </div>
+          <div class="pn-node-tags">人民日报 · 新华网 · 央视 · 经济日报 · 求是 · 海外版</div>
+        </div>
+      </div>
+
+      <!-- Center: AI Hub -->
+      <div class="pn-hub">
+        <div class="pn-hub-glow"></div>
+        <div class="pn-hub-core">
+          <div class="pn-hub-icon"><i class="bi bi-cpu"></i></div>
+          <div class="pn-hub-title">AI<br>分析引擎</div>
+          <div class="pn-hub-sub">实时解读</div>
+          <div class="pn-hub-ring"></div>
+          <div class="pn-hub-ring2"></div>
+        </div>
+      </div>
+
+      <!-- Right column: 4 categories -->
+      <div class="pn-col pn-col-right">
+        <div class="pn-node pn-node--purple">
+          <div class="pn-node-head">
+            <span class="pn-node-count">6</span>
+            <span class="pn-node-name">财经媒体</span>
+          </div>
+          <div class="pn-node-tags">财新 · 第一财经 · 证券时报 · 中证报 · 上证报 · 21世纪</div>
+        </div>
+        <div class="pn-node pn-node--green">
+          <div class="pn-node-head">
+            <span class="pn-node-count">7</span>
+            <span class="pn-node-name">外贸安全</span>
+          </div>
+          <div class="pn-node-tags">商务部 · 外交部 · 外汇局 · 国资委 · 审计署 · 纪检监察</div>
+        </div>
+        <div class="pn-node pn-node--indigo">
+          <div class="pn-node-head">
+            <span class="pn-node-count">2</span>
+            <span class="pn-node-name">智库研究</span>
+          </div>
+          <div class="pn-node-tags">中国社科院 · 国际问题研究院</div>
+        </div>
+        <div class="pn-node pn-node--cyan">
+          <div class="pn-node-head">
+            <span class="pn-node-count">6</span>
+            <span class="pn-node-name">国际央行</span>
+          </div>
+          <div class="pn-node-tags">美联储 · 欧央行 · 日央行 · 英央行 · IMF · BIS</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="pn-flow" data-reveal>
+      <span class="pn-flow-dot"></span>
+      <span><b>49</b> 个源头数据 &rarr; <b>AI</b> 实时解读 &rarr; 传导链推演 &rarr; <b>你的企业</b>决策</span>
+    </div>
+
+    <div class="pn-ticker-wrap" data-reveal>
+      <div class="pn-ticker">
+        <span class="pn-ticker-item"><span class="dot"></span>国务院</span>
+        <span class="pn-ticker-item"><span class="dot"></span>中国人民银行</span>
+        <span class="pn-ticker-item"><span class="dot"></span>财政部</span>
+        <span class="pn-ticker-item"><span class="dot"></span>发改委</span>
+        <span class="pn-ticker-item"><span class="dot"></span>证监会</span>
+        <span class="pn-ticker-item"><span class="dot"></span>金监总局</span>
+        <span class="pn-ticker-item"><span class="dot"></span>上交所</span>
+        <span class="pn-ticker-item"><span class="dot"></span>深交所</span>
+        <span class="pn-ticker-item"><span class="dot"></span>工信部</span>
+        <span class="pn-ticker-item"><span class="dot"></span>住建部</span>
+        <span class="pn-ticker-item"><span class="dot"></span>人社部</span>
+        <span class="pn-ticker-item"><span class="dot"></span>卫健委</span>
+        <span class="pn-ticker-item"><span class="dot"></span>交通运输部</span>
+        <span class="pn-ticker-item"><span class="dot"></span>农业农村部</span>
+        <span class="pn-ticker-item"><span class="dot"></span>科技部</span>
+        <span class="pn-ticker-item"><span class="dot"></span>生态环境部</span>
+        <span class="pn-ticker-item"><span class="dot"></span>商务部</span>
+        <span class="pn-ticker-item"><span class="dot"></span>外交部</span>
+        <span class="pn-ticker-item"><span class="dot"></span>国家外汇局</span>
+        <span class="pn-ticker-item"><span class="dot"></span>国资委</span>
+        <span class="pn-ticker-item"><span class="dot"></span>审计署</span>
+        <span class="pn-ticker-item"><span class="dot"></span>人民日报</span>
+        <span class="pn-ticker-item"><span class="dot"></span>新华网</span>
+        <span class="pn-ticker-item"><span class="dot"></span>央视新闻</span>
+        <span class="pn-ticker-item"><span class="dot"></span>财新</span>
+        <span class="pn-ticker-item"><span class="dot"></span>第一财经</span>
+        <span class="pn-ticker-item"><span class="dot"></span>美联储</span>
+        <span class="pn-ticker-item"><span class="dot"></span>欧央行</span>
+        <span class="pn-ticker-item"><span class="dot"></span>IMF</span>
+        <span class="pn-ticker-item"><span class="dot"></span>BIS</span>
+        <!-- duplicate for seamless loop -->
+        <span class="pn-ticker-item"><span class="dot"></span>国务院</span>
+        <span class="pn-ticker-item"><span class="dot"></span>中国人民银行</span>
+        <span class="pn-ticker-item"><span class="dot"></span>财政部</span>
+        <span class="pn-ticker-item"><span class="dot"></span>发改委</span>
+        <span class="pn-ticker-item"><span class="dot"></span>证监会</span>
+        <span class="pn-ticker-item"><span class="dot"></span>金监总局</span>
+        <span class="pn-ticker-item"><span class="dot"></span>上交所</span>
+        <span class="pn-ticker-item"><span class="dot"></span>深交所</span>
+        <span class="pn-ticker-item"><span class="dot"></span>工信部</span>
+        <span class="pn-ticker-item"><span class="dot"></span>住建部</span>
+        <span class="pn-ticker-item"><span class="dot"></span>人社部</span>
+        <span class="pn-ticker-item"><span class="dot"></span>卫健委</span>
+        <span class="pn-ticker-item"><span class="dot"></span>交通运输部</span>
+        <span class="pn-ticker-item"><span class="dot"></span>农业农村部</span>
+        <span class="pn-ticker-item"><span class="dot"></span>科技部</span>
+        <span class="pn-ticker-item"><span class="dot"></span>生态环境部</span>
+        <span class="pn-ticker-item"><span class="dot"></span>商务部</span>
+        <span class="pn-ticker-item"><span class="dot"></span>外交部</span>
+        <span class="pn-ticker-item"><span class="dot"></span>国家外汇局</span>
+        <span class="pn-ticker-item"><span class="dot"></span>国资委</span>
+        <span class="pn-ticker-item"><span class="dot"></span>审计署</span>
+        <span class="pn-ticker-item"><span class="dot"></span>人民日报</span>
+        <span class="pn-ticker-item"><span class="dot"></span>新华网</span>
+        <span class="pn-ticker-item"><span class="dot"></span>央视新闻</span>
+        <span class="pn-ticker-item"><span class="dot"></span>财新</span>
+        <span class="pn-ticker-item"><span class="dot"></span>第一财经</span>
+        <span class="pn-ticker-item"><span class="dot"></span>美联储</span>
+        <span class="pn-ticker-item"><span class="dot"></span>欧央行</span>
+        <span class="pn-ticker-item"><span class="dot"></span>IMF</span>
+        <span class="pn-ticker-item"><span class="dot"></span>BIS</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== COMPARE ===== -->
+<section class="compare-section">
+  <div class="section-wrap">
+    <p class="section-label" data-reveal>对比传统方式</p>
+    <h2 class="section-title" data-reveal>你现在花的钱，得到的可能还不如AI</h2>
+    <p class="section-desc" data-reveal>券商研报、咨询项目、内部团队 — 你已经在为情报付费了。看看差距有多大。</p>
+
+    <div class="compare-grid" data-reveal>
+      <div class="cg-cell cg-header"></div>
+      <div class="cg-cell cg-header">券商研报</div>
+      <div class="cg-cell cg-header">咨询公司</div>
+      <div class="cg-cell cg-header" style="background:rgba(0,212,255,0.06);color:var(--accent);">Spark Monitor</div>
+
+      <div class="cg-cell cg-dim">数据覆盖</div>
+      <div class="cg-cell cg-muted">单一行业</div>
+      <div class="cg-cell cg-muted">项目制，范围有限</div>
+      <div class="cg-cell cg-spark"><b>395+</b> 全球数据源全覆盖</div>
+
+      <div class="cg-cell cg-dim">时效性</div>
+      <div class="cg-cell cg-muted">日/周级更新</div>
+      <div class="cg-cell cg-muted">数周至数月</div>
+      <div class="cg-cell cg-spark"><b>实时</b>采集，分钟级响应</div>
+
+      <div class="cg-cell cg-dim">政策分析</div>
+      <div class="cg-cell cg-muted">事后解读</div>
+      <div class="cg-cell cg-muted">专题报告</div>
+      <div class="cg-cell cg-spark"><b>49源</b>自动追踪 + 传导推演</div>
+
+      <div class="cg-cell cg-dim">个性化</div>
+      <div class="cg-cell cg-muted">行业通用模板</div>
+      <div class="cg-cell cg-muted">高度定制但周期长</div>
+      <div class="cg-cell cg-spark">AI <b>企业画像</b>实时定制</div>
+
+      <div class="cg-cell cg-dim">分析角度</div>
+      <div class="cg-cell cg-muted">分析师单一视角</div>
+      <div class="cg-cell cg-muted">顾问团队视角</div>
+      <div class="cg-cell cg-spark">CEO/CFO/CMO/CSO <b>四维AI</b></div>
+
+      <div class="cg-cell cg-dim cg-row-last">年度成本</div>
+      <div class="cg-cell cg-muted cg-row-last"><span class="cg-cost">¥5-20万</span></div>
+      <div class="cg-cell cg-muted cg-row-last"><span class="cg-cost">¥50-200万</span><br>单项目</div>
+      <div class="cg-cell cg-spark cg-row-last"><span class="cg-cost cg-cost--spark">¥8万/年</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== CORE FEATURES ===== -->
+<section id="features">
+  <div class="section-wrap">
+    <p class="section-label" data-reveal>核心能力</p>
+    <h2 class="section-title" data-reveal>六大情报引擎，一个决策平台</h2>
+    <p class="section-desc" data-reveal>每个模块独立强大，协同产生更大价值。从原始信号到可执行决策，全链路AI加速。</p>
+
+    <div class="feat-grid">
+      <!-- Card 1 -->
+      <div class="feat-card" data-reveal>
+        <div class="feat-icon"><i class="bi bi-speedometer2"></i></div>
+        <span class="feat-badge">CEO专属</span>
+        <h3>晨间决策简报</h3>
+        <p>每天8:00，AI为你准备今日决策焦点、风险评分(0-100)、CEO行动清单 — 做什么+找谁+何时完成。不是新闻摘要，是可执行指令。</p>
+        <div class="feat-highlight">每日自动生成 · 结构化JSON · <b>executive_summary + action_items</b></div>
+      </div>
+
+      <!-- Card 2 -->
+      <div class="feat-card" data-reveal>
+        <div class="feat-icon feat-icon--purple"><i class="bi bi-people"></i></div>
+        <span class="feat-badge feat-badge--purple">多角色</span>
+        <h3>四维高管视角</h3>
+        <p>同一份情报，CEO看战略全局、CFO看现金流冲击、CMO看市场机遇、CSO看竞争威胁。近期(1-4周)/中期(1-3季)/远期(1-3年)三层时间轴。</p>
+        <div class="feat-highlight">4种角色视角 · 3层时间轴 · <b>个性化企业画像驱动</b></div>
+      </div>
+
+      <!-- Card 3 -->
+      <div class="feat-card" data-reveal>
+        <div class="feat-icon"><i class="bi bi-diagram-3"></i></div>
+        <span class="feat-badge">49个政策源</span>
+        <h3>政策传导链</h3>
+        <p>一条新政 &rarr; 3步推演到你的利润表。量化对营收、成本、融资的影响。3855+政策数据库，49个源头持续追踪更新。</p>
+        <div class="feat-highlight">3855+ 政策库 · 49源16分类 · <b>原文 &rarr; 传导 &rarr; 板块 &rarr; 个股</b></div>
+      </div>
+
+      <!-- Card 4 -->
+      <div class="feat-card" data-reveal>
+        <div class="feat-icon feat-icon--green"><i class="bi bi-building-gear"></i></div>
+        <span class="feat-badge feat-badge--green">研究级</span>
+        <h3>产业情报顾问</h3>
+        <p>对标券商首席分析师+McKinsey顾问。产业周期定位、CR3/CR5竞争格局、上下游议价能力分析、技术路线演进图谱。</p>
+        <div class="feat-highlight">3个分析维度 · AI深度产业研究 · <b>brief / impacts / deep-analysis</b></div>
+      </div>
+
+      <!-- Card 5 -->
+      <div class="feat-card" data-reveal>
+        <div class="feat-icon"><i class="bi bi-broadcast"></i></div>
+        <span class="feat-badge">实时</span>
+        <h3>全球信号融合</h3>
+        <p>34个Telegram OSINT频道 + 395+ RSS国际源 + Polymarket预测市场 &rarr; 多因子评分 &rarr; 注入每日情报。海外事件 &rarr; 中国传导 &rarr; 你的企业。</p>
+        <div class="feat-highlight">多因子评分 · 行业0.4+中国0.3+供应链0.15 · <b>全球 &rarr; 中国 &rarr; 企业</b></div>
+      </div>
+
+      <!-- Card 6 -->
+      <div class="feat-card" data-reveal>
+        <div class="feat-icon feat-icon--purple"><i class="bi bi-file-earmark-bar-graph"></i></div>
+        <span class="feat-badge feat-badge--purple">自动化</span>
+        <h3>5级报告体系</h3>
+        <p>日报 &rarr; 周报 &rarr; 月报 &rarr; 季报 &rarr; 年报自动生成。日报8章1500字，年报11章7000字。对标投行行业深度+BCG战略回顾。</p>
+        <div class="feat-highlight">5种报告 · 自动归档 · <b>HTML导出 · 历史追溯</b></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== DATA SOURCES PANORAMA ===== -->
+<section id="sources" class="ds-section">
+  <div class="section-wrap">
+    <p class="section-label" data-reveal>数据源全景</p>
+    <h2 class="section-title" data-reveal>395+ 全球数据源 &middot; 7&times;24小时采集</h2>
+    <p class="section-desc" data-reveal>覆盖通讯社、财经媒体、政府公报、智库、OSINT频道、预测市场。每条信息可溯源。</p>
+
+    <div class="ds-grid">
+      <div class="ds-cell" data-reveal>
+        <div class="ds-count">9</div>
+        <div class="ds-name">通讯社</div>
+        <div class="ds-examples">Reuters, AP, AFP</div>
+      </div>
+      <div class="ds-cell" data-reveal>
+        <div class="ds-count">10</div>
+        <div class="ds-name">美国财经</div>
+        <div class="ds-examples">Bloomberg, WSJ, CNBC</div>
+      </div>
+      <div class="ds-cell" data-reveal>
+        <div class="ds-count">15</div>
+        <div class="ds-name">美国政府</div>
+        <div class="ds-examples">Fed, Treasury, SEC</div>
+      </div>
+      <div class="ds-cell" data-reveal>
+        <div class="ds-count">42</div>
+        <div class="ds-name">欧洲</div>
+        <div class="ds-examples">FT, ECB, Handelsblatt</div>
+      </div>
+      <div class="ds-cell" data-reveal>
+        <div class="ds-count">20</div>
+        <div class="ds-name">亚太</div>
+        <div class="ds-examples">Nikkei, SCMP, Straits Times</div>
+      </div>
+      <div class="ds-cell" data-reveal>
+        <div class="ds-count">17</div>
+        <div class="ds-name">中东</div>
+        <div class="ds-examples">Al Jazeera, Arab News</div>
+      </div>
+      <div class="ds-cell" data-reveal>
+        <div class="ds-count">11</div>
+        <div class="ds-name">非洲</div>
+        <div class="ds-examples">Daily Maverick, Nation</div>
+      </div>
+      <div class="ds-cell" data-reveal>
+        <div class="ds-count">16</div>
+        <div class="ds-name">拉美</div>
+        <div class="ds-examples">Folha, El Universal</div>
+      </div>
+      <div class="ds-cell" data-reveal>
+        <div class="ds-count">25</div>
+        <div class="ds-name">科技AI</div>
+        <div class="ds-examples">TechCrunch, Wired, Ars</div>
+      </div>
+      <div class="ds-cell" data-reveal>
+        <div class="ds-count">38</div>
+        <div class="ds-name">智库政策</div>
+        <div class="ds-examples">Brookings, CSIS, RAND</div>
+      </div>
+      <div class="ds-cell" data-reveal>
+        <div class="ds-count">20</div>
+        <div class="ds-name">金融深度</div>
+        <div class="ds-examples">Bridgewater, ZeroHedge</div>
+      </div>
+      <div class="ds-cell" data-reveal>
+        <div class="ds-count">17</div>
+        <div class="ds-name">安全防务</div>
+        <div class="ds-examples">Jane's, War on the Rocks</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== AI ENGINE ===== -->
+<section id="ai-engine" class="ai-section">
+  <div class="section-wrap">
+    <p class="section-label" data-reveal>AI分析引擎</p>
+    <h2 class="section-title" data-reveal style="text-align:center;">四引擎冗余，永不中断</h2>
+    <p class="section-desc" data-reveal style="text-align:center;margin-left:auto;margin-right:auto;">任意单引擎故障自动切换，确保情报分析7&times;24小时不间断。用户可自定义引擎优先级。</p>
+
+    <div class="ai-pipeline" data-reveal>
+      <div class="ai-node">
+        <div class="ai-node-name">DeepSeek</div>
+        <div class="ai-node-role">主力引擎</div>
+      </div>
+      <span class="ai-arrow">&rarr;</span>
+      <div class="ai-node">
+        <div class="ai-node-name">Gemini</div>
+        <div class="ai-node-role">研究级分析</div>
+      </div>
+      <span class="ai-arrow">&rarr;</span>
+      <div class="ai-node">
+        <div class="ai-node-name">Claude</div>
+        <div class="ai-node-role">高质量推理</div>
+      </div>
+      <span class="ai-arrow">&rarr;</span>
+      <div class="ai-node">
+        <div class="ai-node-name">DashScope</div>
+        <div class="ai-node-role">后备保障</div>
+      </div>
+    </div>
+
+    <div class="ai-metrics" data-reveal>
+      <div class="ai-metric">
+        <div class="ai-metric-val">10,000</div>
+        <div class="ai-metric-label">max_tokens 输出</div>
+      </div>
+      <div class="ai-metric">
+        <div class="ai-metric-val">191</div>
+        <div class="ai-metric-label">行分析指令</div>
+      </div>
+      <div class="ai-metric">
+        <div class="ai-metric-val">8</div>
+        <div class="ai-metric-label">维风险评估</div>
+      </div>
+      <div class="ai-metric">
+        <div class="ai-metric-val">3</div>
+        <div class="ai-metric-label">情景推演</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== PRICING ===== -->
+<section id="pricing">
+  <div class="section-wrap">
+    <p class="section-label" data-reveal style="text-align:center;">定价方案</p>
+    <h2 class="section-title" data-reveal style="text-align:center;">企业级情报，一个价格</h2>
+    <p class="section-desc" data-reveal style="text-align:center;margin-left:auto;margin-right:auto;">
+      把一个全职情报分析师的成本，换成覆盖全球的AI情报平台。
+    </p>
+
+    <div class="pricing-wrap" data-reveal>
+      <div class="pricing-card">
+        <div class="pricing-label">Enterprise</div>
+        <div class="pricing-title">全功能企业账号</div>
+        <div class="price">¥80,000<span class="price-unit"> /年</span></div>
+        <ul class="pricing-features">
+          <li><span class="check">&check;</span>全功能访问 — 情报概览、政策雷达、产业洞察、机遇与风险</li>
+          <li><span class="check">&check;</span>企业画像定制 — AI根据行业/供应链/竞争对手生成专属情报</li>
+          <li><span class="check">&check;</span>5种定期报告 — 日/周/月/季/年报自动生成并归档</li>
+          <li><span class="check">&check;</span>4引擎AI分析 — DeepSeek/Gemini/Claude/DashScope冗余</li>
+          <li><span class="check">&check;</span>395+ 全球数据源 + 34 Telegram OSINT + Yahoo + Polymarket</li>
+          <li><span class="check">&check;</span>3855+ 政策数据库 — 49源16分类，持续更新</li>
+          <li><span class="check">&check;</span>CEO/CFO/CMO/CSO 四维决策视角</li>
+          <li><span class="check">&check;</span>HTML报告导出 — 可打印、可归档、可分享</li>
+        </ul>
+        <a href="register.html" class="btn-primary" style="width:100%;justify-content:center;">立即申请 <span>&rarr;</span></a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== FOOTER ===== -->
+<footer class="footer">
+  <div class="footer-brand">Spark Monitor</div>
+  <div class="footer-links">
+    <a href="mailto:hekong@spdt.freeqiye.com">hekong@spdt.freeqiye.com</a>
+    <a href="contact.html">联系我们</a>
+    <a href="privacy.html">隐私政策</a>
+    <a href="terms.html">服务条款</a>
+    <a href="agreement.html">用户协议</a>
+  </div>
+  <div class="footer-copy">&copy; 2026 Spark Finance. All rights reserved.</div>
+</footer>
+
+<script type="module" src="/src/home-main.ts"></script>
+</body>
+</html>

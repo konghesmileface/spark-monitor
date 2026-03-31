@@ -24,6 +24,55 @@ export const COMMODITIES: Commodity[] = [
   { symbol: 'HG=F', name: 'Copper', display: 'COPPER' },
 ];
 
+/** Expanded commodities for Spark variant — fills the panel */
+export const SPARK_COMMODITIES: Commodity[] = [
+  ...COMMODITIES,
+  { symbol: 'PL=F', name: 'Platinum', display: 'PLAT' },
+  { symbol: 'PA=F', name: 'Palladium', display: 'PALLAD' },
+  { symbol: 'ZW=F', name: 'Wheat', display: 'WHEAT' },
+  { symbol: 'ZC=F', name: 'Corn', display: 'CORN' },
+  { symbol: 'ZS=F', name: 'Soybeans', display: 'SOYBN' },
+  { symbol: 'CT=F', name: 'Cotton', display: 'COTTON' },
+  { symbol: 'KC=F', name: 'Coffee', display: 'COFFEE' },
+  { symbol: 'SB=F', name: 'Sugar', display: 'SUGAR' },
+  { symbol: 'DX-Y.NYB', name: 'US Dollar', display: 'DXY' },
+  { symbol: '^TNX', name: '10Y Treasury', display: '10Y UST' },
+  // Asian indices & forex for KPI bar
+  { symbol: 'CNY=X', name: 'USD/CNY', display: 'USD/CNY' },
+  { symbol: '^HSI', name: 'Hang Seng', display: 'HSI' },
+  { symbol: '000001.SS', name: 'SSE Composite', display: '上证' },
+  { symbol: '399001.SZ', name: 'SZSE Component', display: '深证' },
+  { symbol: '399006.SZ', name: 'ChiNext', display: '创业板' },
+  { symbol: '000300.SS', name: 'CSI 300', display: '沪深300' },
+];
+
+/** Expanded sectors for Spark heatmap — sub-industries for richer view */
+export const SPARK_SECTORS: Sector[] = [
+  // Core S&P sectors
+  ...SECTORS,
+  // Sub-sector / industry ETFs
+  { symbol: 'XBI', name: 'Biotech' },
+  { symbol: 'XHB', name: 'Homebuild' },
+  { symbol: 'XOP', name: 'Oil Expl' },
+  { symbol: 'XME', name: 'Metals' },
+  { symbol: 'KRE', name: 'Reg Banks' },
+  { symbol: 'XRT', name: 'Retail' },
+  { symbol: 'IYT', name: 'Transport' },
+  { symbol: 'ITB', name: 'Construct' },
+  { symbol: 'HACK', name: 'Cyber' },
+  { symbol: 'SOXX', name: 'Semis+' },
+  { symbol: 'IBB', name: 'Biotech+' },
+  { symbol: 'IYR', name: 'REIT' },
+  { symbol: 'TAN', name: 'Solar' },
+  { symbol: 'ARKK', name: 'Innov' },
+  { symbol: 'GDX', name: 'Gold Min' },
+  { symbol: 'XAR', name: 'Aero Def' },
+  { symbol: 'IHI', name: 'Med Dev' },
+  { symbol: 'IGV', name: 'Software' },
+  { symbol: 'KWEB', name: 'CN Tech' },
+  { symbol: 'EWJ', name: 'Japan' },
+];
+
 export const MARKET_SYMBOLS: MarketSymbol[] = [
   { symbol: '^GSPC', name: 'S&P 500', display: 'SPX' },
   { symbol: '^DJI', name: 'Dow Jones', display: 'DOW' },

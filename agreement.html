@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>用户协议 — Spark Monitor</title>
+  <link rel="icon" href="/favico/favicon.ico" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --accent: #00d4ff; --accent2: #00e88f;
+      --bg: #0a0e1a; --bg-card: #111827;
+      --text: #e8eef5; --text-sec: #8b96b1; --text-muted: #4b5563;
+      --border: rgba(0,212,255,0.15);
+    }
+    body {
+      font-family: 'Inter', -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+      background: var(--bg); color: var(--text);
+      min-height: 100vh; -webkit-font-smoothing: antialiased;
+    }
+    .page-header {
+      text-align: center; padding: 80px 24px 40px;
+      border-bottom: 1px solid var(--border);
+    }
+    .page-header h1 {
+      font-size: 28px; font-weight: 700;
+      background: linear-gradient(135deg, #fff 30%, var(--accent));
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+    }
+    .page-header p { font-size: 14px; color: var(--text-sec); margin-top: 8px; }
+    .content { max-width: 800px; margin: 0 auto; padding: 40px 24px 80px; }
+    .content h2 {
+      font-size: 18px; font-weight: 700; color: var(--accent);
+      margin: 32px 0 12px; padding-bottom: 8px;
+      border-bottom: 1px solid var(--border);
+    }
+    .content h2:first-child { margin-top: 0; }
+    .content p, .content li {
+      font-size: 14px; color: var(--text-sec); line-height: 1.9; margin-bottom: 8px;
+    }
+    .content ul, .content ol { padding-left: 20px; margin-bottom: 12px; }
+    .content strong { color: var(--text); }
+    .content table {
+      width: 100%; border-collapse: collapse; margin: 12px 0 16px;
+      font-size: 14px;
+    }
+    .content table th, .content table td {
+      border: 1px solid rgba(255,255,255,0.1);
+      padding: 10px 14px; text-align: left;
+    }
+    .content table th {
+      background: rgba(0,212,255,0.08); color: var(--accent); font-weight: 600;
+    }
+    .content table td { color: var(--text-sec); }
+
+    .payment-card {
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: 12px; padding: 24px; margin: 16px 0;
+    }
+    .payment-card h3 {
+      font-size: 16px; font-weight: 700; color: var(--accent); margin-bottom: 14px;
+    }
+    .payment-card .row {
+      display: flex; gap: 12px; margin-bottom: 8px; font-size: 14px;
+    }
+    .payment-card .label {
+      color: var(--text-muted); min-width: 80px; flex-shrink: 0;
+    }
+    .payment-card .value {
+      color: var(--text); font-weight: 500; font-family: 'JetBrains Mono', monospace;
+    }
+
+    .contact-card {
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: 12px; padding: 24px 28px; margin: 24px 0;
+      text-align: center;
+    }
+    .contact-card h3 {
+      font-size: 16px; font-weight: 700; color: var(--text); margin-bottom: 12px;
+    }
+    .contact-card p { color: var(--text-sec); font-size: 14px; margin-bottom: 8px; }
+    .contact-card a { color: var(--accent); text-decoration: none; }
+
+    .btn-download {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      color: #0a0e1a; padding: 12px 28px; border-radius: 8px;
+      font-weight: 700; font-size: 14px; border: none; cursor: pointer;
+      transition: all .2s; text-decoration: none; margin: 20px 0;
+    }
+    .btn-download:hover { transform: translateY(-1px); box-shadow: 0 4px 20px rgba(0,212,255,0.3); }
+
+    .back-link {
+      display: block; text-align: center; padding: 24px;
+      font-size: 13px; color: var(--text-muted);
+    }
+    .back-link a { color: var(--accent); text-decoration: none; }
+    .footer {
+      text-align: center; padding: 32px 24px; border-top: 1px solid var(--border);
+      font-size: 12px; color: var(--text-muted);
+    }
+
+    @media print {
+      :root {
+        --bg: #fff; --bg-card: #f8f9fa; --text: #111; --text-sec: #333;
+        --text-muted: #666; --accent: #0066cc; --accent2: #0066cc;
+        --border: #ccc;
+      }
+      body { background: #fff; color: #111; }
+      .page-header h1 {
+        -webkit-text-fill-color: #111; background: none; color: #111;
+      }
+      .content h2 { color: #0066cc; border-bottom-color: #ccc; }
+      .content p, .content li, .content table td { color: #333; }
+      .content table th { background: #e9ecef; color: #0066cc; }
+      .payment-card { border-color: #ccc; background: #f8f9fa; }
+      .payment-card h3 { color: #0066cc; }
+      .payment-card .value { color: #111; }
+      .contact-card { border-color: #ccc; background: #f8f9fa; }
+      .btn-download, .back-link, .footer { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="page-header">
+  <h1>Spark Monitor 企业服务协议</h1>
+  <p>上海磐珏信息科技有限公司 &middot; 版本 1.0 &middot; 生效日期：2026年3月29日</p>
+</div>
+
+<div class="content">
+  <div style="text-align:center;">
+    <button class="btn-download" id="downloadWordBtn">&#128196; 下载协议 Word 文档</button>
+  </div>
+
+  <h2>第一条 协议概述</h2>
+  <p>本协议由以下双方签订：</p>
+  <ul>
+    <li><strong>甲方（用户企业）</strong>：使用 Spark Monitor 平台服务的企业客户</li>
+    <li><strong>乙方（服务提供方）</strong>：上海磐珏信息科技有限公司（以下简称"磐珏科技"）</li>
+  </ul>
+  <p>甲方通过注册并使用 Spark Monitor 平台（以下简称"本平台"），即视为接受本协议全部条款。</p>
+
+  <h2>第二条 定义与解释</h2>
+  <ul>
+    <li><strong>平台</strong>：指 Spark Monitor AI 驱动的企业级全球情报决策平台及其所有功能模块</li>
+    <li><strong>企业画像</strong>：指甲方在平台中配置的行业、供应链、竞争对手等定制化信息</li>
+    <li><strong>情报报告</strong>：指平台 AI 引擎根据企业画像自动生成的日报、周报、月报、季报、年报</li>
+    <li><strong>AI 分析</strong>：指利用多引擎 AI（DeepSeek/Gemini/Claude/DashScope）提供的智能分析服务</li>
+    <li><strong>数据源</strong>：指平台接入的 395+ 全球公开数据源、49 政策源及 34 个 OSINT 频道</li>
+  </ul>
+
+  <h2>第三条 服务内容</h2>
+  <p>乙方向甲方提供以下服务：</p>
+  <ol>
+    <li><strong>全球情报监控</strong> — 实时采集 395+ 全球数据源，涵盖通讯社、财经媒体、政府公报、智库等</li>
+    <li><strong>AI 智能分析</strong> — CEO/CFO/CMO/CSO 四维决策视角分析，多引擎冗余保障</li>
+    <li><strong>企业定制报告</strong> — 基于企业画像的个性化日/周/月/季/年自动报告</li>
+    <li><strong>政策雷达</strong> — 49 个政策源实时追踪，3 步传导链推演对企业营收的影响</li>
+    <li><strong>产业洞察</strong> — 产业周期定位、竞争格局分析、技术路线图谱</li>
+    <li><strong>全球信号融合</strong> — 34 个 Telegram OSINT 频道 + RSS 国际源 + Polymarket 预测市场</li>
+    <li><strong>晨间决策简报</strong> — 每日自动生成 CEO 可执行行动清单</li>
+  </ol>
+
+  <h2>第四条 服务期限</h2>
+  <ul>
+    <li>服务期限自合同签署并完成付款之日起计算，按<strong>年度订阅</strong>方式提供</li>
+    <li>服务期满前 60 天，乙方将主动联系甲方协商续约事宜；如双方达成一致，另行签署续期协议</li>
+    <li>服务期满未续约的，乙方将在到期后保留甲方账户数据 30 天，届满后予以删除</li>
+    <li>试用期间（如有），甲方享有与正式用户相同的服务内容，但乙方保留调整试用范围的权利</li>
+  </ul>
+
+  <h2>第五条 费用与支付方式</h2>
+  <table>
+    <tr><th>服务方案</th><th>费用</th><th>周期</th></tr>
+    <tr><td>Spark Monitor 企业版（全功能）</td><td><strong>¥80,000</strong></td><td>年度订阅</td></tr>
+  </table>
+  <p>支付方式：<strong>银行转账（对公账户）</strong></p>
+
+  <div class="payment-card">
+    <h3>对公付款信息</h3>
+    <div class="row"><span class="label">账户名</span><span class="value">上海磐珏信息科技有限公司</span></div>
+    <div class="row"><span class="label">银行账号</span><span class="value">9716 0078 8013 0000 1031</span></div>
+    <div class="row"><span class="label">开户行</span><span class="value">浦发银行张江科技支行</span></div>
+    <div class="row"><span class="label">开户行号</span><span class="value">310290097165</span></div>
+  </div>
+
+  <div class="payment-card">
+    <h3>甲方开票信息（由甲方填写）</h3>
+    <div class="row"><span class="label">公司全称</span><span class="value" style="color:var(--text-muted);">____________________________</span></div>
+    <div class="row"><span class="label">税号</span><span class="value" style="color:var(--text-muted);">____________________________</span></div>
+    <div class="row"><span class="label">开户银行</span><span class="value" style="color:var(--text-muted);">____________________________</span></div>
+    <div class="row"><span class="label">银行账号</span><span class="value" style="color:var(--text-muted);">____________________________</span></div>
+    <div class="row"><span class="label">注册地址</span><span class="value" style="color:var(--text-muted);">____________________________</span></div>
+    <div class="row"><span class="label">联系电话</span><span class="value" style="color:var(--text-muted);">____________________________</span></div>
+  </div>
+  <ul>
+    <li>甲方应在合同签署后 <strong>7 个工作日</strong>内完成付款</li>
+    <li>乙方在收到款项后 2 个工作日内开通服务并发送确认邮件</li>
+    <li>乙方在收到款项后 <strong>15 个工作日</strong>内开立增值税发票</li>
+  </ul>
+
+  <h2>第六条 账户与权限</h2>
+  <ul>
+    <li>每个企业分配 <strong>1 个主管理员账户</strong>，由甲方指定联系人使用</li>
+    <li>甲方应妥善保管账户密码，因密码泄露导致的数据泄露或损失由甲方自行承担</li>
+    <li>严禁将账户转让、出借或共享给第三方使用</li>
+    <li>乙方发现账户异常使用时，有权暂停账户并通知甲方核实</li>
+  </ul>
+
+  <h2>第七条 数据安全与隐私</h2>
+  <ul>
+    <li>乙方承诺对甲方的企业画像数据严格保密，未经甲方书面授权不向任何第三方披露</li>
+    <li>平台 AI 分析基于<strong>公开数据源</strong>，不涉及甲方内部经营数据</li>
+    <li>甲方上传或配置的企业画像信息仅用于定制化情报分析，不作他用</li>
+    <li>乙方采用行业标准的数据加密和访问控制措施保护甲方数据</li>
+    <li>服务终止后，乙方将在 30 个工作日内删除甲方的企业画像数据</li>
+  </ul>
+
+  <h2>第八条 知识产权</h2>
+  <ul>
+    <li>Spark Monitor 平台的软件、算法、界面设计、品牌标识等<strong>知识产权归乙方所有</strong></li>
+    <li>平台为甲方生成的定制化情报报告，甲方享有<strong>使用权</strong>，可在企业内部使用、分发和存档</li>
+    <li>甲方不得将报告内容以商业目的转售给第三方</li>
+    <li>甲方不得对平台进行反编译、逆向工程或非授权访问</li>
+  </ul>
+
+  <h2>第九条 服务等级承诺（SLA）</h2>
+  <table>
+    <tr><th>指标</th><th>承诺</th></tr>
+    <tr><td>平台可用性</td><td>年度 99.5%（不含计划维护窗口）</td></tr>
+    <tr><td>数据采集延迟</td><td>新闻/政策发布后 15 分钟内入库</td></tr>
+    <tr><td>AI 分析响应</td><td>单次分析请求 60 秒内返回</td></tr>
+    <tr><td>故障响应时间</td><td>工作日 4 小时内响应，8 小时内恢复</td></tr>
+    <tr><td>计划维护窗口</td><td>每月不超过 4 小时，提前 48 小时通知</td></tr>
+  </table>
+
+  <h2>第十条 免责声明</h2>
+  <ul>
+    <li>本平台提供的情报分析<strong>仅供参考</strong>，不构成投资建议、法律意见或商业决策的唯一依据</li>
+    <li>AI 分析结果可能存在偏差或不准确，甲方应结合自身判断和专业顾问意见做出决策</li>
+    <li>因不可抗力（包括但不限于自然灾害、网络攻击、政策变化、第三方数据源中断）导致的服务中断，乙方不承担赔偿责任</li>
+    <li>第三方数据源的准确性和时效性由原始数据提供方负责，乙方尽力但不保证数据的绝对准确</li>
+    <li>甲方基于平台信息做出的商业决策及其后果，由甲方自行承担</li>
+  </ul>
+
+  <h2>第十一条 违约责任</h2>
+  <ul>
+    <li>甲方逾期付款的，每日按未付金额的 <strong>0.05%</strong> 支付违约金</li>
+    <li>甲方违反账户使用规定（转让、共享、爬取等），乙方有权立即暂停服务，已付费用不予退还</li>
+    <li>乙方未能达到 SLA 承诺的，按未达标时长比例延长甲方的服务期限</li>
+    <li>任何一方违约给对方造成直接经济损失的，违约方应承担赔偿责任，但赔偿总额不超过甲方已支付的年度服务费</li>
+  </ul>
+
+  <h2>第十二条 协议变更与终止</h2>
+  <ul>
+    <li>乙方调整服务内容或价格的，应提前 <strong>30 天</strong>书面通知甲方</li>
+    <li>任何一方提前终止协议的，应提前 30 天书面通知对方</li>
+    <li>甲方提前终止的，已支付费用按剩余月份比例退还（扣除已使用月份费用及 10% 提前终止手续费）</li>
+    <li>因甲方违约导致的终止，已付费用不予退还</li>
+    <li>协议终止后，甲方的账户和数据处理按照第七条执行</li>
+  </ul>
+
+  <h2>第十三条 保密条款</h2>
+  <ul>
+    <li>双方在合作期间获知的对方商业秘密、技术秘密、客户信息等保密信息，均应严格保密</li>
+    <li>保密义务在协议终止后 <strong>2 年</strong>内继续有效</li>
+    <li>因法律法规或监管部门要求披露的，披露方应提前通知对方并尽量缩小披露范围</li>
+  </ul>
+
+  <h2>第十四条 适用法律与争议解决</h2>
+  <ul>
+    <li>本协议适用<strong>中华人民共和国法律</strong>（不含港澳台地区法律）</li>
+    <li>因本协议产生的争议，双方应友好协商解决</li>
+    <li>协商不成的，任何一方可向<strong>上海市有管辖权的人民法院</strong>提起诉讼</li>
+  </ul>
+
+  <h2>第十五条 签署与生效</h2>
+  <ul>
+    <li>本协议自双方签署之日起生效，<strong>线上确认</strong>或<strong>线下盖章</strong>均具有同等法律效力</li>
+    <li>本协议一式两份，甲乙双方各执一份</li>
+    <li>本协议未尽事宜，由双方另行协商签订补充协议</li>
+  </ul>
+
+  <h2>第十六条 签署栏</h2>
+
+  <table style="width:100%; border-collapse:collapse; margin:20px 0;">
+    <tbody>
+      <tr>
+        <td style="width:50%; border:1px solid var(--border); padding:20px; vertical-align:top;">
+          <p style="font-weight:700; font-size:16px; margin-bottom:16px;">甲方（用户/企业）</p>
+          <p style="margin-bottom:14px;">单位名称：__________________________</p>
+          <p style="margin-bottom:14px;">法定代表人/授权代表：________________</p>
+          <p style="margin-bottom:14px;">签字：______________________________</p>
+          <p style="margin-bottom:14px;">盖章：</p>
+          <p style="margin-bottom:0; margin-top:60px;">日期：______年______月______日</p>
+        </td>
+        <td style="width:50%; border:1px solid var(--border); padding:20px; vertical-align:top;">
+          <p style="font-weight:700; font-size:16px; margin-bottom:16px;">乙方（服务提供方）</p>
+          <p style="margin-bottom:14px;">单位名称：上海磐珏信息科技有限公司</p>
+          <p style="margin-bottom:14px;">法定代表人/授权代表：________________</p>
+          <p style="margin-bottom:14px;">签字：______________________________</p>
+          <p style="margin-bottom:14px;">盖章：</p>
+          <p style="margin-bottom:0; margin-top:60px;">日期：______年______月______日</p>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="contact-card" style="margin-top:32px;">
+    <h3>协议签署指引</h3>
+    <p>1. 点击上方<strong>"下载协议 Word 文档"</strong>按钮保存协议文件</p>
+    <p>2. 打印协议，填写甲方信息并盖章签字</p>
+    <p>3. 将签署后的协议扫描件发送至：<strong><a href="mailto:legal@spdt.freeqiye.com">legal@spdt.freeqiye.com</a></strong></p>
+    <p>4. 我方确认后将用印回寄协议副本及发票</p>
+    <p style="margin-top:16px;">商务合作：<a href="mailto:hekong@spdt.freeqiye.com">hekong@spdt.freeqiye.com</a> &nbsp;|&nbsp; 电话：18201972547 / 17274630436</p>
+    <p style="margin-top:8px; font-size:12px; color:var(--text-muted);">
+      上海磐珏信息科技有限公司 &middot; 上海市
+    </p>
+  </div>
+</div>
+
+<div class="back-link">
+  <a href="home.html">&larr; 返回首页</a>
+</div>
+
+<footer class="footer">
+  &copy; 2026 上海磐珏信息科技有限公司. All rights reserved.
+</footer>
+
+<script>
+document.getElementById('downloadWordBtn').addEventListener('click', function () {
+  var content = document.querySelector('.content').innerHTML;
+  var html = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Spark Monitor 企业服务协议</title>'
+    + '<style>body{font-family:"Microsoft YaHei","PingFang SC",sans-serif;color:#111;line-height:1.9;max-width:800px;margin:0 auto;padding:40px 24px;}'
+    + 'h2{font-size:18px;font-weight:700;color:#0066cc;margin:28px 0 10px;padding-bottom:6px;border-bottom:1px solid #ccc;}'
+    + 'p,li{font-size:14px;color:#333;margin-bottom:8px;}'
+    + 'ul,ol{padding-left:20px;margin-bottom:12px;}'
+    + 'strong{color:#111;}'
+    + 'table{width:100%;border-collapse:collapse;margin:12px 0;}'
+    + 'th,td{border:1px solid #ccc;padding:10px 14px;text-align:left;font-size:14px;}'
+    + 'th{background:#e9ecef;color:#0066cc;font-weight:600;}'
+    + '.payment-card{border:1px solid #ccc;border-radius:8px;padding:20px;margin:16px 0;background:#f8f9fa;}'
+    + '.payment-card h3{color:#0066cc;font-size:16px;margin-bottom:12px;}'
+    + '.payment-card .row{margin-bottom:6px;font-size:14px;}'
+    + '.payment-card .label{color:#666;display:inline-block;min-width:80px;}'
+    + '.payment-card .value{color:#111;font-weight:500;}'
+    + '.contact-card{border:1px solid #ccc;border-radius:8px;padding:20px;margin:20px 0;text-align:center;background:#f8f9fa;}'
+    + '.contact-card h3{color:#111;font-size:16px;margin-bottom:10px;}'
+    + '.contact-card p{font-size:14px;color:#333;margin-bottom:6px;}'
+    + '.contact-card a{color:#0066cc;}'
+    + '.btn-download{display:none;}'
+    + '</style></head><body>'
+    + '<h1 style="text-align:center;font-size:22px;margin-bottom:8px;">Spark Monitor 企业服务协议</h1>'
+    + '<p style="text-align:center;font-size:13px;color:#666;">上海磐珏信息科技有限公司 · 版本 1.0 · 生效日期：2026年3月29日</p>'
+    + content + '</body></html>';
+  var blob = new Blob(['\ufeff' + html], { type: 'application/msword' });
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url;
+  a.download = 'Spark_Monitor_企业服务协议.doc';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+});
+</script>
+</body>
+</html>

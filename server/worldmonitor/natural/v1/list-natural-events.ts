@@ -7,6 +7,7 @@ import type {
 } from '../../../../src/generated/server/worldmonitor/natural/v1/service_server';
 
 import { CHROME_UA } from '../../../_shared/constants';
+import { proxyFetch } from '../../../_shared/proxy-fetch';
 import { cachedFetchJson, getCachedJson } from '../../../_shared/redis';
 
 const REDIS_CACHE_KEY = 'natural:events:v1';
@@ -60,7 +61,7 @@ function normalizeNaturalCategory(value: unknown): string {
 
 async function fetchEonet(days: number): Promise<NaturalEvent[]> {
   const url = `${EONET_API_URL}?status=open&days=${days}`;
-  const res = await fetch(url, {
+  const res = await proxyFetch(url, {
     headers: { Accept: 'application/json', 'User-Agent': CHROME_UA },
     signal: AbortSignal.timeout(15_000),
   });
@@ -106,7 +107,7 @@ async function fetchEonet(days: number): Promise<NaturalEvent[]> {
 }
 
 async function fetchGdacs(): Promise<NaturalEvent[]> {
-  const res = await fetch(GDACS_API, {
+  const res = await proxyFetch(GDACS_API, {
     headers: { Accept: 'application/json', 'User-Agent': CHROME_UA },
     signal: AbortSignal.timeout(15_000),
   });

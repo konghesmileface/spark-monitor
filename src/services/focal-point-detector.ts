@@ -25,14 +25,14 @@ const SIGNAL_TYPE_LABELS: Record<SignalType, string> = {
 };
 
 const SIGNAL_TYPE_ICONS: Record<SignalType, string> = {
-  internet_outage: '🌐',
-  military_flight: '✈️',
-  military_vessel: '⚓',
-  protest: '📢',
-  ais_disruption: '🚢',
-  satellite_fire: '🔥',
-  temporal_anomaly: '📊',
-  active_strike: '💥',
+  internet_outage: '<i class="bi bi-globe"></i>',
+  military_flight: '<i class="bi bi-airplane"></i>',
+  military_vessel: '<i class="bi bi-water"></i>',
+  protest: '<i class="bi bi-megaphone"></i>',
+  ais_disruption: '<i class="bi bi-broadcast"></i>',
+  satellite_fire: '<i class="bi bi-fire"></i>',
+  temporal_anomaly: '<i class="bi bi-graph-up"></i>',
+  active_strike: '<i class="bi bi-exclamation-circle-fill"></i>',
 };
 
 class FocalPointDetector {

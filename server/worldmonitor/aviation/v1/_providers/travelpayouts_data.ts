@@ -12,6 +12,7 @@
 import type { PriceQuote, CabinClass, Carrier } from '../../../../../src/generated/server/worldmonitor/aviation/v1/service_server';
 import { cachedFetchJson } from '../../../../_shared/redis';
 import { CHROME_UA } from '../../../../_shared/constants';
+import { proxyFetch } from '../../../../_shared/proxy-fetch';
 
 const BASE_V2 = 'https://api.travelpayouts.com/v2/prices';
 const BASE_V3 = 'https://api.travelpayouts.com/v3';
@@ -162,7 +163,7 @@ function makeHeaders(token: string): Record<string, string> {
 
 async function fetchTp<T>(url: string, token: string): Promise<T | null> {
     try {
-        const resp = await fetch(url, {
+        const resp = await proxyFetch(url, {
             headers: makeHeaders(token),
             signal: AbortSignal.timeout(15_000),
         });

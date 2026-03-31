@@ -154,11 +154,11 @@ export class InvestmentsPanel extends Panel {
         <input class="fdi-search" type="text"
           placeholder="${t('components.investments.searchPlaceholder')}"
           value="${escapeHtml(this.filters.search)}"/>
-        <button class="${toggleCls}" data-action="toggle-filters" title="Filters" aria-label="Toggle filters" aria-pressed="${this.filtersExpanded}">⚙</button>
+        <button class="${toggleCls}" data-action="toggle-filters" title="Filters" aria-label="Toggle filters" aria-pressed="${this.filtersExpanded}"><i class="bi bi-gear-fill"></i></button>
       </div>
       <div class="${filtersCls}">
         <select class="fdi-filter" data-filter="investingCountry">
-          <option value="ALL">🌐 ${t('components.investments.allCountries')}</option>
+          <option value="ALL"><i class="bi bi-globe"></i> ${t('components.investments.allCountries')}</option>
           <option value="SA"${this.filters.investingCountry === 'SA' ? ' selected' : ''}>🇸🇦 ${t('components.investments.saudiArabia')}</option>
           <option value="UAE"${this.filters.investingCountry === 'UAE' ? ' selected' : ''}>🇦🇪 ${t('components.investments.uae')}</option>
         </select>

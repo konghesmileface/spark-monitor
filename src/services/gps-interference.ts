@@ -37,7 +37,10 @@ export async function fetchGpsInterference(): Promise<GpsJamData | null> {
     const resp = await fetch(`${base}/api/gpsjam`, {
       signal: AbortSignal.timeout(20_000),
     });
-    if (!resp.ok) return cachedData;
+    if (!resp.ok) {
+      if (cachedData) return cachedData;
+      throw new Error(`GPS Jam API HTTP ${resp.status}`);
+    }
 
     const raw = await resp.json() as {
       date: string;
@@ -76,8 +79,9 @@ export async function fetchGpsInterference(): Promise<GpsJamData | null> {
     };
     cachedAt = now;
     return cachedData;
-  } catch {
-    return cachedData;
+  } catch (err) {
+    if (cachedData) return cachedData;
+    throw err;
   }
 }
 

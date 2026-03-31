@@ -44,3 +44,15 @@ scripts/data/osm-military-raw.json
 # Iran events seed script + data (sensitive, not for public repo)
 scripts/seed-iran-events.mjs
 scripts/data/iran-events-latest.json
+
+# Telegram session files (sensitive)
+*.session
+
+# Internal deployment docs
+DEPLOY*.md
+SESSION-*.md
+ELECTRON-PACKAGING-PLAN.md
+
+# RPC gateway compiled output (large, built by CI)
+scripts/rpc-gateway-full.mjs
+scripts/rpc-gateway-full.mjs.map

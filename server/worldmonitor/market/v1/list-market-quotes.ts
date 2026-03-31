@@ -61,17 +61,16 @@ export async function listMarketQuotes(
     const symbols = parsedSymbols;
     if (!symbols.length) return { quotes: [], finnhubSkipped: !apiKey, skipReason: !apiKey ? 'FINNHUB_API_KEY not configured' : '', rateLimited: false };
 
-    const finnhubSymbols = symbols.filter((s) => !YAHOO_ONLY_SYMBOLS.has(s));
-    const yahooSymbols = symbols.filter((s) => YAHOO_ONLY_SYMBOLS.has(s));
+    const isYahooOnly = (s: string) => YAHOO_ONLY_SYMBOLS.has(s) || s.startsWith('^') || s.endsWith('=F') || s.includes('.NYB');
+    const finnhubSymbols = symbols.filter((s) => !isYahooOnly(s));
+    const yahooSymbols = symbols.filter((s) => isYahooOnly(s));
 
     const quotes: MarketQuote[] = [];
 
-    // Fetch Finnhub quotes (only if API key is set)
+    // Fetch Finnhub quotes sequentially (100ms stagger to respect 60/min free-tier)
     if (finnhubSymbols.length > 0 && apiKey) {
-      const results = await Promise.all(
-        finnhubSymbols.map((s) => fetchFinnhubQuote(s, apiKey)),
-      );
-      for (const r of results) {
+      for (let i = 0; i < finnhubSymbols.length; i++) {
+        const r = await fetchFinnhubQuote(finnhubSymbols[i]!, apiKey);
         if (r) {
           quotes.push({
             symbol: r.symbol,
@@ -82,6 +81,7 @@ export async function listMarketQuotes(
             sparkline: [],
           });
         }
+        if (i < finnhubSymbols.length - 1) await new Promise(ok => setTimeout(ok, 100));
       }
     }
 

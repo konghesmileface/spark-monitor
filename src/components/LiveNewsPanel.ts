@@ -134,6 +134,10 @@ export const OPTIONAL_LIVE_CHANNELS: LiveChannel[] = [
   { id: 'arirang-news', name: 'Arirang News', handle: '@ArirangCoKrArirangNEWS' },
   { id: 'india-today', name: 'India Today', handle: '@indiatoday', fallbackVideoId: 'sYZtOFzM78M' },
   { id: 'abp-news', name: 'ABP News', handle: '@ABPNews' },
+  // China
+  { id: 'cgtn', name: 'CGTN', fallbackVideoId: 'RcRSzwoZuBw', useFallbackOnly: true },
+  { id: 'cgtn-doc', name: 'CGTN Documentary', fallbackVideoId: 'q9VkOuMJWXw', useFallbackOnly: true },
+  { id: 'cctv4', name: 'CCTV-4 中文国际', fallbackVideoId: 'vY5QsRkgGKY', useFallbackOnly: true },
   // Middle East (defaults first)
   { id: 'alarabiya', name: 'AlArabiya', handle: '@AlArabiya', fallbackVideoId: 'n7eQejkXbnM', useFallbackOnly: true },
   { id: 'aljazeera', name: 'AlJazeera', handle: '@AlJazeeraEnglish', fallbackVideoId: 'gCNeDWCI0vo', useFallbackOnly: true },
@@ -172,6 +176,7 @@ const _REGION_ENTRIES: { key: string; labelKey: string; channelIds: string[] }[]
   { key: 'eu', labelKey: 'components.liveNews.regionEurope', channelIds: ['sky', 'euronews', 'dw', 'france24', 'bbc-news', 'france24-en', 'welt', 'rtve', 'trt-haber', 'ntv-turkey', 'cnn-turk', 'tv-rain', 'rt', 'tvp-info', 'telewizja-republika', 'tagesschau24', 'euronews-fr', 'france24-fr', 'france-info', 'bfmtv', 'tv5monde-info', 'nrk1', 'aljazeera-balkans'] },
   { key: 'latam', labelKey: 'components.liveNews.regionLatinAmerica', channelIds: ['cnn-brasil', 'jovem-pan', 'record-news', 'band-jornalismo', 'tn-argentina', 'c5n', 'milenio', 'noticias-caracol', 'ntn24', 't13'] },
   { key: 'asia', labelKey: 'components.liveNews.regionAsia', channelIds: ['tbs-news', 'ann-news', 'ntv-news', 'cti-news', 'wion', 'ndtv', 'cna-asia', 'nhk-world', 'arirang-news', 'india-today', 'abp-news'] },
+  { key: 'cn', labelKey: 'components.liveNews.regionChina', channelIds: ['cgtn', 'cgtn-doc', 'cctv4'] },
   { key: 'me', labelKey: 'components.liveNews.regionMiddleEast', channelIds: ['alarabiya', 'aljazeera', 'al-hadath', 'sky-news-arabia', 'trt-world', 'iran-intl', 'cgtn-arabic', 'kan-11', 'i24-news', 'asharq-news', 'aljazeera-arabic'] },
   { key: 'africa', labelKey: 'components.liveNews.regionAfrica', channelIds: ['africanews', 'channels-tv', 'ktn-news', 'enca', 'sabc-news', 'arise-news'] },
   { key: 'oc', labelKey: 'components.liveNews.regionOceania', channelIds: ['abc-news-au'] },
@@ -181,7 +186,21 @@ export const OPTIONAL_CHANNEL_REGIONS: { key: string; labelKey: string; channelI
   ..._REGION_ENTRIES,
 ];
 
-const DEFAULT_LIVE_CHANNELS = SITE_VARIANT === 'tech' ? TECH_LIVE_CHANNELS : SITE_VARIANT === 'happy' ? [] : FULL_LIVE_CHANNELS;
+// Spark variant: full international channels + domestic HLS channels appended.
+// When YouTube is blocked (GFW), auto-detection switches to CGTN/CGTN-Doc (HLS, no YouTube needed).
+const SPARK_LIVE_CHANNELS: LiveChannel[] = [
+  ...FULL_LIVE_CHANNELS,
+  { id: 'cgtn', name: 'CGTN', fallbackVideoId: 'RcRSzwoZuBw', useFallbackOnly: true },
+  { id: 'cgtn-doc', name: 'CGTN Documentary', fallbackVideoId: 'q9VkOuMJWXw', useFallbackOnly: true },
+];
+
+const DEFAULT_LIVE_CHANNELS = SITE_VARIANT === 'tech'
+  ? TECH_LIVE_CHANNELS
+  : SITE_VARIANT === 'happy'
+    ? []
+    : SITE_VARIANT === 'spark'
+      ? SPARK_LIVE_CHANNELS
+      : FULL_LIVE_CHANNELS;
 
 /** Default channel list for the current variant (for restore in channel management). */
 export function getDefaultLiveChannels(): LiveChannel[] {
@@ -218,6 +237,9 @@ const DEFAULT_STORED: StoredLiveChannels = {
 };
 
 const DIRECT_HLS_MAP: Readonly<Record<string, string>> = {
+  'cgtn': 'https://english-livebkali.cgtn.com/live/encgtn.m3u8',
+  'cgtn-doc': 'https://english-livebkali.cgtn.com/live/doccgtn.m3u8',
+  // CCTV-4: official CDN requires auth_key, no public HLS available
   'sky': 'https://linear901-oo-hls0-prd-gtm.delivery.skycdp.com/17501/sde-fast-skynews/master.m3u8',
   'euronews': 'https://dash4.antik.sk/live/test_euronews/playlist.m3u8',
   'dw': 'https://dwamdstream103.akamaized.net/hls/live/2015526/dwstream103/master.m3u8',
@@ -256,7 +278,7 @@ const PROXIED_HLS_MAP: Readonly<Record<string, ProxiedHlsEntry>> = {
 const IDLE_ACTIVITY_EVENTS = ['mousedown', 'keydown', 'scroll', 'touchstart', 'mousemove'] as const;
 
 if (import.meta.env.DEV) {
-  const allChannels = [...FULL_LIVE_CHANNELS, ...TECH_LIVE_CHANNELS, ...OPTIONAL_LIVE_CHANNELS];
+  const allChannels = [...FULL_LIVE_CHANNELS, ...TECH_LIVE_CHANNELS, ...SPARK_LIVE_CHANNELS, ...OPTIONAL_LIVE_CHANNELS];
   for (const id of Object.keys(DIRECT_HLS_MAP)) {
     const ch = allChannels.find(c => c.id === id);
     if (!ch) console.error(`[LiveNews] DIRECT_HLS_MAP key '${id}' has no matching channel`);
@@ -267,6 +289,7 @@ if (import.meta.env.DEV) {
 export const BUILTIN_IDS = new Set([
   ...FULL_LIVE_CHANNELS.map((c) => c.id),
   ...TECH_LIVE_CHANNELS.map((c) => c.id),
+  ...SPARK_LIVE_CHANNELS.map((c) => c.id),
   ...OPTIONAL_LIVE_CHANNELS.map((c) => c.id),
 ]);
 
@@ -297,7 +320,7 @@ export function saveChannelsToStorage(channels: LiveChannel[]): void {
   const order = channels.map((c) => c.id);
   const custom = channels.filter((c) => !BUILTIN_IDS.has(c.id));
   const builtinNames = new Map<string, string>();
-  for (const c of [...FULL_LIVE_CHANNELS, ...TECH_LIVE_CHANNELS, ...OPTIONAL_LIVE_CHANNELS]) builtinNames.set(c.id, c.name);
+  for (const c of [...FULL_LIVE_CHANNELS, ...TECH_LIVE_CHANNELS, ...SPARK_LIVE_CHANNELS, ...OPTIONAL_LIVE_CHANNELS]) builtinNames.set(c.id, c.name);
   const displayNameOverrides: Record<string, string> = {};
   for (const c of channels) {
     if (builtinNames.has(c.id) && c.name !== builtinNames.get(c.id)) {
@@ -309,6 +332,30 @@ export function saveChannelsToStorage(channels: LiveChannel[]): void {
 
 export class LiveNewsPanel extends Panel {
   private static apiPromise: Promise<void> | null = null;
+  private static youtubeBlocked: boolean | null = null; // null = not yet checked
+  private static youtubeProbePromise: Promise<boolean> | null = null;
+
+  /** Fire-and-forget probe: try fetching a tiny YouTube resource with 3s timeout.
+   *  Sets youtubeBlocked early so initializePlayer can act immediately. */
+  private static probeYouTubeAccess(): Promise<boolean> {
+    if (LiveNewsPanel.youtubeBlocked !== null) return Promise.resolve(!LiveNewsPanel.youtubeBlocked);
+    if (LiveNewsPanel.youtubeProbePromise) return LiveNewsPanel.youtubeProbePromise;
+    LiveNewsPanel.youtubeProbePromise = (async () => {
+      try {
+        await fetch('https://www.youtube.com/iframe_api', {
+          mode: 'no-cors',
+          signal: AbortSignal.timeout(3000),
+        });
+        LiveNewsPanel.youtubeBlocked = false;
+        return true;
+      } catch {
+        LiveNewsPanel.youtubeBlocked = true;
+        return false;
+      }
+    })();
+    return LiveNewsPanel.youtubeProbePromise;
+  }
+
   private channels: LiveChannel[] = [];
   private activeChannel!: LiveChannel;
   private channelSwitcher: HTMLElement | null = null;
@@ -354,6 +401,7 @@ export class LiveNewsPanel extends Panel {
 
   // Native HLS <video> element for direct stream playback (bypasses iframe/cookie issues)
   private nativeVideoElement: HTMLVideoElement | null = null;
+  private hlsInstance: import('hls.js').default | null = null; // hls.js for Chrome/Firefox
   private hlsFailureCooldown = new Map<string, number>();
   private readonly HLS_COOLDOWN_MS = 5 * 60 * 1000;
 
@@ -373,6 +421,8 @@ export class LiveNewsPanel extends Panel {
     this.createChannelSwitcher();
     this.setupBridgeMessageListener();
     this.renderPlaceholder();
+    // Proactively probe YouTube accessibility so we know before player init
+    void LiveNewsPanel.probeYouTubeAccess();
     this.setupLazyInit();
     this.setupIdleDetection();
     this.unsubscribeStreamSettings = subscribeLiveStreamsSettingsChange((alwaysOn) => {
@@ -616,6 +666,11 @@ export class LiveNewsPanel extends Panel {
       this.player = null;
     }
 
+    if (this.hlsInstance) {
+      this.hlsInstance.destroy();
+      this.hlsInstance = null;
+    }
+
     if (this.nativeVideoElement) {
       this.nativeVideoElement.pause();
       this.nativeVideoElement.removeAttribute('src');
@@ -746,7 +801,7 @@ export class LiveNewsPanel extends Panel {
   }
 
   private getChannelDisplayName(channel: LiveChannel): string {
-    return channel.hlsUrl && !channel.handle ? `${channel.name} 🔗` : channel.name;
+    return channel.hlsUrl && !channel.handle ? `${channel.name} <i class="bi bi-link-45deg"></i>` : channel.name;
   }
 
   /** Creates a single channel tab button with click and drag handlers. */
@@ -994,7 +1049,7 @@ export class LiveNewsPanel extends Panel {
     const safeName = escapeHtml(channel.name);
     this.content.innerHTML = `
       <div class="live-offline">
-        <div class="offline-icon">📺</div>
+        <div class="offline-icon"><i class="bi bi-tv"></i></div>
         <div class="offline-text">${t('components.liveNews.notLive', { name: safeName })}</div>
         <button class="offline-retry" onclick="this.closest('.panel').querySelector('.live-channel-btn.active')?.click()">${t('common.retry')}</button>
       </div>
@@ -1128,8 +1183,6 @@ export class LiveNewsPanel extends Panel {
 
     const video = document.createElement('video');
     video.className = 'live-news-native-video';
-    video.src = hlsUrl;
-    video.autoplay = this.isPlaying;
     video.muted = this.isMuted;
     video.playsInline = true;
     video.controls = true;
@@ -1138,8 +1191,9 @@ export class LiveNewsPanel extends Panel {
 
     const failedChannel = this.activeChannel;
 
-    video.addEventListener('error', () => {
-      console.warn('[LiveNews] HLS error:', video.error?.code, video.error?.message, failedChannel.id, hlsUrl);
+    const onHlsFail = () => {
+      console.warn('[LiveNews] HLS failed for', failedChannel.id, hlsUrl);
+      if (this.hlsInstance) { this.hlsInstance.destroy(); this.hlsInstance = null; }
       video.pause();
       video.removeAttribute('src');
       this.nativeVideoElement = null;
@@ -1150,7 +1204,7 @@ export class LiveNewsPanel extends Panel {
         this.ensurePlayerContainer();
         void this.initializePlayer();
       }
-    });
+    };
 
     video.addEventListener('volumechange', () => {
       if (!this.nativeVideoElement) return;
@@ -1182,15 +1236,67 @@ export class LiveNewsPanel extends Panel {
     this.isPlayerReady = true;
     this.currentVideoId = this.activeChannel.videoId || null;
 
-    // WKWebView blocks autoplay without user gesture. Force muted play, then restore.
+    // Try native HLS first (Safari), then hls.js (Chrome/Firefox/Edge)
+    if (video.canPlayType('application/vnd.apple.mpegurl')) {
+      // Safari: native HLS support
+      video.src = hlsUrl;
+      video.addEventListener('error', onHlsFail);
+    } else {
+      // Chrome/Firefox/Edge: use hls.js
+      void this.attachHlsJs(video, hlsUrl, onHlsFail);
+    }
+
+    // Autoplay: force muted play, then restore
     if (this.isPlaying) {
       const wantUnmute = !this.isMuted;
       video.muted = true;
-      video.play()?.then(() => {
-        if (wantUnmute && this.nativeVideoElement === video) {
-          video.muted = false;
+      // Small delay for hls.js to attach source
+      setTimeout(() => {
+        video.play()?.then(() => {
+          if (wantUnmute && this.nativeVideoElement === video) {
+            video.muted = false;
+          }
+        }).catch(() => {});
+      }, 200);
+    }
+  }
+
+  private async attachHlsJs(
+    video: HTMLVideoElement,
+    hlsUrl: string,
+    onFail: () => void,
+  ): Promise<void> {
+    try {
+      const { default: Hls } = await import('hls.js');
+      if (!Hls.isSupported()) {
+        onFail();
+        return;
+      }
+      // Check video element is still active
+      if (this.nativeVideoElement !== video) return;
+
+      const hls = new Hls({
+        enableWorker: true,
+        lowLatencyMode: true,
+        maxBufferLength: 30,
+        maxMaxBufferLength: 60,
+      });
+      this.hlsInstance = hls;
+
+      hls.on(Hls.Events.ERROR, (_event, data) => {
+        if (data.fatal) {
+          console.warn('[LiveNews] hls.js fatal error:', data.type, data.details);
+          hls.destroy();
+          this.hlsInstance = null;
+          onFail();
         }
-      }).catch(() => {});
+      });
+
+      hls.loadSource(hlsUrl);
+      hls.attachMedia(video);
+    } catch (err) {
+      console.warn('[LiveNews] Failed to load hls.js:', err);
+      onFail();
     }
   }
 
@@ -1205,6 +1311,9 @@ export class LiveNewsPanel extends Panel {
   }
 
   private static loadYouTubeApi(): Promise<void> {
+    // If probe already determined YouTube is blocked, skip loading entirely
+    if (LiveNewsPanel.youtubeBlocked === true) return Promise.resolve();
+
     if (LiveNewsPanel.apiPromise) return LiveNewsPanel.apiPromise;
 
     LiveNewsPanel.apiPromise = new Promise((resolve) => {
@@ -1242,6 +1351,7 @@ export class LiveNewsPanel extends Panel {
       script.dataset.youtubeIframeApi = 'true';
       script.onerror = () => {
         console.warn('[LiveNews] YouTube IFrame API failed to load (ad blocker or network issue)');
+        LiveNewsPanel.youtubeBlocked = true;
         LiveNewsPanel.apiPromise = null;
         script.remove();
         resolve();
@@ -1277,7 +1387,21 @@ export class LiveNewsPanel extends Panel {
 
     await LiveNewsPanel.loadYouTubeApi();
     if (!this.element?.isConnected) return;
-    if (this.player || !this.playerElement || !window.YT?.Player) return;
+    if (this.player || !this.playerElement) return;
+
+    if (!window.YT?.Player) {
+      // YouTube API unavailable — try HLS fallback for current channel
+      if (this.getDirectHlsUrl(this.activeChannel.id)) {
+        this.renderNativeHlsPlayer();
+        return;
+      }
+      if (LiveNewsPanel.youtubeBlocked) {
+        // Auto-switch to domestic HLS channel (no user click needed)
+        this.autoSwitchToDomestic();
+        return;
+      }
+      return;
+    }
 
     this.player = new window.YT!.Player(this.playerElement, {
       host: 'https://www.youtube.com',
@@ -1375,7 +1499,7 @@ export class LiveNewsPanel extends Panel {
 
     const icon = document.createElement('div');
     icon.className = 'offline-icon';
-    icon.textContent = '\u26A0\uFE0F';
+    icon.innerHTML = '<i class="bi bi-exclamation-triangle"></i>';
 
     const text = document.createElement('div');
     text.className = 'offline-text';
@@ -1425,6 +1549,69 @@ export class LiveNewsPanel extends Panel {
     } else {
       window.open(youtubeLoginUrl, '_blank');
     }
+  }
+
+  /** Auto-detect YouTube blocked → silently switch to first domestic HLS channel + show toast. */
+  private autoSwitchToDomestic(): void {
+    // Only try channels with verified HLS URLs
+    const domesticHlsIds = Object.keys(DIRECT_HLS_MAP).filter(id =>
+      ['cgtn', 'cgtn-doc'].includes(id),
+    );
+    if (domesticHlsIds.length === 0) {
+      this.showYouTubeBlockedFallback();
+      return;
+    }
+    // Ensure domestic channels are in the channel list
+    for (const id of domesticHlsIds) {
+      if (!this.channels.find(c => c.id === id)) {
+        const ch = OPTIONAL_LIVE_CHANNELS.find(c => c.id === id);
+        if (ch) this.channels.push({ ...ch });
+      }
+    }
+    this.saveChannels();
+    this.refreshChannelSwitcher();
+
+    // Find first domestic channel with working HLS (not on cooldown)
+    const target = this.channels.find(c => domesticHlsIds.includes(c.id) && this.getDirectHlsUrl(c.id));
+    if (target) {
+      void this.switchChannel(target);
+      this.showAutoSwitchToast();
+    } else {
+      this.showYouTubeBlockedFallback();
+    }
+  }
+
+  /** Brief toast notification after auto-switch. */
+  private showAutoSwitchToast(): void {
+    const msg = t('components.liveNews.autoSwitched') || '已自动切换到国内频道（YouTube 不可用）';
+    const toast = document.createElement('div');
+    toast.style.cssText = 'position:absolute;top:8px;left:50%;transform:translateX(-50%);background:rgba(232,168,56,0.9);color:#0C1222;padding:5px 14px;border-radius:6px;font-size:11px;font-weight:600;z-index:10;pointer-events:none;transition:opacity 0.5s;white-space:nowrap;';
+    toast.textContent = msg;
+    this.content.style.position = 'relative';
+    this.content.appendChild(toast);
+    setTimeout(() => { toast.style.opacity = '0'; }, 3000);
+    setTimeout(() => { toast.remove(); }, 3500);
+  }
+
+  /** Fallback UI when no domestic HLS channel is available. */
+  private showYouTubeBlockedFallback(): void {
+    this.destroyPlayer();
+    this.content.innerHTML = '';
+    const wrapper = document.createElement('div');
+    wrapper.className = 'live-offline';
+
+    const icon = document.createElement('div');
+    icon.className = 'offline-icon';
+    icon.innerHTML = '<i class="bi bi-wifi-off"></i>';
+
+    const text = document.createElement('div');
+    text.className = 'offline-text';
+    text.textContent = t('components.liveNews.youtubeBlocked')
+      || 'YouTube 不可用，建议切换到国内频道';
+
+    wrapper.appendChild(icon);
+    wrapper.appendChild(text);
+    this.content.appendChild(wrapper);
   }
 
   private syncPlayerState(): void {

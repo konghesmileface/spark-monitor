@@ -11,6 +11,7 @@ import type {
 } from '../../../../src/generated/server/worldmonitor/economic/v1/service_server';
 
 import { CHROME_UA } from '../../../_shared/constants';
+import { proxyFetch } from '../../../_shared/proxy-fetch';
 import { cachedFetchJson } from '../../../_shared/redis';
 
 const REDIS_CACHE_KEY = 'economic:worldbank:v1';
@@ -30,8 +31,7 @@ async function fetchWorldBankIndicators(
   req: ListWorldBankIndicatorsRequest,
 ): Promise<WorldBankCountryData[]> {
   try {
-    const indicator = req.indicatorCode;
-    if (!indicator) return [];
+    const indicator = req.indicatorCode || 'NY.GDP.MKTP.CD';  // default: GDP current US$
 
     const countryList = req.countryCode || TECH_COUNTRIES.join(';');
     const currentYear = new Date().getFullYear();
@@ -40,7 +40,7 @@ async function fetchWorldBankIndicators(
 
     const wbUrl = `https://api.worldbank.org/v2/country/${countryList}/indicator/${indicator}?format=json&date=${startYear}:${currentYear}&per_page=1000`;
 
-    const response = await fetch(wbUrl, {
+    const response = await proxyFetch(wbUrl, {
       headers: {
         Accept: 'application/json',
         'User-Agent': CHROME_UA,
