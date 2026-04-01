@@ -59,10 +59,12 @@ def alert_stream():
     if not user_id:
         return jsonify({'error': '缺少user_id'}), 400
 
+    # Capture redis reference while app context is active (before generator runs)
+    from flask import current_app
+    r = current_app.redis
+
     def event_stream():
         try:
-            from flask import current_app
-            r = current_app.redis
             if not r:
                 yield f'data: {json.dumps({"error": "Redis not available"})}\n\n'
                 return

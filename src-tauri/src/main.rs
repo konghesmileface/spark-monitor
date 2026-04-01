@@ -1042,6 +1042,22 @@ fn start_local_api(app: &AppHandle) -> Result<(), String> {
         cmd.env("LOCAL_API_REMOTE_BASE", base);
         cmd.env("LOCAL_API_CLOUD_FALLBACK", "true");
     }
+    // Cloud-only mode: skip local handlers entirely, proxy all API requests to server.
+    // Essential for desktop clients where users don't have proxy configured.
+    if let Some(val) = option_env!("LOCAL_API_CLOUD_ONLY") {
+        cmd.env("LOCAL_API_CLOUD_ONLY", val);
+    } else if let Ok(val) = std::env::var("LOCAL_API_CLOUD_ONLY") {
+        cmd.env("LOCAL_API_CLOUD_ONLY", val);
+    }
+
+    // Pass proxy env vars to sidecar so proxyFetch can route GFW-blocked domains
+    for proxy_key in &["HTTP_PROXY", "HTTPS_PROXY", "http_proxy", "https_proxy"] {
+        if let Ok(val) = std::env::var(proxy_key) {
+            if !val.is_empty() {
+                cmd.env(proxy_key, &val);
+            }
+        }
+    }
 
     let child = cmd
         .spawn()

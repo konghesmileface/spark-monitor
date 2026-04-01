@@ -2525,15 +2525,23 @@ def get_gov_news(categories=None):
 
     with ThreadPoolExecutor(max_workers=16) as executor:
         futures = {executor.submit(_fetch_source, key): key for key in source_keys}
-        for future in as_completed(futures, timeout=40):
-            try:
-                key, items = future.result(timeout=12)
-                source_counts[key] = len(items)
-                raw_items.extend(items)
-            except Exception as e:
-                key = futures[future]
-                logger.warning(f'[gov] {key} timeout/error: {e}')
-                source_counts[key] = 0
+        try:
+            for future in as_completed(futures, timeout=40):
+                try:
+                    key, items = future.result(timeout=12)
+                    source_counts[key] = len(items)
+                    raw_items.extend(items)
+                except Exception as e:
+                    key = futures[future]
+                    logger.warning(f'[gov] {key} timeout/error: {e}')
+                    source_counts[key] = 0
+        except Exception as te:
+            # as_completed raises TimeoutError when not all futures finish in time
+            unfinished = [k for f, k in futures.items() if not f.done()]
+            logger.warning(f'[gov] {len(unfinished)}/{len(futures)} sources timed out ({type(te).__name__}): {unfinished}')
+            for f, k in futures.items():
+                if k not in source_counts:
+                    source_counts[k] = 0
 
     # Clean titles (same logic used in policy_store for MySQL)
     from services.policy_store import _clean_title

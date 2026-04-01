@@ -522,7 +522,7 @@ def generate_morning_brief(user_id: str) -> dict:
     provider_order = profile.get('ai_provider_order') or None
     custom_keys = profile.get('ai_custom_keys') or None
     try:
-        raw = call_ai(user_prompt, system_prompt=BRIEF_SYSTEM_PROMPT, max_tokens=10000, provider_order=provider_order, custom_keys=custom_keys)
+        raw = call_ai(user_prompt, system_prompt=BRIEF_SYSTEM_PROMPT, max_tokens=8192, provider_order=provider_order, custom_keys=custom_keys)
         result = _parse_ai_json(raw)
         if result:
             result['generated_at'] = datetime.now().strftime('%Y-%m-%d %H:%M')

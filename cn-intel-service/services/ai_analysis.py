@@ -51,6 +51,9 @@ def call_ai(prompt, system_prompt='你是一个专业的中国A股市场分析�
                         Providers not in the list are appended as final fallback.
         custom_keys: optional dict of {provider_name: api_key} for user-supplied keys.
     """
+    # DeepSeek enforces max 8192 tokens; clamp to avoid 400 errors
+    max_tokens = min(max_tokens, 8192)
+
     if not _ai_semaphore.acquire(timeout=60):
         logger.warning('AI semaphore timeout (60s), too many concurrent calls')
         return None
@@ -481,6 +484,14 @@ def _parse_markdown_sections(md_text):
 
     for line in md_text.split('\n'):
         stripped = line.strip()
+
+        # Skip lines that are too long to be section headers (>60 chars = content, not header)
+        if len(stripped) > 60 and not stripped.startswith('## '):
+            if current_title is not None:
+                current_lines.append(line)
+            else:
+                preamble.append(line)
+            continue
 
         # Standard ## header
         if stripped.startswith('## '):

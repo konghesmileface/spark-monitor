@@ -610,7 +610,7 @@ def generate_monthly_report(user_id: str = None) -> dict:
     custom_keys = profile.get('ai_custom_keys') if profile else None
     ai_summary = call_ai('\n'.join(parts),
                          system_prompt=REPORT_SYSTEM_MONTHLY,
-                         max_tokens=10000,
+                         max_tokens=8192,
                          provider_order=provider_order,
                          custom_keys=custom_keys)
 
@@ -929,7 +929,7 @@ def generate_annual_report(user_id: str = None) -> dict:
     custom_keys = profile.get('ai_custom_keys') if profile else None
     ai_summary = call_ai('\n'.join(parts),
                          system_prompt=REPORT_SYSTEM_ANNUAL,
-                         max_tokens=10000,
+                         max_tokens=8192,
                          provider_order=provider_order,
                          custom_keys=custom_keys)
 

@@ -68,13 +68,15 @@ export class DeductionPanel extends Panel {
             const style = document.createElement('style');
             style.id = 'deduction-panel-styles';
             style.textContent = `
-        .deduction-panel-content { display: flex; flex-direction: column; gap: 12px; padding: 8px; height: 100%; overflow-y: auto; }
+        .deduction-panel-content { display: flex; flex-direction: column; gap: 12px; padding: 8px; height: 100%; overflow-y: auto; box-sizing: border-box; }
         .deduction-form { display: flex; flex-direction: column; gap: 8px; }
-        .deduction-input, .deduction-geo-input { width: 100%; padding: 8px; background: var(--bg-secondary, #2a2a2a); border: 1px solid var(--border-color, #444); color: var(--text-primary, #fff); border-radius: 4px; font-family: inherit; resize: vertical; }
-        .deduction-submit-btn { padding: 8px 16px; background: var(--accent-color, #3b82f6); color: white; border: none; border-radius: 4px; cursor: pointer; align-self: flex-end; font-weight: 500; }
+        .deduction-input, .deduction-geo-input { width: 100%; padding: 8px; background: var(--bg-secondary, #2a2a2a); border: 1px solid var(--border-color, #444); color: var(--text-primary, #fff); border-radius: 4px; font-family: inherit; resize: vertical; box-sizing: border-box; font-size: 13px; }
+        .deduction-input { min-height: 60px; }
+        .deduction-geo-input { min-height: 32px; }
+        .deduction-submit-btn { padding: 6px 16px; background: var(--accent-color, #3b82f6); color: white; border: none; border-radius: 4px; cursor: pointer; align-self: flex-end; font-weight: 500; font-size: 13px; }
         .deduction-submit-btn:hover { background: var(--accent-hover, #2563eb); }
         .deduction-submit-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-        .deduction-result { flex: 1; margin-top: 8px; line-height: 1.5; font-size: 0.9em; color: var(--text-primary, #ddd); }
+        .deduction-result { flex: 1; margin-top: 8px; line-height: 1.5; font-size: 0.9em; color: var(--text-primary, #ddd); overflow-y: auto; }
         .deduction-result.loading { opacity: 0.7; font-style: italic; }
         .deduction-result.error { color: var(--semantic-critical, #ef4444); }
         .deduction-result h3 { margin-top: 12px; margin-bottom: 4px; font-size: 1.1em; color: var(--text-bright, #fff); }

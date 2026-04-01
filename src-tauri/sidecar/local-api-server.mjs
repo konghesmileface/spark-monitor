@@ -7,9 +7,32 @@ import { readdir } from 'node:fs/promises';
 import { promisify } from 'node:util';
 import { brotliCompress, gzipSync } from 'node:zlib';
 import path from 'node:path';
+import tls from 'node:tls';
 import { pathToFileURL } from 'node:url';
 
 const brotliCompressAsync = promisify(brotliCompress);
+
+// ── Proxy support for GFW bypass ─────────────────────────────────────────
+// The Vite dev server sets globalThis.__proxyDispatcher via undici ProxyAgent,
+// but the sidecar runs standalone and needs its own proxy setup.
+// We read HTTP_PROXY/HTTPS_PROXY and create a dispatcher so that proxyFetch()
+// (compiled into API handler modules) can route GFW-blocked domains through proxy.
+const _sidecarProxyUrl = process.env.HTTP_PROXY || process.env.HTTPS_PROXY || '';
+if (_sidecarProxyUrl) {
+  try {
+    const undici = await import('undici');
+    if (undici.ProxyAgent) {
+      globalThis.__proxyDispatcher = new undici.ProxyAgent({
+        uri: _sidecarProxyUrl,
+        connect: { timeout: 30_000 },
+      });
+      console.log(`[sidecar] Proxy dispatcher configured: ${_sidecarProxyUrl}`);
+    }
+  } catch (e) {
+    console.warn(`[sidecar] Could not create ProxyAgent (undici unavailable): ${e.message}`);
+    // Fallback: mark proxy URL so ipv4Fetch can use CONNECT tunnel
+  }
+}
 
 // Monkey-patch globalThis.fetch to force IPv4 for HTTPS requests.
 // Node.js built-in fetch (undici) tries IPv6 first via Happy Eyeballs.
@@ -60,6 +83,12 @@ function isTransientVerificationError(error) {
 }
 
 globalThis.fetch = async function ipv4Fetch(input, init) {
+  // If a dispatcher is provided (e.g., by proxyFetch for GFW-blocked domains),
+  // delegate to the original undici fetch which supports the dispatcher option.
+  // This allows proxy routing to work even though we override globalThis.fetch.
+  if (init?.dispatcher) {
+    return _originalFetch(input, init);
+  }
   const isRequest = input && typeof input === 'object' && 'url' in input;
   let url;
   try { url = new URL(typeof input === 'string' ? input : input.url); } catch { return _originalFetch(input, init); }
@@ -469,6 +498,7 @@ function resolveConfig(options = {}) {
   const dataDir = String(options.dataDir ?? process.env.LOCAL_API_DATA_DIR ?? resourceDir);
   const mode = String(options.mode ?? process.env.LOCAL_API_MODE ?? 'desktop-sidecar');
   const cloudFallback = String(options.cloudFallback ?? process.env.LOCAL_API_CLOUD_FALLBACK ?? '') === 'true';
+  const cloudOnly = String(options.cloudOnly ?? process.env.LOCAL_API_CLOUD_ONLY ?? '') === 'true';
   const logger = options.logger ?? console;
 
   return {
@@ -479,6 +509,7 @@ function resolveConfig(options = {}) {
     apiDir,
     mode,
     cloudFallback,
+    cloudOnly,
     logger,
   };
 }
@@ -1054,6 +1085,13 @@ async function dispatch(requestUrl, req, routes, context) {
   // Must be above the auth gate so desktop RSS loading works reliably
   // without depending on token timing.
   if (requestUrl.pathname === '/api/rss-proxy') {
+    // In cloud-only mode, proxy to server (Relay has proper proxy setup for GFW bypass)
+    if (context.cloudOnly) {
+      const cloudResponse = await tryCloudFallback(requestUrl, req, context, 'cloud-only rss');
+      if (cloudResponse) return cloudResponse;
+      // Fall through to local handler if cloud is unreachable
+    }
+
     const feedUrl = requestUrl.searchParams.get('url');
     if (!feedUrl) return json({ error: 'Missing url parameter' }, 400);
 
@@ -1111,6 +1149,7 @@ async function dispatch(requestUrl, req, routes, context) {
       apiDir: context.apiDir,
       remoteBase: context.remoteBase,
       cloudFallback: context.cloudFallback,
+      cloudOnly: context.cloudOnly,
       routes: routes.length,
     });
   }
@@ -1231,6 +1270,16 @@ async function dispatch(requestUrl, req, routes, context) {
     } catch {
       return json({ error: 'expected { key, value }' }, 400);
     }
+  }
+
+  // ── Cloud-only mode ───────────────────────────────────────────────────
+  // When cloudOnly is enabled (e.g. Spark variant), ALL API data requests
+  // are proxied to the remote server so desktop users without local proxy
+  // can access all data sources.  Local-admin endpoints above are unaffected.
+  if (context.cloudOnly) {
+    const cloudResponse = await tryCloudFallback(requestUrl, req, context, 'cloud-only mode');
+    if (cloudResponse) return cloudResponse;
+    return json({ error: 'Cloud service unavailable', endpoint: requestUrl.pathname }, 503);
   }
 
   if (context.cloudFallback && cloudPreferred.has(requestUrl.pathname)) {
@@ -1397,7 +1446,7 @@ export async function createLocalApiServer(options = {}) {
         try { writeFileSync(portFile, String(boundPort)); } catch {}
       }
 
-      context.logger.log(`[local-api] listening on http://127.0.0.1:${boundPort} (apiDir=${context.apiDir}, routes=${routes.length}, cloudFallback=${context.cloudFallback})`);
+      context.logger.log(`[local-api] listening on http://127.0.0.1:${boundPort} (apiDir=${context.apiDir}, routes=${routes.length}, cloudFallback=${context.cloudFallback}, cloudOnly=${context.cloudOnly}${context.cloudOnly ? `, remoteBase=${context.remoteBase}` : ''})`);
       return { port: boundPort };
     },
     async close() {
