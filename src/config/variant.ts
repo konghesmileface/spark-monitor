@@ -3,9 +3,13 @@ export const SITE_VARIANT: string = (() => {
 
   const isTauri = '__TAURI_INTERNALS__' in window || '__TAURI__' in window;
   if (isTauri) {
+    // Branded desktop builds (spark, tech, etc.) always use the build-time variant
+    // to prevent stale localStorage from a previous install overriding the theme.
+    const buildVariant = import.meta.env.VITE_VARIANT;
+    if (buildVariant && buildVariant !== 'full') return buildVariant;
     const stored = localStorage.getItem('worldmonitor-variant');
     if (stored === 'tech' || stored === 'full' || stored === 'finance' || stored === 'happy' || stored === 'spark') return stored;
-    return import.meta.env.VITE_VARIANT || 'full';
+    return buildVariant || 'full';
   }
 
   const h = location.hostname;

@@ -516,7 +516,11 @@ async function tryCloudFallback(requestUrl, req, context, reason) {
     }
   }
   try {
-    return await proxyToCloud(requestUrl, req, context.remoteBase);
+    const cloudResponse = await proxyToCloud(requestUrl, req, context.remoteBase);
+    if (cloudResponse && !cloudResponse.ok) {
+      logOnce(context.logger, requestUrl.pathname, `cloud returned ${cloudResponse.status}`);
+    }
+    return cloudResponse;
   } catch (error) {
     context.logger.error('[local-api] cloud fallback failed', requestUrl.pathname, error);
     return null;
