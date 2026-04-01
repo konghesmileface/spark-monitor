@@ -1358,7 +1358,12 @@ export class CnPolicyPanel extends Panel {
         void this.fetchMorningBrief();
       }
       this.render();
-    }).catch(() => {});
+    }).catch(() => {
+      // Profile load failed — still fetch live news so the panel isn't stuck on "暂无数据"
+      if (this.viewMode === 'live' && !this.newsFetched) {
+        void this.fetchLiveNews();
+      }
+    });
 
     // Save snapshot when user leaves (fire-and-forget)
     this._onVisibilityChange = () => {

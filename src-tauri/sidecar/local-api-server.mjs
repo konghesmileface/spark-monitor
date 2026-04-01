@@ -1049,6 +1049,47 @@ async function dispatch(requestUrl, req, routes, context) {
     return new Response(html, { status: 200, headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store', 'permissions-policy': 'autoplay=*, encrypted-media=*', ...makeCorsHeaders(req) } });
   }
 
+  // RSS proxy — exempt from auth because it only fetches public RSS feeds
+  // and has built-in SSRF protection (private IP blocking, DNS pinning).
+  // Must be above the auth gate so desktop RSS loading works reliably
+  // without depending on token timing.
+  if (requestUrl.pathname === '/api/rss-proxy') {
+    const feedUrl = requestUrl.searchParams.get('url');
+    if (!feedUrl) return json({ error: 'Missing url parameter' }, 400);
+
+    // SSRF protection: block private IPs, reserved ranges, and DNS rebinding
+    const safety = await isSafeUrl(feedUrl);
+    if (!safety.safe) {
+      context.logger.warn(`[local-api] rss-proxy SSRF blocked: ${safety.reason} (url=${feedUrl})`);
+      return json({ error: safety.reason }, 403);
+    }
+
+    try {
+      const parsed = new URL(feedUrl);
+      // Pin to the first IPv4 address validated by isSafeUrl() so the
+      // actual TCP connection goes to the same IP we checked, closing
+      // the TOCTOU DNS-rebinding window.
+      const pinnedV4 = safety.resolvedAddresses?.find(a => a.includes('.'));
+      const response = await fetchWithTimeout(feedUrl, {
+        headers: {
+          'User-Agent': CHROME_UA,
+          'Accept': 'application/rss+xml, application/xml, text/xml, */*',
+          'Accept-Language': 'en-US,en;q=0.9',
+        },
+        ...(pinnedV4 ? { resolvedAddress: pinnedV4 } : {}),
+      }, parsed.hostname.includes('news.google.com') ? 20000 : 12000);
+      const contentType = response.headers?.get?.('content-type') || 'application/xml';
+      const rssBody = await response.text();
+      return new Response(rssBody || '', {
+        status: response.status,
+        headers: { 'content-type': contentType },
+      });
+    } catch (e) {
+      const isTimeout = e.name === 'AbortError' || e.message?.includes('timeout');
+      return json({ error: isTimeout ? 'Feed timeout' : 'Failed to fetch feed', url: feedUrl }, isTimeout ? 504 : 502);
+    }
+  }
+
   // ── Global auth gate ────────────────────────────────────────────────────
   // Every endpoint below requires a valid LOCAL_API_TOKEN.  This prevents
   // other local processes, malicious browser scripts, and rogue extensions
@@ -1144,44 +1185,6 @@ async function dispatch(requestUrl, req, routes, context) {
     const cloudResponse = await tryCloudFallback(requestUrl, req, context, 'youtube-live needs relay');
     if (cloudResponse) return cloudResponse;
     return json({ error: 'YouTube live detection unavailable' }, 503);
-  }
-
-  // RSS proxy — fetch public feeds with SSRF protection
-  if (requestUrl.pathname === '/api/rss-proxy') {
-    const feedUrl = requestUrl.searchParams.get('url');
-    if (!feedUrl) return json({ error: 'Missing url parameter' }, 400);
-
-    // SSRF protection: block private IPs, reserved ranges, and DNS rebinding
-    const safety = await isSafeUrl(feedUrl);
-    if (!safety.safe) {
-      context.logger.warn(`[local-api] rss-proxy SSRF blocked: ${safety.reason} (url=${feedUrl})`);
-      return json({ error: safety.reason }, 403);
-    }
-
-    try {
-      const parsed = new URL(feedUrl);
-      // Pin to the first IPv4 address validated by isSafeUrl() so the
-      // actual TCP connection goes to the same IP we checked, closing
-      // the TOCTOU DNS-rebinding window.
-      const pinnedV4 = safety.resolvedAddresses?.find(a => a.includes('.'));
-      const response = await fetchWithTimeout(feedUrl, {
-        headers: {
-          'User-Agent': CHROME_UA,
-          'Accept': 'application/rss+xml, application/xml, text/xml, */*',
-          'Accept-Language': 'en-US,en;q=0.9',
-        },
-        ...(pinnedV4 ? { resolvedAddress: pinnedV4 } : {}),
-      }, parsed.hostname.includes('news.google.com') ? 20000 : 12000);
-      const contentType = response.headers?.get?.('content-type') || 'application/xml';
-      const rssBody = await response.text();
-      return new Response(rssBody || '', {
-        status: response.status,
-        headers: { 'content-type': contentType },
-      });
-    } catch (e) {
-      const isTimeout = e.name === 'AbortError' || e.message?.includes('timeout');
-      return json({ error: isTimeout ? 'Feed timeout' : 'Failed to fetch feed', url: feedUrl }, isTimeout ? 504 : 502);
-    }
   }
 
   if (requestUrl.pathname === '/api/local-env-update') {
