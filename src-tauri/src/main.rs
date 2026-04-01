@@ -798,6 +798,30 @@ mod sanitize_path_tests {
     }
 }
 
+/// Read a key=value from a dotenv-style file (e.g. .env.local).
+/// Only used as a fallback when the variable is not set via build env or runtime env.
+fn read_dotenv_value(dotenv_path: &Path, key: &str) -> Option<String> {
+    let contents = fs::read_to_string(dotenv_path).ok()?;
+    for line in contents.lines() {
+        let trimmed = line.trim();
+        if trimmed.is_empty() || trimmed.starts_with('#') {
+            continue;
+        }
+        if let Some((k, v)) = trimmed.split_once('=') {
+            if k.trim() == key {
+                let val = v.trim();
+                // Strip optional surrounding quotes
+                let val = val.strip_prefix('"').and_then(|s| s.strip_suffix('"')).unwrap_or(val);
+                let val = val.strip_prefix('\'').and_then(|s| s.strip_suffix('\'')).unwrap_or(val);
+                if !val.is_empty() {
+                    return Some(val.to_string());
+                }
+            }
+        }
+    }
+    None
+}
+
 fn local_api_paths(app: &AppHandle) -> (PathBuf, PathBuf) {
     let resource_dir = app
         .path()
@@ -1028,7 +1052,15 @@ fn start_local_api(app: &AppHandle) -> Result<(), String> {
         &format!("injected {secret_count} keychain secrets into sidecar env"),
     );
 
-    // Inject build-time secrets (CI) with runtime env fallback (dev)
+    // Inject build-time secrets (CI) with runtime env fallback (dev).
+    // Third fallback: read from .env.local in dev mode so Spark variant users
+    // only need to add LOCAL_API_* vars to the same file as VITE_VARIANT.
+    let dotenv_path: Option<PathBuf> = if cfg!(debug_assertions) {
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).parent().map(|p| p.join(".env.local"))
+    } else {
+        None
+    };
+
     if let Some(url) = option_env!("CONVEX_URL") {
         cmd.env("CONVEX_URL", url);
     } else if let Ok(url) = std::env::var("CONVEX_URL") {
@@ -1041,6 +1073,10 @@ fn start_local_api(app: &AppHandle) -> Result<(), String> {
     } else if let Ok(base) = std::env::var("LOCAL_API_REMOTE_BASE") {
         cmd.env("LOCAL_API_REMOTE_BASE", base);
         cmd.env("LOCAL_API_CLOUD_FALLBACK", "true");
+    } else if let Some(base) = dotenv_path.as_ref().and_then(|p| read_dotenv_value(p, "LOCAL_API_REMOTE_BASE")) {
+        cmd.env("LOCAL_API_REMOTE_BASE", &base);
+        cmd.env("LOCAL_API_CLOUD_FALLBACK", "true");
+        append_desktop_log(app, "INFO", &format!("LOCAL_API_REMOTE_BASE from .env.local: {base}"));
     }
     // Cloud-only mode: skip local handlers entirely, proxy all API requests to server.
     // Essential for desktop clients where users don't have proxy configured.
@@ -1048,6 +1084,9 @@ fn start_local_api(app: &AppHandle) -> Result<(), String> {
         cmd.env("LOCAL_API_CLOUD_ONLY", val);
     } else if let Ok(val) = std::env::var("LOCAL_API_CLOUD_ONLY") {
         cmd.env("LOCAL_API_CLOUD_ONLY", val);
+    } else if let Some(val) = dotenv_path.as_ref().and_then(|p| read_dotenv_value(p, "LOCAL_API_CLOUD_ONLY")) {
+        cmd.env("LOCAL_API_CLOUD_ONLY", &val);
+        append_desktop_log(app, "INFO", &format!("LOCAL_API_CLOUD_ONLY from .env.local: {val}"));
     }
 
     // Pass proxy env vars to sidecar so proxyFetch can route GFW-blocked domains

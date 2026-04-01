@@ -14,3 +14,10 @@
 
 [source.vendored-sources]
 directory = "vendor"
+
+# Spark variant: proxy all sidecar API requests to server (cloud-only mode).
+# The server has all API keys (FRED, WTO, Groq, etc.) — desktop clients don't need local keys.
+# Remove these for self-hosted builds where users bring their own keys.
+[env]
+LOCAL_API_REMOTE_BASE = "https://sparkmonitor.cn"
+LOCAL_API_CLOUD_ONLY = "true"

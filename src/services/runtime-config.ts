@@ -1,4 +1,5 @@
 import { getApiBaseUrl, isDesktopRuntime } from './runtime';
+import { SITE_VARIANT } from '@/config/variant';
 import { invokeTauri } from './tauri-bridge';
 
 export type RuntimeSecretKey =
@@ -385,7 +386,9 @@ export function isFeatureAvailable(featureId: RuntimeFeatureId): boolean {
 
   // Cloud/web deployments validate credentials server-side.
   // Desktop runtime validates local secrets client-side for capability gating.
-  if (!isDesktopRuntime()) {
+  // Spark variant: RPC gateway runs server-side with all API keys,
+  // so desktop clients don't need local keys — treat like web mode.
+  if (!isDesktopRuntime() || SITE_VARIANT === 'spark') {
     return true;
   }
 
