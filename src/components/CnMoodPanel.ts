@@ -379,6 +379,7 @@ const PLATFORM_ICONS: Record<string, string> = {
 
 const STYLE = `
 <style>
+@layer base {
 .cn-mood-container {
   display: flex;
   flex-direction: column;
@@ -923,6 +924,7 @@ const STYLE = `
   .cn-mood-platform-cats { flex-wrap: wrap; gap: 3px; }
   .cn-mood-tabs { max-height: 60px; overflow-x: auto; flex-wrap: nowrap; }
 }
+} /* @layer base */
 </style>
 `;
 

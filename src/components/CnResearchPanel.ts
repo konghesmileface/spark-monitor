@@ -65,6 +65,7 @@ function ratingBadgeClass(rating: string): string {
 
 const STYLE = `
 <style>
+@layer base {
 .cn-research-container {
   display: flex;
   flex-direction: column;
@@ -756,6 +757,7 @@ const STYLE = `
   font-size: 11px;
   color: var(--text-dim);
 }
+} /* @layer base */
 </style>
 `;
 

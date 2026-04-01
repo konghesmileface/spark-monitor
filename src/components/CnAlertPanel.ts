@@ -6,6 +6,7 @@ import { getAlerts, markRead, type Alert } from '@/services/cn-alerts';
 import { escapeHtml } from '@/utils/sanitize';
 
 const PANEL_STYLE = `<style>
+@layer base {
 .cn-alert-panel {
   position: absolute; top: 100%; right: 0; z-index: 100;
   width: 380px; max-height: 500px; overflow-y: auto;
@@ -92,6 +93,7 @@ const PANEL_STYLE = `<style>
   text-align: center; margin-top: 4px;
 }
 .cn-alert-mark-all:hover { background: rgba(255,255,255,0.08); }
+} /* @layer base */
 </style>`;
 
 export class CnAlertPanel {

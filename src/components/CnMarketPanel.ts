@@ -94,6 +94,7 @@ function sectorHeatColor(pct: number): string {
 
 const STYLE = `
 <style>
+@layer base {
 .cn-market-indices {
   display: flex;
   flex-direction: column;
@@ -297,6 +298,7 @@ const STYLE = `
   0% { background-position: 200% 0; }
   100% { background-position: -200% 0; }
 }
+} /* @layer base */
 </style>
 `;
 

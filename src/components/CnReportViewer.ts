@@ -143,6 +143,7 @@ function _renderTrendBars(items: any[], labelKey: string, valKey: string): strin
 }
 
 const VIEWER_STYLE = `<style>
+@layer base {
 .cn-report-viewer {
   position: fixed; inset: 0; z-index: 9999;
   background: rgba(0,0,0,0.75); display: flex; align-items: center; justify-content: center;
@@ -456,6 +457,7 @@ const VIEWER_STYLE = `<style>
   .cn-report-content { max-height: none; border: none; width: 100%; box-shadow: none; }
 }
 @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+} /* @layer base */
 </style>`;
 
 let _viewerEl: HTMLElement | null = null;

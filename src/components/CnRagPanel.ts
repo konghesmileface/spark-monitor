@@ -19,6 +19,7 @@ const EXAMPLE_QUESTIONS = [
 
 const STYLE = `
 <style>
+@layer base {
 .cn-rag-container {
   display: flex;
   flex-direction: column;
@@ -219,6 +220,7 @@ const STYLE = `
   margin: 0 1px;
   white-space: nowrap;
 }
+} /* @layer base */
 </style>
 `;
 

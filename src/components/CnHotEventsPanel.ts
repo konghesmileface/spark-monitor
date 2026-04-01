@@ -78,6 +78,7 @@ function formatPercent(val: number): string {
 
 const STYLE = `
 <style>
+@layer base {
 .cn-hot-events-container {
   display: flex;
   flex-direction: column;
@@ -269,6 +270,7 @@ const STYLE = `
   gap: 6px;
 }
 .cn-events-stale-notice i { color: #ff9800; font-size: 12px; }
+} /* @layer base */
 </style>
 `;
 

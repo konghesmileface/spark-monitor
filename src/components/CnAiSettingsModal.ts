@@ -16,6 +16,7 @@ import {
 import { escapeHtml } from '@/utils/sanitize';
 
 const MODAL_STYLE = `<style>
+@layer base {
 .cn-ai-overlay {
   position: fixed; inset: 0; z-index: 9999;
   background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center;
@@ -108,6 +109,7 @@ const MODAL_STYLE = `<style>
   background: rgba(255,255,255,0.06); color: #aaa;
 }
 .cn-ai-btn-cancel:hover { background: rgba(255,255,255,0.1); }
+} /* @layer base */
 </style>`;
 
 let _modalEl: HTMLElement | null = null;

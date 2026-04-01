@@ -338,6 +338,7 @@ function buildRadarSvg(factors: SentimentFactor[]): string {
 
 const STYLE = `
 <style>
+@layer base {
 .cn-sentiment-container {
   display: flex;
   flex-direction: column;
@@ -517,6 +518,7 @@ const STYLE = `
   color: var(--text-dim);
   font-variant-numeric: tabular-nums;
 }
+} /* @layer base */
 </style>
 `;
 

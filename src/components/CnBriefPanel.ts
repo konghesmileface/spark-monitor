@@ -78,6 +78,7 @@ const SECTION_ICONS: Record<string, string> = {
 
 const STYLE = `
 <style>
+@layer base {
 .cn-brief-container {
   display: flex;
   flex-direction: column;
@@ -298,6 +299,7 @@ const STYLE = `
   margin-right: 4px;
 }
 .cn-brief-mentioned-bar .cn-brief-mentioned-label i { font-size: 11px; }
+} /* @layer base */
 </style>
 `;
 

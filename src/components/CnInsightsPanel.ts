@@ -39,6 +39,7 @@ interface MarketRegime {
 type InsightView = 'signals' | 'ideas';
 
 const STYLE = `<style>
+@layer base {
 .cn-insights { font-size: 13px; color: #e0e0e0; }
 .cn-insights-header {
   display: flex; gap: 8px; align-items: center; margin-bottom: 10px; flex-wrap: wrap;
@@ -120,6 +121,7 @@ const STYLE = `<style>
 .cn-idea-meta-label { color: #e8a838; font-weight: 600; }
 .cn-insights-empty { padding: 20px; text-align: center; color: #666; }
 .cn-insights-loading { padding: 20px; text-align: center; color: #888; }
+} /* @layer base */
 </style>`;
 
 export class CnInsightsPanel extends Panel {

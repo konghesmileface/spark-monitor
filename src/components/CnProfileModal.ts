@@ -44,6 +44,7 @@ const POLICY_AREA_OPTIONS = [
 ];
 
 const MODAL_STYLE = `<style>
+@layer base {
 .cn-profile-overlay {
   position: fixed; inset: 0; z-index: 9999;
   background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center;
@@ -130,6 +131,7 @@ const MODAL_STYLE = `<style>
 .cn-profile-lock-hint {
   font-size: 10px; color: #555; margin-top: 3px; display: flex; align-items: center; gap: 4px;
 }
+} /* @layer base */
 </style>`;
 
 let _modalEl: HTMLElement | null = null;

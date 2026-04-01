@@ -13,6 +13,7 @@ import type { GovNewsItem, GovNewsData, PolicyStats, MorningBriefData, IndustryB
 import { GOV_CATEGORY_FILTERS, type ViewMode } from './cn-policy/constants';
 
 const STYLE = `<style>
+@layer base {
 .cn-policy { font-size: 13px; color: #e0e0e0; }
 /* Header: enterprise info left, action icons right */
 .cn-policy-header {
@@ -1269,6 +1270,7 @@ const STYLE = `<style>
   white-space: nowrap; flex-shrink: 0; margin-top: 1px;
 }
 .cn-time-impact-text { font-size: 12px; color: #bbb; line-height: 1.5; }
+} /* @layer base */
 </style>`;
 
 export class CnPolicyPanel extends Panel {

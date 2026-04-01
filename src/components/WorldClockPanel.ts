@@ -127,6 +127,7 @@ function pad2(n: number): string {
 }
 
 const STYLE = `<style>
+@layer base {
 .wc-container{display:flex;flex-direction:column}
 .wc-row{display:grid;grid-template-columns:auto 1fr auto;align-items:center;padding:7px 10px;border-bottom:1px solid var(--border-subtle,#1a1a1a);transition:background .15s;gap:0}
 .wc-row:last-child{border-bottom:none}
@@ -171,6 +172,7 @@ const STYLE = `<style>
 .wc-row.wc-dragging{opacity:.3}
 .wc-row.wc-drag-over-above{box-shadow:inset 0 2px 0 #44ff88}
 .wc-row.wc-drag-over-below{box-shadow:inset 0 -2px 0 #44ff88}
+} /* @layer base */
 </style>`;
 
 export class WorldClockPanel extends Panel {
