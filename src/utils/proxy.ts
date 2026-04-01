@@ -14,7 +14,9 @@ const RSS_PROXY_BASE = isDev
     : '';
 
 export function rssProxyUrl(feedUrl: string): string {
-  if (isDesktopRuntime()) return proxyUrl(feedUrl);
+  // Desktop: route through sidecar's built-in /api/rss-proxy handler (avoids CORS).
+  // The sidecar fetches feeds server-side with SSRF protection.
+  if (isDesktopRuntime()) return toRuntimeUrl(`/api/rss-proxy?url=${encodeURIComponent(feedUrl)}`);
   if (RSS_PROXY_BASE) {
     return `${RSS_PROXY_BASE}/rss?url=${encodeURIComponent(feedUrl)}`;
   }
