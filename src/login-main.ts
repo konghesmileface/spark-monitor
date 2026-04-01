@@ -8,13 +8,11 @@ const _isDesktop = import.meta.env.VITE_DESKTOP_RUNTIME === '1'
 
 let _sidecarBase = '';
 let _sidecarToken = '';
+let _sidecarReady: Promise<void> | null = null;
 
 if (_isDesktop) {
-  const port = 46123;
-  _sidecarBase = `http://127.0.0.1:${port}`;
-
-  // Obtain LOCAL_API_TOKEN via Tauri IPC (no external module dependency)
-  (async () => {
+  // Resolve dynamic sidecar port + token via Tauri IPC (port may differ from 46123)
+  _sidecarReady = (async () => {
     try {
       const w = window as unknown as {
         __TAURI__?: { core?: { invoke?: <T>(cmd: string) => Promise<T> } };
@@ -22,15 +20,25 @@ if (_isDesktop) {
       };
       const invoke = w.__TAURI__?.core?.invoke ?? w.__TAURI_INTERNALS__?.invoke;
       if (invoke) {
-        _sidecarToken = await invoke<string>('get_local_api_token');
+        const [port, token] = await Promise.all([
+          invoke<number>('get_local_api_port').catch(() => 46123),
+          invoke<string>('get_local_api_token').catch(() => ''),
+        ]);
+        _sidecarBase = `http://127.0.0.1:${port}`;
+        _sidecarToken = token;
+      } else {
+        _sidecarBase = `http://127.0.0.1:46123`;
       }
-    } catch { /* token stays empty */ }
+    } catch {
+      _sidecarBase = `http://127.0.0.1:46123`;
+    }
   })();
 }
 
 // Wrap fetch for desktop: prepend sidecar base + inject auth token
-function apiFetch(input: string, init?: RequestInit): Promise<Response> {
+async function apiFetch(input: string, init?: RequestInit): Promise<Response> {
   if (_isDesktop && input.startsWith('/api/')) {
+    if (_sidecarReady) await _sidecarReady;
     const headers = new Headers(init?.headers);
     const originalAuth = headers.get('Authorization');
     if (originalAuth) {

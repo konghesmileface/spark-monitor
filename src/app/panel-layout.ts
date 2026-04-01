@@ -903,7 +903,7 @@ export class PanelLayoutManager implements AppModule {
       }
     }
 
-    if (this.ctx.isDesktopApp) {
+    if (this.ctx.isDesktopApp && SITE_VARIANT !== 'spark') {
       const runtimeConfigPanel = new RuntimeConfigPanel({ mode: 'alert' });
       this.ctx.panels['runtime-config'] = runtimeConfigPanel;
     }

@@ -535,15 +535,18 @@ export function installRuntimeFetchPatch(): void {
     let allowCloudFallback = !isLocalOnlyApiTarget(target);
 
     if (allowCloudFallback && !isKeyFreeApiTarget(target)) {
-      try {
-        const { getSecretState, secretsReady } = await import('@/services/runtime-config');
-        await Promise.race([secretsReady, new Promise<void>(r => setTimeout(r, 2000))]);
-        const wmKeyState = getSecretState('WORLDMONITOR_API_KEY');
-        if (!wmKeyState.present || !wmKeyState.valid) {
+      // Spark variant: cloud endpoints use wm_token auth (not API key), always allow fallback
+      if (SITE_VARIANT !== 'spark') {
+        try {
+          const { getSecretState, secretsReady } = await import('@/services/runtime-config');
+          await Promise.race([secretsReady, new Promise<void>(r => setTimeout(r, 2000))]);
+          const wmKeyState = getSecretState('WORLDMONITOR_API_KEY');
+          if (!wmKeyState.present || !wmKeyState.valid) {
+            allowCloudFallback = false;
+          }
+        } catch {
           allowCloudFallback = false;
         }
-      } catch {
-        allowCloudFallback = false;
       }
     }
 

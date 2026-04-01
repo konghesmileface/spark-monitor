@@ -2,6 +2,41 @@
 
 const CN_INTEL_BASE = import.meta.env.VITE_CN_INTEL_BASE || '';
 
+// Desktop (Tauri) runtime: route API calls through the local sidecar.
+const _isDesktop = import.meta.env.VITE_DESKTOP_RUNTIME === '1'
+  || (typeof window !== 'undefined' && ('__TAURI_INTERNALS__' in window || '__TAURI__' in window));
+
+let _sidecarBase = '';
+let _sidecarReady: Promise<void> | null = null;
+
+if (_isDesktop) {
+  _sidecarReady = (async () => {
+    try {
+      const w = window as unknown as {
+        __TAURI__?: { core?: { invoke?: <T>(cmd: string) => Promise<T> } };
+        __TAURI_INTERNALS__?: { invoke?: <T>(cmd: string) => Promise<T> };
+      };
+      const invoke = w.__TAURI__?.core?.invoke ?? w.__TAURI_INTERNALS__?.invoke;
+      if (invoke) {
+        const port = await invoke<number>('get_local_api_port').catch(() => 46123);
+        _sidecarBase = `http://127.0.0.1:${port}`;
+      } else {
+        _sidecarBase = `http://127.0.0.1:46123`;
+      }
+    } catch {
+      _sidecarBase = `http://127.0.0.1:46123`;
+    }
+  })();
+}
+
+async function apiFetch(input: string, init?: RequestInit): Promise<Response> {
+  if (_isDesktop && input.startsWith('/api/')) {
+    if (_sidecarReady) await _sidecarReady;
+    return fetch(`${_sidecarBase}${input}`, init);
+  }
+  return fetch(`${CN_INTEL_BASE}${input}`, init);
+}
+
 // Available industries (same as cn-intel-service AVAILABLE_INDUSTRIES)
 const INDUSTRIES = [
   '新能源', '半导体', '人工智能', '生物医药', '新材料', '高端装备',
@@ -119,7 +154,7 @@ form.addEventListener('submit', async (e) => {
   };
 
   try {
-    const res = await fetch(`${CN_INTEL_BASE}/api/auth/register`, {
+    const res = await apiFetch('/api/auth/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
