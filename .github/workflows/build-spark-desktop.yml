@@ -100,7 +100,7 @@ jobs:
           tagName: v__VERSION__
           releaseName: 'Spark Monitor v__VERSION__'
           releaseBody: 'Spark Monitor 桌面客户端'
-          releaseDraft: true
+          releaseDraft: false
           prerelease: false
           tauriScript: npx tauri
           args: --config src-tauri/tauri.spark.conf.json ${{ matrix.args }}

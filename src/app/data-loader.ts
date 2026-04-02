@@ -191,9 +191,9 @@ export class DataLoaderManager implements AppModule {
   private readonly digestRequestTimeoutMs = 40000;
   private readonly digestBreakerCooldownMs = 60 * 1000; // 1 minute (was 5 min)
   private readonly persistedDigestMaxAgeMs = 6 * 60 * 60 * 1000;
-  private readonly perFeedFallbackCategoryFeedLimit = 3;
-  private readonly perFeedFallbackIntelFeedLimit = 6;
-  private readonly perFeedFallbackBatchSize = 2;
+  private readonly perFeedFallbackCategoryFeedLimit = 6;
+  private readonly perFeedFallbackIntelFeedLimit = 10;
+  private readonly perFeedFallbackBatchSize = 4;
   private lastGoodDigest: ListFeedDigestResponse | null = null;
 
   constructor(ctx: AppContext, callbacks: DataLoaderCallbacks) {
