@@ -360,28 +360,14 @@ export class UnifiedSettings {
     html += `<div class="ai-flow-section-label">${t('components.insights.sectionMap')}</div>`;
 
     // Globe / flat-map mode toggle
-    html += `
-      <div class="ai-flow-toggle-row">
-        <div class="ai-flow-toggle-label-wrap">
-          <div class="ai-flow-toggle-label">3D Globe View</div>
-          <div class="ai-flow-toggle-desc">Switch between flat map and interactive 3D globe (like Sentinel). Zoom, rotate, and explore in three dimensions.</div>
-        </div>
-        <label class="ai-flow-switch">
-          <input type="checkbox" id="us-globe-mode"${globeEnabled ? ' checked' : ''}>
-          <span class="ai-flow-slider"></span>
-        </label>
-      </div>`;
+    html += this.toggleRowHtml('us-globe-mode', t('components.insights.globeViewLabel'), t('components.insights.globeViewDesc'), globeEnabled);
 
     // Globe render quality (pixel ratio)
     const globeScale = getGlobeRenderScale();
-    const globeRenderLabelKey = 'components.insights.globeRenderQualityLabel';
-    const globeRenderDescKey = 'components.insights.globeRenderQualityDesc';
-    const globeRenderLabel = t(globeRenderLabelKey);
-    const globeRenderDesc = t(globeRenderDescKey);
     html += `<div class="ai-flow-toggle-row">
       <div class="ai-flow-toggle-label-wrap">
-        <div class="ai-flow-toggle-label">${globeRenderLabel === globeRenderLabelKey ? 'Globe render quality' : globeRenderLabel}</div>
-        <div class="ai-flow-toggle-desc">${globeRenderDesc === globeRenderDescKey ? 'Controls the globe canvas resolution. Higher values look sharper on 4K displays but can melt GPUs.' : globeRenderDesc}</div>
+        <div class="ai-flow-toggle-label">${t('components.insights.globeRenderQualityLabel')}</div>
+        <div class="ai-flow-toggle-desc">${t('components.insights.globeRenderQualityDesc')}</div>
       </div>
     </div>`;
     html += `<select class="unified-settings-select" id="us-globe-render-scale">`;

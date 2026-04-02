@@ -1137,6 +1137,8 @@
       "settingsTitle": "设置",
       "sectionMap": "地图",
       "sectionAi": "AI分析",
+      "globeViewLabel": "3D 地球视图",
+      "globeViewDesc": "在平面地图和交互式3D地球之间切换。支持缩放、旋转和三维探索。",
       "mapFlashLabel": "实时事件脉冲",
       "mapFlashDesc": "突发新闻到达时在地图上闪烁位置",
       "aiFlowTitle": "设置",

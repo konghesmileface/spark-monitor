@@ -139,7 +139,8 @@ _HEADERS = {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
     'Referer': 'http://quote.eastmoney.com/',
 }
-_NO_PROXY = {'http': None, 'https': None}
+# Let eastmoney requests go through HTTP_PROXY (Clash) — cloud IP is blocked
+_NO_PROXY = None
 _TIMEOUT = 10
 
 # --- In-memory spot cache (avoids repeated 60-page HTTP fetches) ---
@@ -233,7 +234,7 @@ def get_a_spot():
 
     # 2. Redis cache
     cache_key = 'cn:ak:spot'
-    ttl = _get_ttl(30, 21600)
+    ttl = _get_ttl(600, 21600)
 
     if not _is_trading_hours():
         cached = _cache_get(cache_key)
@@ -267,7 +268,7 @@ def get_stock_quote(code):
     """Get single stock quote by code (e.g. '600519'). Returns dict or None."""
     code = str(code).strip()
     cache_key = f'cn:ak:quote:{code}'
-    ttl = _get_ttl(30, 21600)
+    ttl = _get_ttl(600, 21600)
 
     if not _is_trading_hours():
         cached = _cache_get(cache_key)
@@ -429,7 +430,7 @@ def get_north_flow():
     """Get northbound capital (沪深港通) real net inflow.
     Returns dict: {shFlow, szFlow, totalFlow, direction, unit:'万元'}"""
     cache_key = 'cn:ak:north'
-    ttl = _get_ttl(60, 21600)
+    ttl = _get_ttl(600, 21600)
 
     if not _is_trading_hours():
         cached = _cache_get(cache_key)
@@ -538,7 +539,7 @@ def get_north_flow():
     stale = _cache_get_stale(cache_key)
     if stale:
         logger.warning('get_north_flow: using stale data')
-        _cache_set(cache_key, stale, _get_ttl(60, 21600))
+        _cache_set(cache_key, stale, _get_ttl(600, 21600))
         return stale
     return {'totalFlow': 0, 'shFlow': 0, 'szFlow': 0, 'direction': 'neutral', 'unit': '万元'}
 
@@ -551,7 +552,7 @@ def get_margin_data():
     """Get margin trading (融资融券) data.
     Returns dict: {balance, prevBalance, change, date, source}"""
     cache_key = 'cn:ak:margin'
-    ttl = _get_ttl(300, 21600)
+    ttl = _get_ttl(1800, 21600)
 
     cached = _cache_get(cache_key)
     if cached:
@@ -680,7 +681,7 @@ def get_fund_flow(code):
     Returns dict: {mainNetInflow, mainPct, retailNetInflow, superlarge, large, medium, small, date}"""
     code = str(code).strip()
     cache_key = f'cn:ak:flow:{code}'
-    ttl = _get_ttl(120, 21600)
+    ttl = _get_ttl(600, 21600)
 
     if not _is_trading_hours():
         cached = _cache_get(cache_key)
@@ -756,7 +757,7 @@ def get_sector_rank(top_n=10):
     """Get industry sector ranking (涨幅排名). Returns list of dicts.
     Sources: eastmoney clist/get → tushare sw_daily → stale cache."""
     cache_key = 'cn:ak:sector'
-    ttl = _get_ttl(120, 21600)
+    ttl = _get_ttl(600, 21600)
 
     if not _is_trading_hours():
         cached = _cache_get(cache_key)
@@ -923,7 +924,7 @@ def _get_limit_stats_tushare():
                     'limitUp': limit_up, 'limitDown': limit_down,
                     'date': trade_date, 'source': 'tushare',
                 }
-                ttl = _get_ttl(300, 21600)
+                ttl = _get_ttl(1800, 21600)
                 _cache_set(cache_key, stats, ttl)
                 logger.warning(f'tushare limit stats from {trade_date}: up={up} down={down} limitUp={limit_up} limitDown={limit_down}')
                 return stats
@@ -1001,7 +1002,7 @@ def get_technical_indicators(code, days=60):
     Returns dict with rsi14, macd, bollinger, sma5, sma20."""
     code = str(code).strip()
     cache_key = f'cn:ak:tech:{code}'
-    ttl = _get_ttl(300, 86400)
+    ttl = _get_ttl(1800, 86400)
 
     cached = _cache_get(cache_key)
     if cached:
@@ -1180,7 +1181,7 @@ def get_sector_rotation(top_n=20):
     Identifies sectors with accelerating/decelerating momentum.
     Returns list sorted by momentum change."""
     cache_key = 'cn:ak:sector_rotation'
-    ttl = _get_ttl(300, 21600)
+    ttl = _get_ttl(1800, 21600)
 
     cached = _cache_get(cache_key)
     if cached:

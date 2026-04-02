@@ -397,6 +397,9 @@ async function proxyToCloud(requestUrl, req, remoteBase) {
   const target = `${remoteBase}${requestUrl.pathname}${requestUrl.search}`;
   const body = ['GET', 'HEAD'].includes(req.method) ? undefined : await readBody(req);
   const headers = toHeaders(req.headers, { stripOrigin: true });
+  // Identify sidecar requests as trusted worldmonitor.app origin so the
+  // gateway auth middleware doesn't reject them as unauthenticated.
+  headers.set('Origin', 'https://worldmonitor.app');
   // Restore caller's original auth token (fetch patch replaces it with sidecar token)
   const origAuth = headers.get('x-original-authorization');
   if (origAuth) {

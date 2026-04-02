@@ -23,8 +23,8 @@ _HEADERS = {
 
 _TIMEOUT = 10
 
-# Bypass proxy for eastmoney (direct HTTP, no proxy needed)
-_NO_PROXY = {'http': None, 'https': None}
+# Let eastmoney requests go through HTTP_PROXY (Clash) — cloud IP is blocked by eastmoney
+_NO_PROXY = None
 
 
 def _get_total_by_filter(filter_expr):

@@ -13,7 +13,7 @@ import { CHROME_UA } from '../../../_shared/constants';
 // Constants
 // ========================================================================
 
-const INTEL_CACHE_TTL = 7200;
+const INTEL_CACHE_TTL = 14400;
 
 // ========================================================================
 // RPC handler

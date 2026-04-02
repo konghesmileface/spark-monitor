@@ -14,8 +14,8 @@ logger = logging.getLogger('cn-intel.media')
 _TIMEOUT = 8
 _UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
 
-# Bypass proxy for eastmoney domestic APIs
-_NO_PROXY = {'http': None, 'https': None}
+# Let eastmoney requests go through HTTP_PROXY (Clash) — cloud IP is blocked
+_NO_PROXY = None
 
 # Topic categories for classification
 _TOPIC_KEYWORDS = {
@@ -702,7 +702,7 @@ def _get_zhihu_hot():
             },
             timeout=10,
             verify=False,
-            proxies={'http': None, 'https': None},
+            proxies=_NO_PROXY,
         )
         if resp.status_code != 200:
             logger.warning(f'Zhihu API returned {resp.status_code}')
@@ -1146,7 +1146,7 @@ def _get_wallstreetcn_hot():
             'https://api-one-wscn.awtmt.com/apiv1/content/lives',
             params={'channel': 'global-channel', 'limit': '20'},
             headers={'User-Agent': _UA, 'Referer': 'https://wallstreetcn.com/'},
-            timeout=_TIMEOUT, proxies={'http': None, 'https': None},
+            timeout=_TIMEOUT, proxies=_NO_PROXY,
         )
         items = resp.json().get('data', {}).get('items', [])
         for item in items[:15]:
@@ -1173,7 +1173,7 @@ def _get_jin10_hot():
         resp = requests.get(
             'https://www.jin10.com/flash_newest.js',
             headers={'User-Agent': _UA, 'Referer': 'https://www.jin10.com/'},
-            timeout=_TIMEOUT, proxies={'http': None, 'https': None},
+            timeout=_TIMEOUT, proxies=_NO_PROXY,
         )
         text = resp.text
         if 'var newest' in text:
@@ -1210,7 +1210,7 @@ def _get_thepaper_hot():
         resp = requests.get(
             'https://cache.thepaper.cn/contentapi/wwwIndex/rightSidebar',
             headers={'User-Agent': _UA},
-            timeout=_TIMEOUT, proxies={'http': None, 'https': None},
+            timeout=_TIMEOUT, proxies=_NO_PROXY,
         )
         items = resp.json().get('data', {}).get('hotNews', resp.json().get('data', []))
         if isinstance(items, list):
@@ -1241,7 +1241,7 @@ def _get_36kr_hot():
             'https://36kr.com/api/newsflash',
             params={'per_page': '20'},
             headers={'User-Agent': _UA},
-            timeout=_TIMEOUT, proxies={'http': None, 'https': None},
+            timeout=_TIMEOUT, proxies=_NO_PROXY,
         )
         data = resp.json().get('data', {})
         items = data.get('items', data.get('newsflashes', []))
@@ -1273,7 +1273,7 @@ def _get_ithome_hot():
                 'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) '
                               'AppleWebKit/605.1.15 (KHTML, like Gecko)',
             },
-            timeout=_TIMEOUT, proxies={'http': None, 'https': None},
+            timeout=_TIMEOUT, proxies=_NO_PROXY,
         )
         items = resp.json().get('Result', [])
         for item in items[:15]:

@@ -1166,6 +1166,8 @@
         "auto": "Auto (device)",
         "1_5": "Sharp (1.5x)"
       },
+      "globeViewLabel": "3D Globe View",
+      "globeViewDesc": "Switch between flat map and interactive 3D globe. Zoom, rotate, and explore in three dimensions.",
       "mapFlashLabel": "Live Event Pulse",
       "mapFlashDesc": "Flash locations on the map when breaking news arrives",
       "aiFlowTitle": "Settings",

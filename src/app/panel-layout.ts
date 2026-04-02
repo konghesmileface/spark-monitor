@@ -742,23 +742,21 @@ export class PanelLayoutManager implements AppModule {
       const gdeltIntelPanel = new GdeltIntelPanel();
       this.ctx.panels['gdelt-intel'] = gdeltIntelPanel;
 
-      if (this.ctx.isDesktopApp) {
-        import('@/components/DeductionPanel').then(({ DeductionPanel }) => {
-          const deductionPanel = new DeductionPanel(() => this.ctx.allNews);
-          this.ctx.panels['deduction'] = deductionPanel;
-          const el = deductionPanel.getElement();
-          this.makeDraggable(el, 'deduction');
-          const grid = document.getElementById('panelsGrid');
-          if (grid) {
-            const gdeltEl = this.ctx.panels['gdelt-intel']?.getElement();
-            if (gdeltEl?.nextSibling) {
-              grid.insertBefore(el, gdeltEl.nextSibling);
-            } else {
-              grid.appendChild(el);
-            }
+      import('@/components/DeductionPanel').then(({ DeductionPanel }) => {
+        const deductionPanel = new DeductionPanel(() => this.ctx.allNews);
+        this.ctx.panels['deduction'] = deductionPanel;
+        const el = deductionPanel.getElement();
+        this.makeDraggable(el, 'deduction');
+        const grid = document.getElementById('panelsGrid');
+        if (grid) {
+          const gdeltEl = this.ctx.panels['gdelt-intel']?.getElement();
+          if (gdeltEl?.nextSibling) {
+            grid.insertBefore(el, gdeltEl.nextSibling);
+          } else {
+            grid.appendChild(el);
           }
-        });
-      }
+        }
+      });
 
       // CII + Cascade: skip in spark variant (content consolidated into strategic-risk)
       if (SITE_VARIANT !== 'spark') {
