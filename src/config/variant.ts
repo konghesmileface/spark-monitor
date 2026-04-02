@@ -16,7 +16,7 @@ export const SITE_VARIANT: string = (() => {
   if (h.startsWith('tech.')) return 'tech';
   if (h.startsWith('finance.')) return 'finance';
   if (h.startsWith('happy.')) return 'happy';
-  if (h.startsWith('spark.')) return 'spark';
+  if (h.startsWith('spark.') || h === 'sparkmonitor.cn' || h === 'www.sparkmonitor.cn') return 'spark';
 
   if (h === 'localhost' || h === '127.0.0.1') {
     // VITE_VARIANT explicitly set at build/dev time takes priority over localStorage

@@ -148,10 +148,17 @@ async function fetchSingleFredSeries(config: FredConfig): Promise<FredSeries | n
 }
 
 export async function fetchFredData(): Promise<FredSeries[]> {
-  if (!isFeatureAvailable('economicFred')) return [];
+  if (!isFeatureAvailable('economicFred')) {
+    console.warn('[FRED] Feature economicFred is disabled');
+    return [];
+  }
 
   const results = await Promise.all(FRED_SERIES.map(fetchSingleFredSeries));
-  return results.filter((r): r is FredSeries => r !== null);
+  const valid = results.filter((r): r is FredSeries => r !== null);
+  if (valid.length === 0) {
+    console.warn('[FRED] All 7 series returned null — check circuit breakers or API');
+  }
+  return valid;
 }
 
 export function getFredStatus(): string {

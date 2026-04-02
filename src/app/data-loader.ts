@@ -310,8 +310,11 @@ export class DataLoaderManager implements AppModule {
     };
 
     // --- CN Intel mode: load Chinese data only ---
+    // Default to 'cn' for spark variant (consistent with panel-layout.ts)
     if (SITE_VARIANT === 'spark') {
-      const intelMode = typeof localStorage !== 'undefined' ? localStorage.getItem('worldmonitor-intel-mode') : null;
+      const intelMode = typeof localStorage !== 'undefined'
+        ? (localStorage.getItem('worldmonitor-intel-mode') || 'cn')
+        : 'cn';
       if (intelMode === 'cn') {
         // In CN mode, panels fetch their own data via polling. Just return.
         return;
@@ -1983,15 +1986,19 @@ export class DataLoaderManager implements AppModule {
 
   async loadFredData(): Promise<void> {
     const economicPanel = this.ctx.panels['economic'] as EconomicPanel;
+    if (!economicPanel) {
+      console.warn('[FRED] EconomicPanel not found — skipping FRED load (likely CN mode)');
+      return;
+    }
     const cbInfo = getCircuitBreakerCooldownInfo('FRED Economic');
     if (cbInfo.onCooldown) {
-      economicPanel?.setErrorState(true, `Temporarily unavailable (retry in ${cbInfo.remainingSeconds}s)`);
+      economicPanel.setErrorState(true, `Temporarily unavailable (retry in ${cbInfo.remainingSeconds}s)`);
       this.ctx.statusPanel?.updateApi('FRED', { status: 'error' });
       return;
     }
 
     try {
-      economicPanel?.setLoading(true);
+      economicPanel.setLoading(true);
       const data = await fetchFredData();
 
       const postInfo = getCircuitBreakerCooldownInfo('FRED Economic');
