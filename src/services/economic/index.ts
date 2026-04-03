@@ -103,12 +103,12 @@ const FRED_SERIES: FredConfig[] = [
 ];
 
 async function fetchSingleFredSeries(config: FredConfig): Promise<FredSeries | null> {
-  console.warn(`[FRED:${config.id}] fetchSingleFredSeries starting`);
+  _dbg(`[FRED:${config.id}] fetchSingle starting`);
   const resp = await getFredBreaker(config.id).execute(async () => {
-    console.warn(`[FRED:${config.id}] circuit breaker fn() executing — making HTTP request`);
+    _dbg(`[FRED:${config.id}] breaker fn() → HTTP request`);
     return client.getFredSeries({ seriesId: config.id, limit: 120 }, { signal: AbortSignal.timeout(20_000) });
   }, emptyFredFallback);
-  console.warn(`[FRED:${config.id}] breaker returned, series=${!!resp.series}, obs=${resp.series?.observations?.length ?? 0}`);
+  _dbg(`[FRED:${config.id}] breaker returned obs=${resp.series?.observations?.length ?? 0}`);
 
   const obs = resp.series?.observations;
   if (!obs || obs.length === 0) return null;
@@ -150,22 +150,42 @@ async function fetchSingleFredSeries(config: FredConfig): Promise<FredSeries | n
   };
 }
 
+// Visible debug helper — writes to the on-screen overlay created by data-loader
+function _dbg(msg: string): void {
+  console.warn(msg);
+  try {
+    const el = document.getElementById('wm-debug-overlay');
+    if (el) {
+      const line = document.createElement('div');
+      line.textContent = `${new Date().toISOString().slice(11,19)} ${msg}`;
+      el.appendChild(line);
+      el.scrollTop = el.scrollHeight;
+    }
+  } catch { /* */ }
+}
+
 export async function fetchFredData(): Promise<FredSeries[]> {
-  console.warn('[FRED] fetchFredData() entered');
+  _dbg('[FRED] fetchFredData() entered');
   const available = isFeatureAvailable('economicFred');
-  console.warn(`[FRED] isFeatureAvailable('economicFred') = ${available}`);
+  _dbg(`[FRED] isFeatureAvailable('economicFred') = ${available}`);
   if (!available) {
-    console.warn('[FRED] Feature economicFred is disabled');
+    _dbg('[FRED] Feature economicFred is DISABLED → returning []');
     return [];
   }
 
-  console.warn(`[FRED] fetching ${FRED_SERIES.length} series...`);
-  const results = await Promise.all(FRED_SERIES.map(fetchSingleFredSeries));
+  _dbg(`[FRED] fetching ${FRED_SERIES.length} series...`);
+  const results = await Promise.all(FRED_SERIES.map(async (config) => {
+    try {
+      const r = await fetchSingleFredSeries(config);
+      _dbg(`[FRED:${config.id}] → ${r ? `ok (${r.value})` : 'null'}`);
+      return r;
+    } catch (e) {
+      _dbg(`[FRED:${config.id}] → ERROR: ${e}`);
+      return null;
+    }
+  }));
   const valid = results.filter((r): r is FredSeries => r !== null);
-  console.warn(`[FRED] got ${valid.length}/${FRED_SERIES.length} valid series`);
-  if (valid.length === 0) {
-    console.warn('[FRED] All 7 series returned null — check circuit breakers or API');
-  }
+  _dbg(`[FRED] got ${valid.length}/${FRED_SERIES.length} valid series`);
   return valid;
 }
 
