@@ -39,11 +39,12 @@ function withProxyAgent<T extends Record<string, any>>(entries: T): T {
   return result;
 }
 
-// Load .env.local vars into process.env so sebuf handlers can access them
-// (Vite only auto-exposes VITE_* to client; server handlers need all keys)
+// Load .env.local vars into process.env so server handlers can access them
+// (Vite only auto-exposes VITE_* to client; server handlers need all keys).
+// Skip VITE_* vars here — Vite handles those per mode (dev vs production).
 const _envVars = loadEnv('development', '.', '');
 for (const [k, v] of Object.entries(_envVars)) {
-  if (!process.env[k]) process.env[k] = v;
+  if (!process.env[k] && !k.startsWith('VITE_')) process.env[k] = v;
 }
 
 const isE2E = process.env.VITE_E2E === '1';

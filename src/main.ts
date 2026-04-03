@@ -278,10 +278,10 @@ requestAnimationFrame(() => {
 // Clear stale settings-open flag (survives ungraceful shutdown)
 localStorage.removeItem('wm-settings-open');
 
-// ── Auth gate: redirect to login if no valid session ──
+// ── Auth gate: redirect to home if no valid session ──
 const wmToken = localStorage.getItem('wm_token');
 if (!wmToken) {
-  window.location.href = 'login.html';
+  window.location.href = 'home.html';
   throw new Error('No auth token');  // halt further execution
 }
 // Async token validation — redirect on failure, continue on success
@@ -291,7 +291,7 @@ fetch(`${CN_INTEL_BASE}/api/auth/me`, {
   if (!res.ok) {
     localStorage.removeItem('wm_token');
     localStorage.removeItem('wm_user');
-    window.location.href = 'login.html';
+    window.location.href = 'home.html';
   }
 }).catch(() => {
   // Network error — allow offline/dev usage, don't block

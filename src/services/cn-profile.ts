@@ -12,7 +12,7 @@ const HEARTBEAT_INTERVAL = 300_000; // 5min
  * Redirects to login.html on 401 (with guard to prevent duplicate redirects).
  * Adds a 30 s timeout to prevent hanging requests.
  */
-let _redirecting = false;
+let _tokenExpiredNotified = false;
 const CN_FETCH_TIMEOUT = 30_000; // 30 seconds
 
 export function cnFetch(url: string, init?: RequestInit & { timeout?: number }): Promise<Response> {
@@ -36,11 +36,12 @@ export function cnFetch(url: string, init?: RequestInit & { timeout?: number }):
   return fetch(url, { ...init, headers, signal: controller.signal })
     .then(res => {
       clearTimeout(timer);
-      if (res.status === 401 && !_redirecting) {
-        _redirecting = true;
+      if (res.status === 401 && !_tokenExpiredNotified) {
+        _tokenExpiredNotified = true;
         localStorage.removeItem('wm_token');
         localStorage.removeItem('wm_user');
-        window.location.href = 'login.html';
+        // Stay on main page — show a toast instead of redirecting to login.html
+        _showTokenExpiredToast();
       }
       return res;
     })
@@ -48,6 +49,27 @@ export function cnFetch(url: string, init?: RequestInit & { timeout?: number }):
       clearTimeout(timer);
       throw err;
     });
+}
+
+/** Show a non-intrusive toast when token expires — user stays on current page. */
+function _showTokenExpiredToast(): void {
+  const existing = document.getElementById('wm-token-expired-toast');
+  if (existing) return;
+  const toast = document.createElement('div');
+  toast.id = 'wm-token-expired-toast';
+  Object.assign(toast.style, {
+    position: 'fixed', top: '16px', left: '50%', transform: 'translateX(-50%)',
+    zIndex: '99999', background: '#dc3545', color: '#fff', padding: '12px 24px',
+    borderRadius: '8px', fontSize: '14px', boxShadow: '0 4px 12px rgba(0,0,0,.3)',
+    display: 'flex', alignItems: 'center', gap: '12px',
+  });
+  toast.innerHTML = `
+    <span>登录已过期，请重新登录</span>
+    <a href="login.html" style="color:#fff;text-decoration:underline;font-weight:600">去登录</a>
+    <button style="background:none;border:none;color:#fff;cursor:pointer;font-size:18px;padding:0 4px">&times;</button>
+  `;
+  toast.querySelector('button')!.addEventListener('click', () => toast.remove());
+  document.body.appendChild(toast);
 }
 
 export interface UserProfile {

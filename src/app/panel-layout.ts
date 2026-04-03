@@ -1506,7 +1506,7 @@ export class PanelLayoutManager implements AppModule {
       localStorage.removeItem('wm_user');
       localStorage.removeItem('cn_user_profile_id');
       localStorage.removeItem('cn_onboarding_done');
-      window.location.href = 'login.html';
+      window.location.href = 'home.html';
     });
   }
 

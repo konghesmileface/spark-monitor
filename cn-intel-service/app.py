@@ -23,7 +23,9 @@ def create_app():
         'http://localhost:*', 'https://localhost:*',
         'http://127.0.0.1:*', 'https://127.0.0.1:*',
         'https://worldmonitor.io', 'https://*.worldmonitor.io',
+        'https://sparkmonitor.cn', 'https://*.sparkmonitor.cn',
         'https://*.vercel.app',
+        'tauri://localhost',
     ])
 
     from config import Config
@@ -131,6 +133,9 @@ def create_app():
         '/api/auth/',           # login, register, status
     )
 
+    # Internal service key for relay seeder and other server-side callers
+    _INTERNAL_KEY = os.environ.get('CN_INTEL_INTERNAL_KEY', 'cn-intel-relay-2026')
+
     @app.before_request
     def _require_auth_global():
         """Reject unauthenticated requests to intelligence APIs.
@@ -151,6 +156,12 @@ def create_app():
 
         # Everything else under /api/ requires auth
         if not path.startswith('/api/'):
+            return None
+
+        # Allow internal service calls (relay seeder, etc.)
+        internal_key = request.headers.get('X-Internal-Key', '')
+        if internal_key and internal_key == _INTERNAL_KEY:
+            g.current_user = {'id': 0, 'email': 'internal@system', 'role': 'admin', 'status': 'approved'}
             return None
 
         auth_header = request.headers.get('Authorization', '')

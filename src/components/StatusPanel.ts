@@ -54,6 +54,18 @@ const SPARK_APIS = new Set([
   'AISStream', 'GDELT Doc', 'EIA', 'USASpending', 'PizzINT',
   'Cyber Threats API', 'BIS', 'WTO', 'SupplyChain'
 ]);
+// Spark CN mode — world economic APIs (FRED/EIA/BIS/WTO/USASpending/SupplyChain)
+// are intentionally not loaded; CN panels have their own data sources.
+const SPARK_CN_FEEDS = new Set([
+  'Politics', 'Middleeast', 'Tech', 'Ai', 'Finance',
+  'Gov', 'Intel', 'Layoffs', 'Thinktanks', 'Energy',
+  'Polymarket', 'Weather', 'NetBlocks', 'Shipping', 'Military',
+  'Cyber Threats', 'GPS Jam'
+]);
+const SPARK_CN_APIS = new Set([
+  'RSS2JSON', 'Finnhub', 'CoinGecko', 'Polymarket', 'USGS',
+  'AISStream', 'GDELT Doc', 'PizzINT', 'Cyber Threats API'
+]);
 
 import { t } from '../services/i18n';
 import { Panel } from './Panel';
@@ -71,8 +83,16 @@ export class StatusPanel extends Panel {
   }
 
   private init(): void {
-    this.allowedFeeds = SITE_VARIANT === 'tech' ? TECH_FEEDS : SITE_VARIANT === 'spark' ? SPARK_FEEDS : WORLD_FEEDS;
-    this.allowedApis = SITE_VARIANT === 'tech' ? TECH_APIS : SITE_VARIANT === 'spark' ? SPARK_APIS : WORLD_APIS;
+    if (SITE_VARIANT === 'spark') {
+      const intelMode = typeof localStorage !== 'undefined'
+        ? (localStorage.getItem('worldmonitor-intel-mode') || 'cn')
+        : 'cn';
+      this.allowedFeeds = intelMode === 'cn' ? SPARK_CN_FEEDS : SPARK_FEEDS;
+      this.allowedApis = intelMode === 'cn' ? SPARK_CN_APIS : SPARK_APIS;
+    } else {
+      this.allowedFeeds = SITE_VARIANT === 'tech' ? TECH_FEEDS : WORLD_FEEDS;
+      this.allowedApis = SITE_VARIANT === 'tech' ? TECH_APIS : WORLD_APIS;
+    }
 
     this.element = h('div', { className: 'status-panel-container' });
     this.initDefaultStatuses();

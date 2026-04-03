@@ -5550,6 +5550,7 @@ const wss = new WebSocketServer({ server });
 // CN-Intel Seeder — polls cn-intel-service (port 8078)
 // ─────────────────────────────────────────────────────────────
 const CN_INTEL_BASE_URL = process.env.CN_INTEL_URL || 'http://127.0.0.1:8078';
+const CN_INTEL_INTERNAL_KEY = process.env.CN_INTEL_INTERNAL_KEY || 'cn-intel-relay-2026';
 const CN_INTEL_POLL_MS = 2 * 60 * 1000; // 2 min
 const CN_INTEL_ENDPOINTS = [
   { path: '/api/cn/market',     key: 'cn:market',     ttl: 120 },
@@ -5564,7 +5565,7 @@ async function seedCnIntel() {
   for (const ep of CN_INTEL_ENDPOINTS) {
     try {
       const url = `${CN_INTEL_BASE_URL}${ep.path}`;
-      const resp = await fetch(url, { signal: AbortSignal.timeout(15000) });
+      const resp = await fetch(url, { headers: { 'X-Internal-Key': CN_INTEL_INTERNAL_KEY }, signal: AbortSignal.timeout(15000) });
       if (!resp.ok) { console.warn(`[CN-Intel] ${ep.path} HTTP ${resp.status}`); continue; }
       const data = await resp.json();
       const ok = await upstashSet(ep.key, data, ep.ttl);
