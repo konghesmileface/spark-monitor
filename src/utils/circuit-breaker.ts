@@ -295,3 +295,10 @@ export function removeCircuitBreaker(name: string): void {
 export function clearAllCircuitBreakers(): void {
   breakers.clear();
 }
+
+/** Reset all circuit breakers: clear in-memory state, cooldowns, and persistent caches. */
+export function resetAllCircuitBreakers(): void {
+  breakers.forEach((breaker) => {
+    breaker.clearCache();
+  });
+}

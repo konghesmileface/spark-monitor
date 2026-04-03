@@ -81,7 +81,7 @@ import { fetchSecurityAdvisories } from '@/services/security-advisories';
 import { fetchTelegramFeed } from '@/services/telegram-intel';
 import { fetchOrefAlerts, startOrefPolling, stopOrefPolling, onOrefAlertsUpdate } from '@/services/oref-alerts';
 import { enrichEventsWithExposure } from '@/services/population-exposure';
-import { debounce, getCircuitBreakerCooldownInfo } from '@/utils';
+import { debounce, getCircuitBreakerCooldownInfo, resetAllCircuitBreakers } from '@/utils';
 import { isFeatureAvailable, isFeatureEnabled } from '@/services/runtime-config';
 import { getAiFlowSettings } from '@/services/ai-flow-settings';
 import { t, getCurrentLanguage } from '@/services/i18n';
@@ -297,6 +297,15 @@ export class DataLoaderManager implements AppModule {
   }
 
   async loadAllData(): Promise<void> {
+    // One-time reset: clear stale circuit breaker caches from previous versions
+    // that may have persisted error states (e.g. sidecar auth-gate blocking FRED/EIA/BIS).
+    const CB_RESET_KEY = 'wm-cb-reset-v2.5.39';
+    if (!localStorage.getItem(CB_RESET_KEY)) {
+      console.warn('[DataLoader] Resetting all circuit breaker caches (version migration)');
+      resetAllCircuitBreakers();
+      localStorage.setItem(CB_RESET_KEY, '1');
+    }
+
     const runGuarded = async (name: string, fn: () => Promise<void>): Promise<void> => {
       if (this.ctx.isDestroyed || this.ctx.inFlight.has(name)) return;
       this.ctx.inFlight.add(name);

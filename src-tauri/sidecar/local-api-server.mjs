@@ -1131,6 +1131,21 @@ async function dispatch(requestUrl, req, routes, context) {
     }
   }
 
+  // ── Cloud-only early proxy ──────────────────────────────────────────────
+  // In cloud-only mode (e.g. Spark variant), proxy ALL data requests to the
+  // remote server BEFORE the auth gate — desktop clients don't have
+  // LOCAL_API_TOKEN and don't need it when all data flows through the cloud.
+  if (context.cloudOnly) {
+    // Allow local-admin endpoints (local-status, local-traffic-log, etc.) to
+    // pass through to their handlers below; proxy everything else to cloud.
+    const isLocalAdmin = requestUrl.pathname.startsWith('/api/local-');
+    if (!isLocalAdmin) {
+      const cloudResponse = await tryCloudFallback(requestUrl, req, context, 'cloud-only mode');
+      if (cloudResponse) return cloudResponse;
+      return json({ error: 'Cloud service unavailable', endpoint: requestUrl.pathname }, 503);
+    }
+  }
+
   // ── Global auth gate ────────────────────────────────────────────────────
   // Every endpoint below requires a valid LOCAL_API_TOKEN.  This prevents
   // other local processes, malicious browser scripts, and rogue extensions
@@ -1275,10 +1290,7 @@ async function dispatch(requestUrl, req, routes, context) {
     }
   }
 
-  // ── Cloud-only mode ───────────────────────────────────────────────────
-  // When cloudOnly is enabled (e.g. Spark variant), ALL API data requests
-  // are proxied to the remote server so desktop users without local proxy
-  // can access all data sources.  Local-admin endpoints above are unaffected.
+  // ── Cloud-only mode (safety net — primary cloud-only proxy is above the auth gate) ──
   if (context.cloudOnly) {
     const cloudResponse = await tryCloudFallback(requestUrl, req, context, 'cloud-only mode');
     if (cloudResponse) return cloudResponse;
