@@ -324,10 +324,10 @@ export class DataLoaderManager implements AppModule {
       const intelMode = typeof localStorage !== 'undefined'
         ? (localStorage.getItem('worldmonitor-intel-mode') || 'cn')
         : 'cn';
-      console.warn(`[DataLoader] spark intelMode="${intelMode}" (raw=${localStorage.getItem('worldmonitor-intel-mode')})`);
+      this.debugLog(`[DataLoader] spark intelMode="${intelMode}" (raw=${localStorage.getItem('worldmonitor-intel-mode')})`);
       if (intelMode === 'cn') {
         // In CN mode, panels fetch their own data via polling. Just return.
-        console.warn('[DataLoader] CN mode → returning early from loadAllData');
+        this.debugLog('[DataLoader] CN mode → returning early from loadAllData');
         return;
       }
     }
@@ -1995,17 +1995,35 @@ export class DataLoaderManager implements AppModule {
     }
   }
 
+  private debugLog(msg: string): void {
+    console.warn(msg);
+    // Write debug info to a visible element for builds without devtools
+    try {
+      let el = document.getElementById('wm-debug-overlay');
+      if (!el) {
+        el = document.createElement('div');
+        el.id = 'wm-debug-overlay';
+        el.style.cssText = 'position:fixed;bottom:0;left:0;right:0;max-height:200px;overflow-y:auto;background:rgba(0,0,0,0.85);color:#0f0;font:11px monospace;padding:4px 8px;z-index:99999;pointer-events:none;';
+        document.body.appendChild(el);
+      }
+      const line = document.createElement('div');
+      line.textContent = `${new Date().toISOString().slice(11,19)} ${msg}`;
+      el.appendChild(line);
+      el.scrollTop = el.scrollHeight;
+    } catch { /* ignore */ }
+  }
+
   async loadFredData(): Promise<void> {
-    console.warn('[FRED] loadFredData() called');
+    this.debugLog('[FRED] loadFredData() called');
     const economicPanel = this.ctx.panels['economic'] as EconomicPanel;
     if (!economicPanel) {
-      console.warn('[FRED] EconomicPanel not found — skipping FRED load (likely CN mode)');
+      this.debugLog('[FRED] EconomicPanel not found — skipping');
       return;
     }
-    console.warn('[FRED] EconomicPanel found, proceeding');
+    this.debugLog('[FRED] EconomicPanel found, proceeding');
     const cbInfo = getCircuitBreakerCooldownInfo('FRED Economic');
     if (cbInfo.onCooldown) {
-      console.warn(`[FRED] circuit breaker on cooldown (${cbInfo.remainingSeconds}s remaining)`);
+      this.debugLog(`[FRED] circuit breaker cooldown (${cbInfo.remainingSeconds}s)`);
       economicPanel.setErrorState(true, `Temporarily unavailable (retry in ${cbInfo.remainingSeconds}s)`);
       this.ctx.statusPanel?.updateApi('FRED', { status: 'error' });
       return;
@@ -2013,9 +2031,9 @@ export class DataLoaderManager implements AppModule {
 
     try {
       economicPanel.setLoading(true);
-      console.warn('[FRED] calling fetchFredData()...');
+      this.debugLog('[FRED] calling fetchFredData()...');
       const data = await fetchFredData();
-      console.warn(`[FRED] fetchFredData() returned ${data.length} series`);
+      this.debugLog(`[FRED] fetchFredData() returned ${data.length} series`);
 
       const postInfo = getCircuitBreakerCooldownInfo('FRED Economic');
       if (postInfo.onCooldown) {
@@ -2071,7 +2089,7 @@ export class DataLoaderManager implements AppModule {
   }
 
   async loadOilAnalytics(): Promise<void> {
-    console.warn('[OIL] loadOilAnalytics() called');
+    this.debugLog('[OIL] loadOilAnalytics() called');
     const economicPanel = this.ctx.panels['economic'] as EconomicPanel;
     try {
       const data = await fetchOilAnalytics();
@@ -2110,7 +2128,7 @@ export class DataLoaderManager implements AppModule {
   }
 
   async loadBisData(): Promise<void> {
-    console.warn('[BIS] loadBisData() called');
+    this.debugLog('[BIS] loadBisData() called');
     const economicPanel = this.ctx.panels['economic'] as EconomicPanel;
     try {
       const data = await fetchBisData();
