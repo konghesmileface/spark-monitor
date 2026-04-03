@@ -315,8 +315,10 @@ export class DataLoaderManager implements AppModule {
       const intelMode = typeof localStorage !== 'undefined'
         ? (localStorage.getItem('worldmonitor-intel-mode') || 'cn')
         : 'cn';
+      console.warn(`[DataLoader] spark intelMode="${intelMode}" (raw=${localStorage.getItem('worldmonitor-intel-mode')})`);
       if (intelMode === 'cn') {
         // In CN mode, panels fetch their own data via polling. Just return.
+        console.warn('[DataLoader] CN mode → returning early from loadAllData');
         return;
       }
     }
@@ -1985,13 +1987,16 @@ export class DataLoaderManager implements AppModule {
   }
 
   async loadFredData(): Promise<void> {
+    console.warn('[FRED] loadFredData() called');
     const economicPanel = this.ctx.panels['economic'] as EconomicPanel;
     if (!economicPanel) {
       console.warn('[FRED] EconomicPanel not found — skipping FRED load (likely CN mode)');
       return;
     }
+    console.warn('[FRED] EconomicPanel found, proceeding');
     const cbInfo = getCircuitBreakerCooldownInfo('FRED Economic');
     if (cbInfo.onCooldown) {
+      console.warn(`[FRED] circuit breaker on cooldown (${cbInfo.remainingSeconds}s remaining)`);
       economicPanel.setErrorState(true, `Temporarily unavailable (retry in ${cbInfo.remainingSeconds}s)`);
       this.ctx.statusPanel?.updateApi('FRED', { status: 'error' });
       return;
@@ -1999,7 +2004,9 @@ export class DataLoaderManager implements AppModule {
 
     try {
       economicPanel.setLoading(true);
+      console.warn('[FRED] calling fetchFredData()...');
       const data = await fetchFredData();
+      console.warn(`[FRED] fetchFredData() returned ${data.length} series`);
 
       const postInfo = getCircuitBreakerCooldownInfo('FRED Economic');
       if (postInfo.onCooldown) {
@@ -2055,6 +2062,7 @@ export class DataLoaderManager implements AppModule {
   }
 
   async loadOilAnalytics(): Promise<void> {
+    console.warn('[OIL] loadOilAnalytics() called');
     const economicPanel = this.ctx.panels['economic'] as EconomicPanel;
     try {
       const data = await fetchOilAnalytics();
@@ -2093,6 +2101,7 @@ export class DataLoaderManager implements AppModule {
   }
 
   async loadBisData(): Promise<void> {
+    console.warn('[BIS] loadBisData() called');
     const economicPanel = this.ctx.panels['economic'] as EconomicPanel;
     try {
       const data = await fetchBisData();

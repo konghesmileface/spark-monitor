@@ -193,11 +193,13 @@ export class CircuitBreaker<T> {
 
     // Hydrate from persistent storage on first call (~1-5ms IndexedDB read)
     if (this.persistEnabled && !this.persistentLoaded) {
+      console.warn(`[${this.name}] hydrating persistent cache...`);
       await this.hydratePersistentCache();
+      console.warn(`[${this.name}] hydration done, cache=${this.cache !== null}, ts=${this.cache?.timestamp}`);
     }
 
     if (this.isOnCooldown()) {
-      console.log(`[${this.name}] Currently unavailable, ${this.getCooldownRemaining()}s remaining`);
+      console.warn(`[${this.name}] PATH=cooldown, ${this.getCooldownRemaining()}s remaining`);
       const cachedFallback = this.getCached();
       if (cachedFallback !== null) {
         this.lastDataState = { mode: 'cached', timestamp: this.cache?.timestamp ?? null, offline };
@@ -209,6 +211,7 @@ export class CircuitBreaker<T> {
 
     const cached = this.getCached();
     if (cached !== null) {
+      console.warn(`[${this.name}] PATH=fresh-cache (age=${Math.round((Date.now() - (this.cache?.timestamp ?? 0)) / 1000)}s, ttl=${this.cacheTtlMs / 1000}s)`);
       this.lastDataState = { mode: 'cached', timestamp: this.cache?.timestamp ?? null, offline };
       return cached as R;
     }
@@ -221,11 +224,13 @@ export class CircuitBreaker<T> {
     // shared across calls with different request params (e.g. stocks vs commodities),
     // so returning stale data from a different call is wrong.
     if (this.cache !== null && this.cacheTtlMs > 0) {
+      console.warn(`[${this.name}] PATH=stale-while-revalidate (age=${Math.round((Date.now() - this.cache.timestamp) / 1000)}s)`);
       this.lastDataState = { mode: 'cached', timestamp: this.cache.timestamp, offline };
       // Fire-and-forget background refresh — guard against concurrent SWR fetches
       // so that multiple callers with stale cache don't each spawn a parallel request.
       if (!this.backgroundRefreshPromise) {
         this.backgroundRefreshPromise = fn().then(result => {
+          console.warn(`[${this.name}] SWR background refresh succeeded`);
           this.recordSuccess(result);
         }).catch(e => {
           console.warn(`[${this.name}] Background refresh failed:`, e);
@@ -237,6 +242,7 @@ export class CircuitBreaker<T> {
       return this.cache.data as R;
     }
 
+    console.warn(`[${this.name}] PATH=fresh-fetch (no cache)`);
     try {
       const result = await fn();
       this.recordSuccess(result);

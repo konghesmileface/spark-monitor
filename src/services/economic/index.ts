@@ -103,9 +103,12 @@ const FRED_SERIES: FredConfig[] = [
 ];
 
 async function fetchSingleFredSeries(config: FredConfig): Promise<FredSeries | null> {
+  console.warn(`[FRED:${config.id}] fetchSingleFredSeries starting`);
   const resp = await getFredBreaker(config.id).execute(async () => {
+    console.warn(`[FRED:${config.id}] circuit breaker fn() executing — making HTTP request`);
     return client.getFredSeries({ seriesId: config.id, limit: 120 }, { signal: AbortSignal.timeout(20_000) });
   }, emptyFredFallback);
+  console.warn(`[FRED:${config.id}] breaker returned, series=${!!resp.series}, obs=${resp.series?.observations?.length ?? 0}`);
 
   const obs = resp.series?.observations;
   if (!obs || obs.length === 0) return null;
@@ -148,13 +151,18 @@ async function fetchSingleFredSeries(config: FredConfig): Promise<FredSeries | n
 }
 
 export async function fetchFredData(): Promise<FredSeries[]> {
-  if (!isFeatureAvailable('economicFred')) {
+  console.warn('[FRED] fetchFredData() entered');
+  const available = isFeatureAvailable('economicFred');
+  console.warn(`[FRED] isFeatureAvailable('economicFred') = ${available}`);
+  if (!available) {
     console.warn('[FRED] Feature economicFred is disabled');
     return [];
   }
 
+  console.warn(`[FRED] fetching ${FRED_SERIES.length} series...`);
   const results = await Promise.all(FRED_SERIES.map(fetchSingleFredSeries));
   const valid = results.filter((r): r is FredSeries => r !== null);
+  console.warn(`[FRED] got ${valid.length}/${FRED_SERIES.length} valid series`);
   if (valid.length === 0) {
     console.warn('[FRED] All 7 series returned null — check circuit breakers or API');
   }
@@ -244,6 +252,7 @@ export async function fetchOilAnalytics(): Promise<OilAnalytics> {
     wtiPrice: null, brentPrice: null, usProduction: null, usInventory: null, fetchedAt: new Date(),
   };
 
+  console.warn(`[OIL] isFeatureAvailable('energyEia') = ${isFeatureAvailable('energyEia')}`);
   if (!isFeatureAvailable('energyEia')) return empty;
 
   try {
