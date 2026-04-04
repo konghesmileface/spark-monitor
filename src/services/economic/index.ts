@@ -103,12 +103,15 @@ const FRED_SERIES: FredConfig[] = [
 ];
 
 async function fetchSingleFredSeries(config: FredConfig): Promise<FredSeries | null> {
-  _dbg(`[FRED:${config.id}] fetchSingle starting`);
   const resp = await getFredBreaker(config.id).execute(async () => {
-    _dbg(`[FRED:${config.id}] breaker fn() → HTTP request`);
-    return client.getFredSeries({ seriesId: config.id, limit: 120 }, { signal: AbortSignal.timeout(20_000) });
+    const result = await client.getFredSeries({ seriesId: config.id, limit: 120 }, { signal: AbortSignal.timeout(20_000) });
+    // Reject empty responses so they are NOT cached as "success" in persistent storage.
+    // This prevents stale empty data from being served via SWR on subsequent app launches.
+    if (!result.series?.observations?.length) {
+      throw new Error(`FRED ${config.id}: empty observations`);
+    }
+    return result;
   }, emptyFredFallback);
-  _dbg(`[FRED:${config.id}] breaker returned obs=${resp.series?.observations?.length ?? 0}`);
 
   const obs = resp.series?.observations;
   if (!obs || obs.length === 0) return null;
@@ -150,18 +153,8 @@ async function fetchSingleFredSeries(config: FredConfig): Promise<FredSeries | n
   };
 }
 
-// Visible debug helper — writes to the on-screen overlay created by data-loader
 function _dbg(msg: string): void {
   console.warn(msg);
-  try {
-    const el = document.getElementById('wm-debug-overlay');
-    if (el) {
-      const line = document.createElement('div');
-      line.textContent = `${new Date().toISOString().slice(11,19)} ${msg}`;
-      el.appendChild(line);
-      el.scrollTop = el.scrollHeight;
-    }
-  } catch { /* */ }
 }
 
 export async function fetchFredData(): Promise<FredSeries[]> {

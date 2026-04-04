@@ -299,7 +299,7 @@ export class DataLoaderManager implements AppModule {
   async loadAllData(): Promise<void> {
     // One-time reset: clear stale circuit breaker caches from previous versions
     // that may have persisted error states (e.g. sidecar auth-gate blocking FRED/EIA/BIS).
-    const CB_RESET_KEY = 'wm-cb-reset-v2.5.39';
+    const CB_RESET_KEY = 'wm-cb-reset-v2.5.43';
     if (!localStorage.getItem(CB_RESET_KEY)) {
       console.warn('[DataLoader] Resetting all circuit breaker caches (version migration)');
       resetAllCircuitBreakers();
@@ -1997,20 +1997,6 @@ export class DataLoaderManager implements AppModule {
 
   private debugLog(msg: string): void {
     console.warn(msg);
-    // Write debug info to a visible element for builds without devtools
-    try {
-      let el = document.getElementById('wm-debug-overlay');
-      if (!el) {
-        el = document.createElement('div');
-        el.id = 'wm-debug-overlay';
-        el.style.cssText = 'position:fixed;bottom:0;left:0;right:0;max-height:200px;overflow-y:auto;background:rgba(0,0,0,0.85);color:#0f0;font:11px monospace;padding:4px 8px;z-index:99999;pointer-events:none;';
-        document.body.appendChild(el);
-      }
-      const line = document.createElement('div');
-      line.textContent = `${new Date().toISOString().slice(11,19)} ${msg}`;
-      el.appendChild(line);
-      el.scrollTop = el.scrollHeight;
-    } catch { /* ignore */ }
   }
 
   async loadFredData(): Promise<void> {
