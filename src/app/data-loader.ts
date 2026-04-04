@@ -297,11 +297,19 @@ export class DataLoaderManager implements AppModule {
   }
 
   async loadAllData(): Promise<void> {
-    // One-time reset: clear stale circuit breaker caches from previous versions
-    // that may have persisted error states (e.g. sidecar auth-gate blocking FRED/EIA/BIS).
-    const CB_RESET_KEY = 'wm-cb-reset-v2.5.44';
+    // One-time reset: wipe ALL persistent caches from previous versions.
+    // Previous versions may have persisted empty/error data (e.g. v2.5.42-43 compression bug)
+    // that stale-while-revalidate returns instantly, making endpoints appear broken.
+    // Also clears lazily-created breaker caches (FRED per-series) that resetAllCircuitBreakers misses.
+    const CB_RESET_KEY = 'wm-cb-reset-v2.5.45';
     if (!localStorage.getItem(CB_RESET_KEY)) {
-      console.warn('[DataLoader] Resetting all circuit breaker caches (version migration)');
+      console.warn('[DataLoader] Wiping all persistent caches (version migration to v2.5.45)');
+      try {
+        const { clearAllPersistentCaches } = await import('@/services/persistent-cache');
+        await clearAllPersistentCaches();
+      } catch (e) {
+        console.warn('[DataLoader] clearAllPersistentCaches failed:', e);
+      }
       resetAllCircuitBreakers();
       localStorage.setItem(CB_RESET_KEY, '1');
     }

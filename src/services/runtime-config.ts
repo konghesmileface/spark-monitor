@@ -382,13 +382,16 @@ export function getSecretState(key: RuntimeSecretKey): { present: boolean; valid
 }
 
 export function isFeatureAvailable(featureId: RuntimeFeatureId): boolean {
+  // Spark variant: RPC gateway runs server-side with all API keys,
+  // so desktop clients don't need local keys — always available.
+  // Check BEFORE toggle so that stale localStorage toggles can't disable features.
+  if (SITE_VARIANT === 'spark') return true;
+
   if (!isFeatureEnabled(featureId)) return false;
 
   // Cloud/web deployments validate credentials server-side.
   // Desktop runtime validates local secrets client-side for capability gating.
-  // Spark variant: RPC gateway runs server-side with all API keys,
-  // so desktop clients don't need local keys — treat like web mode.
-  if (!isDesktopRuntime() || SITE_VARIANT === 'spark') {
+  if (!isDesktopRuntime()) {
     return true;
   }
 

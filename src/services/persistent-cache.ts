@@ -161,6 +161,52 @@ export async function deletePersistentCache(key: string): Promise<void> {
   }
 }
 
+/**
+ * Wipe ALL persistent cache entries across all storage layers.
+ * Used during version migrations to avoid stale/corrupt data.
+ */
+export async function clearAllPersistentCaches(): Promise<void> {
+  // 1. Tauri desktop — clear the entire persistent-cache.json
+  if (isDesktopRuntime()) {
+    try {
+      await invokeTauri<void>('clear_all_cache_entries', {});
+    } catch {
+      // Tauri command may not exist in older builds; fall through
+    }
+  }
+
+  // 2. IndexedDB — delete the entire database
+  if (isIndexedDbAvailable()) {
+    try {
+      // Close any open connection first
+      if (cacheDbPromise) {
+        try { (await cacheDbPromise).close(); } catch { /* ignore */ }
+        cacheDbPromise = null;
+      }
+      await new Promise<void>((resolve, reject) => {
+        const req = indexedDB.deleteDatabase(CACHE_DB_NAME);
+        req.onsuccess = () => resolve();
+        req.onerror = () => reject(req.error);
+        req.onblocked = () => resolve(); // proceed even if blocked
+      });
+    } catch {
+      // Fall through
+    }
+  }
+
+  // 3. localStorage — remove all keys with our prefix
+  try {
+    const keysToRemove: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key?.startsWith(CACHE_PREFIX)) keysToRemove.push(key);
+    }
+    keysToRemove.forEach(k => localStorage.removeItem(k));
+  } catch {
+    // Ignore
+  }
+}
+
 export function cacheAgeMs(updatedAt: number): number {
   return Math.max(0, Date.now() - updatedAt);
 }
