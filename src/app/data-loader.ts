@@ -299,7 +299,7 @@ export class DataLoaderManager implements AppModule {
   async loadAllData(): Promise<void> {
     // One-time reset: clear stale circuit breaker caches from previous versions
     // that may have persisted error states (e.g. sidecar auth-gate blocking FRED/EIA/BIS).
-    const CB_RESET_KEY = 'wm-cb-reset-v2.5.43';
+    const CB_RESET_KEY = 'wm-cb-reset-v2.5.44';
     if (!localStorage.getItem(CB_RESET_KEY)) {
       console.warn('[DataLoader] Resetting all circuit breaker caches (version migration)');
       resetAllCircuitBreakers();

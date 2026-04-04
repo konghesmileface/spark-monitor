@@ -1386,16 +1386,6 @@ export async function createLocalApiServer(options = {}) {
       let body = Buffer.from(await response.arrayBuffer());
       const headers = Object.fromEntries(response.headers.entries());
 
-      // Node.js fetch (undici) auto-decompresses gzip/br response bodies but
-      // retains the original content-encoding header.  If we forward that
-      // header alongside the already-decompressed body the browser will try
-      // to decompress plain text and fail silently — returning empty/garbled
-      // data.  Strip transport-level headers so maybeCompressResponseBody can
-      // re-compress cleanly for the actual client.
-      delete headers['content-encoding'];
-      delete headers['transfer-encoding'];
-      delete headers['content-length'];
-
       const corsOrigin = getSidecarCorsOrigin(req);
       headers['access-control-allow-origin'] = corsOrigin;
       headers['vary'] = appendVary(headers['vary'], 'Origin');
