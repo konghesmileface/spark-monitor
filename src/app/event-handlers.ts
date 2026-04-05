@@ -739,8 +739,7 @@ export class EventHandlerManager implements AppModule {
 
   setupPizzIntIndicator(): void {
     if (SITE_VARIANT === 'tech' || SITE_VARIANT === 'finance' || SITE_VARIANT === 'happy') return;
-    // Skip PizzINT in CN intel mode — it's a world-intel feature
-    if (SITE_VARIANT === 'spark' && (localStorage.getItem(STORAGE_KEYS.intelMode) || 'cn') === 'cn') return;
+    // Spark: always show PizzINT — server has the key, data loads in all modes
 
     this.ctx.pizzintIndicator = new PizzIntIndicator();
     const headerLeft = this.ctx.container.querySelector('.header-left');

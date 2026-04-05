@@ -301,7 +301,7 @@ export class DataLoaderManager implements AppModule {
     // Previous versions may have persisted empty/error data (e.g. v2.5.42-43 compression bug)
     // that stale-while-revalidate returns instantly, making endpoints appear broken.
     // Also clears lazily-created breaker caches (FRED per-series) that resetAllCircuitBreakers misses.
-    const CB_RESET_KEY = 'wm-cb-reset-v2.5.45';
+    const CB_RESET_KEY = 'wm-cb-reset-v2.5.46';
     if (!localStorage.getItem(CB_RESET_KEY)) {
       console.warn('[DataLoader] Wiping all persistent caches (version migration to v2.5.45)');
       try {
@@ -326,18 +326,16 @@ export class DataLoaderManager implements AppModule {
       }
     };
 
-    // --- CN Intel mode: load Chinese data only ---
-    // Default to 'cn' for spark variant (consistent with panel-layout.ts)
+    // --- CN Intel mode ---
+    // Spark variant: ALWAYS load world data regardless of intel mode.
+    // The server (sparkmonitor.cn) has all API keys, and CN panels fetch their
+    // own data independently via polling. Loading world data in the background
+    // ensures StatusPanel shows correct status and enables instant mode switching.
     if (SITE_VARIANT === 'spark') {
       const intelMode = typeof localStorage !== 'undefined'
         ? (localStorage.getItem('worldmonitor-intel-mode') || 'cn')
         : 'cn';
-      this.debugLog(`[DataLoader] spark intelMode="${intelMode}" (raw=${localStorage.getItem('worldmonitor-intel-mode')})`);
-      if (intelMode === 'cn') {
-        // In CN mode, panels fetch their own data via polling. Just return.
-        this.debugLog('[DataLoader] CN mode → returning early from loadAllData');
-        return;
-      }
+      this.debugLog(`[DataLoader] spark intelMode="${intelMode}" — loading world data regardless`);
     }
 
     // --- Priority-based loading: critical panels first, then secondary ---
@@ -2009,22 +2007,18 @@ export class DataLoaderManager implements AppModule {
 
   async loadFredData(): Promise<void> {
     this.debugLog('[FRED] loadFredData() called');
-    const economicPanel = this.ctx.panels['economic'] as EconomicPanel;
-    if (!economicPanel) {
-      this.debugLog('[FRED] EconomicPanel not found — skipping');
-      return;
-    }
-    this.debugLog('[FRED] EconomicPanel found, proceeding');
+    const economicPanel = this.ctx.panels['economic'] as EconomicPanel | undefined;
+    this.debugLog(`[FRED] EconomicPanel ${economicPanel ? 'found' : 'absent (CN mode?)'}`);
     const cbInfo = getCircuitBreakerCooldownInfo('FRED Economic');
     if (cbInfo.onCooldown) {
       this.debugLog(`[FRED] circuit breaker cooldown (${cbInfo.remainingSeconds}s)`);
-      economicPanel.setErrorState(true, `Temporarily unavailable (retry in ${cbInfo.remainingSeconds}s)`);
+      economicPanel?.setErrorState(true, `Temporarily unavailable (retry in ${cbInfo.remainingSeconds}s)`);
       this.ctx.statusPanel?.updateApi('FRED', { status: 'error' });
       return;
     }
 
     try {
-      economicPanel.setLoading(true);
+      economicPanel?.setLoading(true);
       this.debugLog('[FRED] calling fetchFredData()...');
       const data = await fetchFredData();
       this.debugLog(`[FRED] fetchFredData() returned ${data.length} series`);
@@ -2141,7 +2135,6 @@ export class DataLoaderManager implements AppModule {
 
   async loadTradePolicy(): Promise<void> {
     const tradePanel = this.ctx.panels['trade-policy'] as TradePolicyPanel | undefined;
-    if (!tradePanel) return;
 
     try {
       const [restrictions, tariffs, flows, barriers] = await Promise.all([
@@ -2151,10 +2144,10 @@ export class DataLoaderManager implements AppModule {
         fetchTradeBarriers([], '', 50),
       ]);
 
-      tradePanel.updateRestrictions(restrictions);
-      tradePanel.updateTariffs(tariffs);
-      tradePanel.updateFlows(flows);
-      tradePanel.updateBarriers(barriers);
+      tradePanel?.updateRestrictions(restrictions);
+      tradePanel?.updateTariffs(tariffs);
+      tradePanel?.updateFlows(flows);
+      tradePanel?.updateBarriers(barriers);
 
       const totalItems = restrictions.restrictions.length + tariffs.datapoints.length + flows.flows.length + barriers.barriers.length;
       const anyUnavailable = restrictions.upstreamUnavailable || tariffs.upstreamUnavailable || flows.upstreamUnavailable || barriers.upstreamUnavailable;
@@ -2175,7 +2168,6 @@ export class DataLoaderManager implements AppModule {
 
   async loadSupplyChain(): Promise<void> {
     const scPanel = this.ctx.panels['supply-chain'] as SupplyChainPanel | undefined;
-    if (!scPanel) return;
 
     try {
       const [shipping, chokepoints, minerals] = await Promise.allSettled([
@@ -2188,9 +2180,9 @@ export class DataLoaderManager implements AppModule {
       const chokepointData = chokepoints.status === 'fulfilled' ? chokepoints.value : null;
       const mineralsData = minerals.status === 'fulfilled' ? minerals.value : null;
 
-      if (shippingData) scPanel.updateShippingRates(shippingData);
-      if (chokepointData) scPanel.updateChokepointStatus(chokepointData);
-      if (mineralsData) scPanel.updateCriticalMinerals(mineralsData);
+      if (shippingData) scPanel?.updateShippingRates(shippingData);
+      if (chokepointData) scPanel?.updateChokepointStatus(chokepointData);
+      if (mineralsData) scPanel?.updateCriticalMinerals(mineralsData);
 
       const totalItems = (shippingData?.indices.length || 0) + (chokepointData?.chokepoints.length || 0) + (mineralsData?.minerals.length || 0);
       const anyUnavailable = shippingData?.upstreamUnavailable || chokepointData?.upstreamUnavailable || mineralsData?.upstreamUnavailable;

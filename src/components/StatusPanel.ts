@@ -54,18 +54,10 @@ const SPARK_APIS = new Set([
   'AISStream', 'GDELT Doc', 'EIA', 'USASpending', 'PizzINT',
   'Cyber Threats API', 'BIS', 'WTO', 'SupplyChain'
 ]);
-// Spark CN mode — world economic APIs (FRED/EIA/BIS/WTO/USASpending/SupplyChain)
-// are intentionally not loaded; CN panels have their own data sources.
-const SPARK_CN_FEEDS = new Set([
-  'Politics', 'Middleeast', 'Tech', 'Ai', 'Finance',
-  'Gov', 'Intel', 'Layoffs', 'Thinktanks', 'Energy',
-  'Polymarket', 'Weather', 'NetBlocks', 'Shipping', 'Military',
-  'Cyber Threats', 'GPS Jam'
-]);
-const SPARK_CN_APIS = new Set([
-  'RSS2JSON', 'Finnhub', 'CoinGecko', 'Polymarket', 'USGS',
-  'AISStream', 'GDELT Doc', 'PizzINT', 'Cyber Threats API'
-]);
+// Spark CN mode — same as world mode. World data loads in background for Spark
+// so all APIs should appear in status panel regardless of intel mode.
+const SPARK_CN_FEEDS = SPARK_FEEDS;
+const SPARK_CN_APIS = SPARK_APIS;
 
 import { t } from '../services/i18n';
 import { Panel } from './Panel';

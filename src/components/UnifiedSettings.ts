@@ -574,6 +574,21 @@ export class UnifiedSettings {
     const container = this.overlay.querySelector('#usStorageInfo');
     if (!container) return;
     try {
+      // Tauri WebView: navigator.storage.estimate() not available — show localStorage + cache info
+      const isTauri = Boolean((window as unknown as { __TAURI__?: unknown }).__TAURI__);
+      if (isTauri) {
+        let lsSize = 0;
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key) lsSize += key.length + (localStorage.getItem(key)?.length ?? 0);
+        }
+        const lsMB = (lsSize * 2 / 1024 / 1024).toFixed(2); // UTF-16 chars → bytes
+        container.innerHTML = `<div class="status-row">
+          <span class="status-name">LocalStorage</span>
+          <span class="status-detail">${lsMB} MB</span>
+        </div>`;
+        return;
+      }
       if ('storage' in navigator && 'estimate' in navigator.storage) {
         const estimate = await navigator.storage.estimate();
         if (!container.isConnected) return;
