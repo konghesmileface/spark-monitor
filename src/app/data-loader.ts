@@ -46,6 +46,7 @@ import {
   addToSignalHistory,
   analysisWorker,
   fetchPizzIntStatus,
+  getPizzIntStatus,
   fetchGdeltTensions,
   fetchNaturalEvents,
   fetchRecentAwards,
@@ -678,6 +679,7 @@ export class DataLoaderManager implements AppModule {
           status: 'ok',
           itemCount: items.length,
         });
+        this.ctx.statusPanel?.updateApi('RSS2JSON', { status: 'ok' });
 
         if (panel) {
           try {
@@ -721,6 +723,7 @@ export class DataLoaderManager implements AppModule {
           status: 'ok',
           itemCount: items.length,
         });
+        this.ctx.statusPanel?.updateApi('RSS2JSON', { status: 'ok' });
 
         if (panel) {
           try {
@@ -2019,14 +2022,6 @@ export class DataLoaderManager implements AppModule {
 
     try {
       economicPanel?.setLoading(true);
-      // Direct sidecar test — bypasses RPC client and circuit breaker
-      try {
-        const testResp = await fetch('/api/economic/v1/get-fred-series?series_id=GDP&limit=5');
-        const testBody = await testResp.text();
-        console.warn(`[FRED-DIRECT] status=${testResp.status} body=${testBody.slice(0, 300)}`);
-      } catch (e) {
-        console.warn(`[FRED-DIRECT] fetch error: ${e}`);
-      }
       const t0 = Date.now();
       this.debugLog('[FRED] calling fetchFredData()...');
       const data = await fetchFredData();
@@ -2320,7 +2315,8 @@ export class DataLoaderManager implements AppModule {
 
       if (status.locationsMonitored === 0) {
         this.ctx.pizzintIndicator?.hide();
-        this.ctx.statusPanel?.updateApi('PizzINT', { status: 'error' });
+        const cbErr = getPizzIntStatus();
+        this.ctx.statusPanel?.updateApi('PizzINT', { status: 'error', detail: cbErr !== 'ok' ? cbErr : '0 locations' });
         dataFreshness.recordError('pizzint', 'No monitored locations returned');
         return;
       }
@@ -2328,12 +2324,12 @@ export class DataLoaderManager implements AppModule {
       this.ctx.pizzintIndicator?.show();
       this.ctx.pizzintIndicator?.updateStatus(status);
       this.ctx.pizzintIndicator?.updateTensions(tensions);
-      this.ctx.statusPanel?.updateApi('PizzINT', { status: 'ok' });
+      this.ctx.statusPanel?.updateApi('PizzINT', { status: 'ok', detail: `${status.locationsMonitored} locations` });
       dataFreshness.recordUpdate('pizzint', Math.max(status.locationsMonitored, tensions.length));
     } catch (error) {
       console.error('[App] PizzINT load failed:', error);
       this.ctx.pizzintIndicator?.hide();
-      this.ctx.statusPanel?.updateApi('PizzINT', { status: 'error' });
+      this.ctx.statusPanel?.updateApi('PizzINT', { status: 'error', detail: String(error).slice(0, 80) });
       dataFreshness.recordError('pizzint', String(error));
     }
   }
