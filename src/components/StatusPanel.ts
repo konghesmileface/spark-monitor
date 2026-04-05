@@ -15,6 +15,7 @@ export interface ApiStatus {
   name: string;
   status: StatusLevel;
   latency?: number;
+  detail?: string;
 }
 
 // Allowlists for each variant

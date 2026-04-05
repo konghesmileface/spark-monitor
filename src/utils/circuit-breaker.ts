@@ -36,7 +36,7 @@ const PERSISTENT_STALE_CEILING_MS = 24 * 60 * 60 * 1000; // 24h — discard pers
 
 function isDesktopOfflineMode(): boolean {
   if (typeof window === 'undefined') return false;
-  const hasTauri = Boolean((window as unknown as { __TAURI__?: unknown }).__TAURI__);
+  const hasTauri = '__TAURI_INTERNALS__' in window || '__TAURI__' in window;
   return hasTauri && typeof navigator !== 'undefined' && navigator.onLine === false;
 }
 

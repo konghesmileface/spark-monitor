@@ -301,7 +301,7 @@ export class DataLoaderManager implements AppModule {
     // Previous versions may have persisted empty/error data (e.g. v2.5.42-43 compression bug)
     // that stale-while-revalidate returns instantly, making endpoints appear broken.
     // Also clears lazily-created breaker caches (FRED per-series) that resetAllCircuitBreakers misses.
-    const CB_RESET_KEY = 'wm-cb-reset-v2.5.46';
+    const CB_RESET_KEY = 'wm-cb-reset-v2.5.47';
     if (!localStorage.getItem(CB_RESET_KEY)) {
       console.warn('[DataLoader] Wiping all persistent caches (version migration to v2.5.45)');
       try {
@@ -2013,7 +2013,7 @@ export class DataLoaderManager implements AppModule {
     if (cbInfo.onCooldown) {
       this.debugLog(`[FRED] circuit breaker cooldown (${cbInfo.remainingSeconds}s)`);
       economicPanel?.setErrorState(true, `Temporarily unavailable (retry in ${cbInfo.remainingSeconds}s)`);
-      this.ctx.statusPanel?.updateApi('FRED', { status: 'error' });
+      this.ctx.statusPanel?.updateApi('FRED', { status: 'error', detail: `cooldown ${cbInfo.remainingSeconds}s` });
       return;
     }
 
@@ -2026,36 +2026,38 @@ export class DataLoaderManager implements AppModule {
       const postInfo = getCircuitBreakerCooldownInfo('FRED Economic');
       if (postInfo.onCooldown) {
         economicPanel?.setErrorState(true, `Temporarily unavailable (retry in ${postInfo.remainingSeconds}s)`);
-        this.ctx.statusPanel?.updateApi('FRED', { status: 'error' });
+        this.ctx.statusPanel?.updateApi('FRED', { status: 'error', detail: `post-cooldown ${postInfo.remainingSeconds}s` });
         return;
       }
 
       if (data.length === 0) {
         if (!isFeatureAvailable('economicFred')) {
           economicPanel?.setErrorState(true, 'FRED_API_KEY not configured — add in Settings');
-          this.ctx.statusPanel?.updateApi('FRED', { status: 'error' });
+          this.ctx.statusPanel?.updateApi('FRED', { status: 'error', detail: 'feature disabled' });
           return;
         }
+        this.debugLog('[FRED] 0 series, retrying in 20s...');
         economicPanel?.showRetrying();
         await new Promise(r => setTimeout(r, 20_000));
         const retryData = await fetchFredData();
         if (retryData.length === 0) {
           economicPanel?.setErrorState(true, 'FRED data temporarily unavailable — will retry');
-          this.ctx.statusPanel?.updateApi('FRED', { status: 'error' });
+          this.ctx.statusPanel?.updateApi('FRED', { status: 'error', detail: '0 series after retry' });
           return;
         }
         economicPanel?.setErrorState(false);
         economicPanel?.update(retryData);
-        this.ctx.statusPanel?.updateApi('FRED', { status: 'ok' });
+        this.ctx.statusPanel?.updateApi('FRED', { status: 'ok', detail: `${retryData.length} series (retry)` });
         dataFreshness.recordUpdate('economic', retryData.length);
         return;
       }
 
       economicPanel?.setErrorState(false);
       economicPanel?.update(data);
-      this.ctx.statusPanel?.updateApi('FRED', { status: 'ok' });
+      this.ctx.statusPanel?.updateApi('FRED', { status: 'ok', detail: `${data.length} series` });
       dataFreshness.recordUpdate('economic', data.length);
-    } catch {
+    } catch (e) {
+      this.debugLog(`[FRED] loadFredData() threw: ${e}`);
       if (isFeatureAvailable('economicFred')) {
         economicPanel?.showRetrying();
         try {
@@ -2064,13 +2066,13 @@ export class DataLoaderManager implements AppModule {
           if (retryData.length > 0) {
             economicPanel?.setErrorState(false);
             economicPanel?.update(retryData);
-            this.ctx.statusPanel?.updateApi('FRED', { status: 'ok' });
+            this.ctx.statusPanel?.updateApi('FRED', { status: 'ok', detail: `${retryData.length} series (retry)` });
             dataFreshness.recordUpdate('economic', retryData.length);
             return;
           }
         } catch { /* fall through */ }
       }
-      this.ctx.statusPanel?.updateApi('FRED', { status: 'error' });
+      this.ctx.statusPanel?.updateApi('FRED', { status: 'error', detail: `throw: ${String(e).slice(0, 60)}` });
       economicPanel?.setErrorState(true, 'FRED data temporarily unavailable — will retry');
       economicPanel?.setLoading(false);
     }
@@ -2082,17 +2084,17 @@ export class DataLoaderManager implements AppModule {
     try {
       const data = await fetchOilAnalytics();
       economicPanel?.updateOil(data);
-      const hasData = !!(data.wtiPrice || data.brentPrice || data.usProduction || data.usInventory);
-      this.ctx.statusPanel?.updateApi('EIA', { status: hasData ? 'ok' : 'error' });
+      const metricCount = [data.wtiPrice, data.brentPrice, data.usProduction, data.usInventory].filter(Boolean).length;
+      const hasData = metricCount > 0;
+      this.ctx.statusPanel?.updateApi('EIA', { status: hasData ? 'ok' : 'error', detail: hasData ? `${metricCount} metrics` : '0 metrics returned' });
       if (hasData) {
-        const metricCount = [data.wtiPrice, data.brentPrice, data.usProduction, data.usInventory].filter(Boolean).length;
         dataFreshness.recordUpdate('oil', metricCount || 1);
       } else {
         dataFreshness.recordError('oil', 'Oil analytics returned no values');
       }
     } catch (e) {
       console.error('[App] Oil analytics failed:', e);
-      this.ctx.statusPanel?.updateApi('EIA', { status: 'error' });
+      this.ctx.statusPanel?.updateApi('EIA', { status: 'error', detail: `throw: ${String(e).slice(0, 60)}` });
       dataFreshness.recordError('oil', String(e));
     }
   }
@@ -2102,7 +2104,7 @@ export class DataLoaderManager implements AppModule {
     try {
       const data = await fetchRecentAwards({ daysBack: 7, limit: 15 });
       economicPanel?.updateSpending(data);
-      this.ctx.statusPanel?.updateApi('USASpending', { status: data.awards.length > 0 ? 'ok' : 'error' });
+      this.ctx.statusPanel?.updateApi('USASpending', { status: data.awards.length > 0 ? 'ok' : 'error', detail: data.awards.length > 0 ? `${data.awards.length} awards` : '0 awards returned' });
       if (data.awards.length > 0) {
         dataFreshness.recordUpdate('spending', data.awards.length);
       } else {
@@ -2110,7 +2112,7 @@ export class DataLoaderManager implements AppModule {
       }
     } catch (e) {
       console.error('[App] Government spending failed:', e);
-      this.ctx.statusPanel?.updateApi('USASpending', { status: 'error' });
+      this.ctx.statusPanel?.updateApi('USASpending', { status: 'error', detail: `throw: ${String(e).slice(0, 60)}` });
       dataFreshness.recordError('spending', String(e));
     }
   }
@@ -2122,13 +2124,13 @@ export class DataLoaderManager implements AppModule {
       const data = await fetchBisData();
       economicPanel?.updateBis(data);
       const hasData = data.policyRates.length > 0;
-      this.ctx.statusPanel?.updateApi('BIS', { status: hasData ? 'ok' : 'error' });
+      this.ctx.statusPanel?.updateApi('BIS', { status: hasData ? 'ok' : 'error', detail: hasData ? `${data.policyRates.length} rates` : '0 policy rates' });
       if (hasData) {
         dataFreshness.recordUpdate('bis', data.policyRates.length);
       }
     } catch (e) {
       console.error('[App] BIS data failed:', e);
-      this.ctx.statusPanel?.updateApi('BIS', { status: 'error' });
+      this.ctx.statusPanel?.updateApi('BIS', { status: 'error', detail: `throw: ${String(e).slice(0, 60)}` });
       dataFreshness.recordError('bis', String(e));
     }
   }

@@ -554,7 +554,7 @@ export class UnifiedSettings {
       html += `<div class="status-row">
         <span class="status-dot ${api.status}"></span>
         <span class="status-name">${escapeHtml(api.name)}</span>
-        ${api.latency ? `<span class="status-detail">${api.latency}ms</span>` : ''}
+        ${api.detail ? `<span class="status-detail">${escapeHtml(api.detail)}</span>` : api.latency ? `<span class="status-detail">${api.latency}ms</span>` : ''}
       </div>`;
     }
     html += `</div>`;
@@ -575,7 +575,7 @@ export class UnifiedSettings {
     if (!container) return;
     try {
       // Tauri WebView: navigator.storage.estimate() not available — show localStorage + cache info
-      const isTauri = Boolean((window as unknown as { __TAURI__?: unknown }).__TAURI__);
+      const isTauri = '__TAURI_INTERNALS__' in window || '__TAURI__' in window;
       if (isTauri) {
         let lsSize = 0;
         for (let i = 0; i < localStorage.length; i++) {
