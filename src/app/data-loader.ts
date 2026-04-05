@@ -23,7 +23,7 @@ import {
   fetchPredictions, type PredictionMarket,
   fetchEarthquakes,
   fetchWeatherAlerts,
-  fetchFredData,
+  fetchFredData, getLastFredErrors,
   fetchInternetOutages,
   isOutagesConfigured,
   fetchAisSignals,
@@ -2019,6 +2019,14 @@ export class DataLoaderManager implements AppModule {
 
     try {
       economicPanel?.setLoading(true);
+      // Direct sidecar test — bypasses RPC client and circuit breaker
+      try {
+        const testResp = await fetch('/api/economic/v1/get-fred-series?series_id=GDP&limit=5');
+        const testBody = await testResp.text();
+        console.warn(`[FRED-DIRECT] status=${testResp.status} body=${testBody.slice(0, 300)}`);
+      } catch (e) {
+        console.warn(`[FRED-DIRECT] fetch error: ${e}`);
+      }
       const t0 = Date.now();
       this.debugLog('[FRED] calling fetchFredData()...');
       const data = await fetchFredData();
@@ -2043,8 +2051,10 @@ export class DataLoaderManager implements AppModule {
         await new Promise(r => setTimeout(r, 20_000));
         const retryData = await fetchFredData();
         if (retryData.length === 0) {
+          const fredErrs = getLastFredErrors();
+          const errDetail = fredErrs.length > 0 ? fredErrs[0] : 'unknown';
           economicPanel?.setErrorState(true, 'FRED data temporarily unavailable — will retry');
-          this.ctx.statusPanel?.updateApi('FRED', { status: 'error', detail: `0 series after retry (${elapsed}s)` });
+          this.ctx.statusPanel?.updateApi('FRED', { status: 'error', detail: `ERR: ${errDetail}` });
           return;
         }
         economicPanel?.setErrorState(false);

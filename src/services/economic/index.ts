@@ -157,22 +157,35 @@ function _dbg(msg: string): void {
   console.warn(msg);
 }
 
+let _lastFredErrors: string[] = [];
+export function getLastFredErrors(): string[] { return _lastFredErrors; }
+
 export async function fetchFredData(): Promise<FredSeries[]> {
   _dbg('[FRED] fetchFredData() entered');
   const available = isFeatureAvailable('economicFred');
   _dbg(`[FRED] isFeatureAvailable('economicFred') = ${available}`);
   if (!available) {
     _dbg('[FRED] Feature economicFred is DISABLED → returning []');
+    _lastFredErrors = ['feature disabled'];
     return [];
   }
 
+  _lastFredErrors = [];
   _dbg(`[FRED] fetching ${FRED_SERIES.length} series...`);
   const results = await Promise.all(FRED_SERIES.map(async (config) => {
     try {
       const r = await fetchSingleFredSeries(config);
-      _dbg(`[FRED:${config.id}] → ${r ? `ok (${r.value})` : 'null'}`);
+      if (!r) {
+        const err = getFredBreaker(config.id).getLastError();
+        const msg = `${config.id}:${err ? err.slice(0, 50) : 'null'}`;
+        _lastFredErrors.push(msg);
+        _dbg(`[FRED:${config.id}] → null (err=${err})`);
+      } else {
+        _dbg(`[FRED:${config.id}] → ok (${r.value})`);
+      }
       return r;
     } catch (e) {
+      _lastFredErrors.push(`${config.id}:throw:${String(e).slice(0, 40)}`);
       _dbg(`[FRED:${config.id}] → ERROR: ${e}`);
       return null;
     }

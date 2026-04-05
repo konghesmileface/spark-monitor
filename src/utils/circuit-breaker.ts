@@ -146,6 +146,10 @@ export class CircuitBreaker<T> {
     return { ...this.lastDataState };
   }
 
+  getLastError(): string | undefined {
+    return this.state.lastError;
+  }
+
   getCached(): T | null {
     if (this.cache && Date.now() - this.cache.timestamp < this.cacheTtlMs) {
       return this.cache.data;
