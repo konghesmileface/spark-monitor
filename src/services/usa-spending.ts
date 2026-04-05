@@ -80,7 +80,7 @@ export async function fetchRecentAwards(options: {
   if (awardTypes.includes('loan')) awardTypeCodes.push('07', '08');
 
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 20000);
+  const timeout = setTimeout(() => controller.abort(), 90_000);
   try {
     const response = await fetch(`${API_BASE}/search/spending_by_award/`, {
       method: 'POST',

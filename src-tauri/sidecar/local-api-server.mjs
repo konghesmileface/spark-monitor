@@ -406,11 +406,18 @@ async function proxyToCloud(requestUrl, req, remoteBase) {
     headers.set('authorization', origAuth);
     headers.delete('x-original-authorization');
   }
-  return fetch(target, {
-    method: req.method,
-    headers,
-    body,
-  });
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 90_000);
+  try {
+    return await fetch(target, {
+      method: req.method,
+      headers,
+      body,
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 function pickModule(pathname, routes) {

@@ -301,7 +301,7 @@ export class DataLoaderManager implements AppModule {
     // Previous versions may have persisted empty/error data (e.g. v2.5.42-43 compression bug)
     // that stale-while-revalidate returns instantly, making endpoints appear broken.
     // Also clears lazily-created breaker caches (FRED per-series) that resetAllCircuitBreakers misses.
-    const CB_RESET_KEY = 'wm-cb-reset-v2.5.47';
+    const CB_RESET_KEY = 'wm-cb-reset-v2.5.48';
     if (!localStorage.getItem(CB_RESET_KEY)) {
       console.warn('[DataLoader] Wiping all persistent caches (version migration to v2.5.45)');
       try {
@@ -2019,9 +2019,11 @@ export class DataLoaderManager implements AppModule {
 
     try {
       economicPanel?.setLoading(true);
+      const t0 = Date.now();
       this.debugLog('[FRED] calling fetchFredData()...');
       const data = await fetchFredData();
-      this.debugLog(`[FRED] fetchFredData() returned ${data.length} series`);
+      const elapsed = ((Date.now() - t0) / 1000).toFixed(1);
+      this.debugLog(`[FRED] fetchFredData() returned ${data.length} series in ${elapsed}s`);
 
       const postInfo = getCircuitBreakerCooldownInfo('FRED Economic');
       if (postInfo.onCooldown) {
@@ -2042,7 +2044,7 @@ export class DataLoaderManager implements AppModule {
         const retryData = await fetchFredData();
         if (retryData.length === 0) {
           economicPanel?.setErrorState(true, 'FRED data temporarily unavailable — will retry');
-          this.ctx.statusPanel?.updateApi('FRED', { status: 'error', detail: '0 series after retry' });
+          this.ctx.statusPanel?.updateApi('FRED', { status: 'error', detail: `0 series after retry (${elapsed}s)` });
           return;
         }
         economicPanel?.setErrorState(false);
@@ -2054,7 +2056,7 @@ export class DataLoaderManager implements AppModule {
 
       economicPanel?.setErrorState(false);
       economicPanel?.update(data);
-      this.ctx.statusPanel?.updateApi('FRED', { status: 'ok', detail: `${data.length} series` });
+      this.ctx.statusPanel?.updateApi('FRED', { status: 'ok', detail: `${data.length} series (${elapsed}s)` });
       dataFreshness.recordUpdate('economic', data.length);
     } catch (e) {
       this.debugLog(`[FRED] loadFredData() threw: ${e}`);

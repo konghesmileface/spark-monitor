@@ -104,7 +104,7 @@ const FRED_SERIES: FredConfig[] = [
 
 async function fetchSingleFredSeries(config: FredConfig): Promise<FredSeries | null> {
   const resp = await getFredBreaker(config.id).execute(async () => {
-    const result = await client.getFredSeries({ seriesId: config.id, limit: 120 }, { signal: AbortSignal.timeout(20_000) });
+    const result = await client.getFredSeries({ seriesId: config.id, limit: 120 }, { signal: AbortSignal.timeout(90_000) });
     // Reject empty responses so they are NOT cached as "success" in persistent storage.
     // This prevents stale empty data from being served via SWR on subsequent app launches.
     if (!result.series?.observations?.length) {
@@ -252,7 +252,7 @@ export async function checkEiaStatus(): Promise<boolean> {
   if (!isFeatureAvailable('energyEia')) return false;
   try {
     const resp = await eiaBreaker.execute(async () => {
-      return client.getEnergyPrices({ commodities: ['wti'] }, { signal: AbortSignal.timeout(20_000) });
+      return client.getEnergyPrices({ commodities: ['wti'] }, { signal: AbortSignal.timeout(90_000) });
     }, emptyEiaFallback);
     return resp.prices.length > 0;
   } catch {
@@ -270,7 +270,7 @@ export async function fetchOilAnalytics(): Promise<OilAnalytics> {
 
   try {
     const resp = await eiaBreaker.execute(async () => {
-      return client.getEnergyPrices({ commodities: [] }, { signal: AbortSignal.timeout(20_000) }); // all commodities
+      return client.getEnergyPrices({ commodities: [] }, { signal: AbortSignal.timeout(90_000) }); // all commodities
     }, emptyEiaFallback);
 
     const byId = new Map<string, ProtoEnergyPrice>();
@@ -337,7 +337,7 @@ export async function fetchEnergyCapacityRpc(
       return client.getEnergyCapacity({
         energySources: energySources ?? [],
         years: years ?? 0,
-      }, { signal: AbortSignal.timeout(20_000) });
+      }, { signal: AbortSignal.timeout(90_000) });
     }, emptyCapacityFallback);
   } catch {
     return emptyCapacityFallback;
@@ -476,7 +476,7 @@ export async function getIndicatorData(
       year: years,
       pageSize: 0,
       cursor: '',
-    }, { signal: AbortSignal.timeout(20_000) });
+    }, { signal: AbortSignal.timeout(90_000) });
   }, emptyWbFallback);
 
   return buildWorldBankResponse(indicator, resp.data);
@@ -613,9 +613,9 @@ export async function fetchBisData(): Promise<BisData> {
 
   try {
     const [policy, eer, credit] = await Promise.all([
-      hPolicy?.rates?.length ? Promise.resolve(hPolicy) : bisPolicyBreaker.execute(() => client.getBisPolicyRates({}, { signal: AbortSignal.timeout(20_000) }), emptyBisPolicyFallback),
-      hEer?.rates?.length ? Promise.resolve(hEer) : bisEerBreaker.execute(() => client.getBisExchangeRates({}, { signal: AbortSignal.timeout(20_000) }), emptyBisEerFallback),
-      hCredit?.entries?.length ? Promise.resolve(hCredit) : bisCreditBreaker.execute(() => client.getBisCredit({}, { signal: AbortSignal.timeout(20_000) }), emptyBisCreditFallback),
+      hPolicy?.rates?.length ? Promise.resolve(hPolicy) : bisPolicyBreaker.execute(() => client.getBisPolicyRates({}, { signal: AbortSignal.timeout(90_000) }), emptyBisPolicyFallback),
+      hEer?.rates?.length ? Promise.resolve(hEer) : bisEerBreaker.execute(() => client.getBisExchangeRates({}, { signal: AbortSignal.timeout(90_000) }), emptyBisEerFallback),
+      hCredit?.entries?.length ? Promise.resolve(hCredit) : bisCreditBreaker.execute(() => client.getBisCredit({}, { signal: AbortSignal.timeout(90_000) }), emptyBisCreditFallback),
     ]);
     return {
       policyRates: policy.rates,
