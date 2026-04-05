@@ -595,6 +595,67 @@ function makeCorsHeaders(req) {
   };
 }
 
+// ── USASpending local proxy ─────────────────────────────────────────
+const _usaSpendingCache = { data: null, at: 0 };
+const _USA_CACHE_TTL = 3600_000; // 1 hour
+const _AWARD_TYPE_MAP = {
+  'A': 'contract', 'B': 'contract', 'C': 'contract', 'D': 'contract',
+  '02': 'grant', '03': 'grant', '04': 'grant', '05': 'grant',
+  '06': 'grant', '10': 'grant', '07': 'loan', '08': 'loan',
+};
+
+async function fetchUSASpending() {
+  const now = Date.now();
+  if (_usaSpendingCache.data && now - _usaSpendingCache.at < _USA_CACHE_TTL) {
+    return _usaSpendingCache.data;
+  }
+
+  const daysBack = 7;
+  const endDate = new Date();
+  const startDate = new Date();
+  startDate.setDate(startDate.getDate() - daysBack);
+  const periodStart = startDate.toISOString().split('T')[0];
+  const periodEnd = endDate.toISOString().split('T')[0];
+
+  const resp = await fetchWithTimeout('https://api.usaspending.gov/api/v2/search/spending_by_award/', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      filters: {
+        time_period: [{ start_date: periodStart, end_date: periodEnd }],
+        award_type_codes: ['A', 'B', 'C', 'D'],
+      },
+      fields: ['Award ID', 'Recipient Name', 'Award Amount', 'Awarding Agency', 'Description', 'Start Date', 'Award Type'],
+      limit: 15, order: 'desc', sort: 'Award Amount',
+    }),
+  }, 90000);
+
+  if (!resp.ok) throw new Error(`USASpending API HTTP ${resp.status}`);
+  const data = await resp.json();
+  const results = data.results || [];
+
+  const awards = results.map((r) => ({
+    id: String(r['Award ID'] || ''),
+    recipientName: String(r['Recipient Name'] || 'Unknown'),
+    amount: Number(r['Award Amount']) || 0,
+    agency: String(r['Awarding Agency'] || 'Unknown'),
+    description: String(r['Description'] || '').slice(0, 200),
+    startDate: String(r['Start Date'] || ''),
+    awardType: _AWARD_TYPE_MAP[String(r['Award Type'] || '')] || 'other',
+  }));
+
+  const result = {
+    awards,
+    totalAmount: awards.reduce((sum, a) => sum + a.amount, 0),
+    periodStart, periodEnd,
+    fetchedAt: new Date().toISOString(),
+  };
+
+  _usaSpendingCache.data = result;
+  _usaSpendingCache.at = now;
+  return result;
+}
+
 async function fetchWithTimeout(url, options = {}, timeoutMs = 12000) {
   // Use node:https with IPv4 forced — Node.js built-in fetch (undici) tries IPv6
   // first and some servers (EIA, NASA FIRMS) have broken IPv6 causing ETIMEDOUT.
@@ -1135,6 +1196,27 @@ async function dispatch(requestUrl, req, routes, context) {
     } catch (e) {
       const isTimeout = e.name === 'AbortError' || e.message?.includes('timeout');
       return json({ error: isTimeout ? 'Feed timeout' : 'Failed to fetch feed', url: feedUrl }, isTimeout ? 504 : 502);
+    }
+  }
+
+  // USASpending proxy — runs locally (Node.js can reach api.usaspending.gov
+  // even from China, but WebView fetch may fail due to CORS/CSP issues).
+  // Placed before cloud-only gate so desktop always works.
+  if (requestUrl.pathname === '/api/usaspending') {
+    try {
+      const usaData = await fetchUSASpending();
+      return new Response(JSON.stringify(usaData), {
+        status: 200,
+        headers: { 'content-type': 'application/json', ...makeCorsHeaders(req) },
+      });
+    } catch (e) {
+      context.logger.error('[local-api] USASpending fetch failed:', e.message);
+      // In cloud-only mode, try cloud fallback
+      if (context.cloudOnly) {
+        const cloudResponse = await tryCloudFallback(requestUrl, req, context, 'usaspending local failed');
+        if (cloudResponse) return cloudResponse;
+      }
+      return json({ error: 'USASpending data temporarily unavailable', detail: e.message }, 502);
     }
   }
 

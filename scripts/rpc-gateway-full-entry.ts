@@ -179,6 +179,83 @@ async function handleEIA(pathname: string): Promise<{ status: number; body: unkn
   return null;
 }
 
+// ── USASpending proxy handler ────────────────────────────────
+const USA_SPENDING_API = 'https://api.usaspending.gov/api/v2';
+let usaSpendingCache: { data: unknown; at: number } | null = null;
+const USA_SPENDING_CACHE_TTL = 3600_000; // 1 hour
+
+const AWARD_TYPE_MAP: Record<string, string> = {
+  'A': 'contract', 'B': 'contract', 'C': 'contract', 'D': 'contract',
+  '02': 'grant', '03': 'grant', '04': 'grant', '05': 'grant',
+  '06': 'grant', '10': 'grant',
+  '07': 'loan', '08': 'loan',
+};
+
+async function handleUSASpending(): Promise<{ status: number; body: unknown }> {
+  const now = Date.now();
+  if (usaSpendingCache && now - usaSpendingCache.at < USA_SPENDING_CACHE_TTL) {
+    return { status: 200, body: usaSpendingCache.data };
+  }
+
+  try {
+    const daysBack = 7;
+    const periodEnd = new Date().toISOString().split('T')[0];
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - daysBack);
+    const periodStart = startDate.toISOString().split('T')[0];
+
+    const resp = await fetch(`${USA_SPENDING_API}/search/spending_by_award/`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        filters: {
+          time_period: [{ start_date: periodStart, end_date: periodEnd }],
+          award_type_codes: ['A', 'B', 'C', 'D'],
+        },
+        fields: ['Award ID', 'Recipient Name', 'Award Amount', 'Awarding Agency', 'Description', 'Start Date', 'Award Type'],
+        limit: 15,
+        order: 'desc',
+        sort: 'Award Amount',
+      }),
+    });
+
+    if (!resp.ok) {
+      console.error(`[USASpending] API HTTP ${resp.status}`);
+      return { status: 502, body: { error: `USASpending API HTTP ${resp.status}` } };
+    }
+
+    const data = (await resp.json()) as { results?: Array<Record<string, unknown>> };
+    const results = data.results || [];
+
+    const awards = results.map((r: Record<string, unknown>) => ({
+      id: String(r['Award ID'] || ''),
+      recipientName: String(r['Recipient Name'] || 'Unknown'),
+      amount: Number(r['Award Amount']) || 0,
+      agency: String(r['Awarding Agency'] || 'Unknown'),
+      description: String(r['Description'] || '').slice(0, 200),
+      startDate: String(r['Start Date'] || ''),
+      awardType: AWARD_TYPE_MAP[String(r['Award Type'] || '')] || 'other',
+    }));
+
+    const body = {
+      awards,
+      totalAmount: awards.reduce((sum: number, a: { amount: number }) => sum + a.amount, 0),
+      periodStart,
+      periodEnd,
+      fetchedAt: new Date().toISOString(),
+    };
+
+    usaSpendingCache = { data: body, at: now };
+    return { status: 200, body };
+  } catch (e: any) {
+    console.error('[USASpending] Fetch failed:', e.message);
+    if (usaSpendingCache) {
+      return { status: 200, body: usaSpendingCache.data };
+    }
+    return { status: 502, body: { error: 'USASpending data temporarily unavailable' } };
+  }
+}
+
 // ── HTTP Server ─────────────────────────────────────────────
 const PORT = Number(process.env.PORT || 8077);
 const REQUEST_TIMEOUT_MS = 60_000;  // 60s — some upstream APIs (GDELT, HAPI) are slow through proxy
@@ -240,6 +317,14 @@ const server = http.createServer(async (nodeReq, nodeRes) => {
       } else {
         jsonReply(nodeRes, 404, { error: 'EIA endpoint not found' });
       }
+      return;
+    }
+
+    // USASpending proxy (standalone handler, not part of RPC system)
+    if (pathname === '/api/usaspending') {
+      const usaResult = await handleUSASpending();
+      clearTimeout(timer);
+      jsonReply(nodeRes, usaResult.status, usaResult.body);
       return;
     }
 
