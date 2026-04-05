@@ -136,8 +136,9 @@ export class PizzIntIndicator {
     return `${t('components.pizzint.statusQuiet')} ${loc.current_popularity}%`;
   }
 
-  private formatTimeAgo(date: Date): string {
-    const diff = Date.now() - date.getTime();
+  private formatTimeAgo(date: Date | string | number): string {
+    const ts = date instanceof Date ? date.getTime() : new Date(date).getTime();
+    const diff = Date.now() - ts;
     if (diff < 60000) return t('components.pizzint.justNow');
     if (diff < 3600000) return t('components.pizzint.minutesAgo', { m: String(Math.floor(diff / 60000)) });
     return t('components.pizzint.hoursAgo', { h: String(Math.floor(diff / 3600000)) });
