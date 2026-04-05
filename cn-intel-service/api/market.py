@@ -1,6 +1,6 @@
 from flask import Blueprint, jsonify, current_app
 from services.akshare_data import get_market_overview
-from services.cache import cache_get, cache_set, cache_get_stale, is_trading_time, get_redis
+from services.cache import cache_get, cache_set, cache_get_stale, cache_set_stale, is_trading_time, get_redis
 from services.error_handler import safe_route
 import logging
 import time
@@ -84,10 +84,19 @@ def cn_market():
         stale = cache_get_stale(cache_key)
         if stale and not _is_empty_market(stale):
             stale['_stale'] = True
+            stale['_staleNote'] = '数据来自最近交易日'
+            # Re-cache stale with long TTL so next request is fast
+            cache_set(cache_key, stale, 21600)
             return jsonify(stale)
-        # Nothing available at all
-        return jsonify(data)
+        # Nothing available at all — return empty structure
+        return jsonify(data or {
+            'indices': [], 'sectors': [],
+            'northbound': {'total': 0}, 'limitStats': {},
+            'timestamp': '', '_empty': True,
+        })
 
     ttl = 120 if is_trading_time() else 21600  # 2min trading, 6h non-trading
     cache_set(cache_key, data, ttl)
+    # Save long-lived stale copy (7 days) for non-trading/holiday fallback
+    cache_set_stale(cache_key, data)
     return jsonify(data)

@@ -58,7 +58,13 @@ def _get_total_by_filter(filter_expr):
 
 def get_market_overview():
     """Get A-share market overview: indices, sectors, northbound flow, limit stats.
-    Uses data_provider for spot/north/sectors when available, falls back to direct HTTP."""
+    Uses data_provider for spot/north/sectors when available, falls back to direct HTTP.
+    During non-trading hours, returns None to let the route handler use stale cache."""
+    from services.cache import is_trading_time
+    if not is_trading_time():
+        logger.debug('get_market_overview: non-trading hours, returning None for stale cache fallback')
+        return None
+
     from services.data_provider import get_a_spot, get_north_flow, get_sector_rank, compute_limit_stats
 
     result = {
@@ -391,7 +397,12 @@ def _load_sentiment_history():
 
 def get_sentiment_data():
     """Calculate market sentiment index from real data.
-    Uses data_provider for spot/north/margin — reduces HTTP calls from 7 to 2-3."""
+    Uses data_provider for spot/north/margin — reduces HTTP calls from 7 to 2-3.
+    During non-trading hours, returns None to let the route handler use stale cache."""
+    from services.cache import is_trading_time
+    if not is_trading_time():
+        return None
+
     from services.data_provider import get_a_spot, get_north_flow, get_margin_data, compute_limit_stats
     factors = []
     overall_score = 50

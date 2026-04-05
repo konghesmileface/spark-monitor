@@ -69,12 +69,18 @@ def cache_get(key):
     return val
 
 def cache_get_stale(key):
-    """Get from memory cache ignoring TTL — for stale-while-revalidate pattern."""
+    """Get stale data ignoring TTL — for graceful degradation during non-trading hours.
+    Checks: memory cache (ignoring TTL) → Redis same key → Redis {key}:last (7-day copy)."""
+    # 1. Memory cache (ignoring TTL)
     val = _memory_cache.get(key)
     if val is not None:
         return val
-    # Also try Redis (may still have data even if caller thinks it's expired)
-    r = current_app.redis
+    # 2. Memory cache for :last key
+    val = _memory_cache.get(f'{key}:last')
+    if val is not None:
+        return val
+    # 3. Redis — try both keys
+    r = get_redis()
     if r:
         try:
             raw = r.get(key)
@@ -82,7 +88,30 @@ def cache_get_stale(key):
                 return json.loads(raw)
         except Exception:
             pass
+        try:
+            raw = r.get(f'{key}:last')
+            if raw:
+                return json.loads(raw)
+        except Exception:
+            pass
     return None
+
+
+def cache_set_stale(key, value, ttl=604800):
+    """Save a long-lived stale copy for fallback when live data fails.
+    Uses {key}:last with 7-day TTL (default). Called after successful data fetch."""
+    stale_key = f'{key}:last'
+    # Memory cache
+    _memory_cache[stale_key] = value
+    _memory_ttls[stale_key] = time.time() + ttl
+    _memory_cache.move_to_end(stale_key)
+    # Redis
+    r = get_redis()
+    if r:
+        try:
+            r.setex(stale_key, ttl, json.dumps(value, ensure_ascii=False, default=str))
+        except Exception as e:
+            logger.warning(f'Redis SET stale failed for {stale_key}: {e}')
 
 
 def cache_set(key, value, ttl=300):

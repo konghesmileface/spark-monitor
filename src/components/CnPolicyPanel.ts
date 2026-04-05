@@ -527,7 +527,7 @@ const STYLE = `<style>
   border: 1px solid rgba(232,168,56,0.18);
 }
 .cn-ind-headline {
-  font-size: 16px; font-weight: 700; color: #f0e6d0; line-height: 1.6; margin-bottom: 10px;
+  font-size: 15px; font-weight: 600; color: #f0e6d0; line-height: 1.7; margin-bottom: 10px;
 }
 .cn-ind-meta {
   display: flex; gap: 8px; align-items: center; flex-wrap: wrap; font-size: 12px; color: #888;
@@ -1974,12 +1974,18 @@ export class CnPolicyPanel extends Panel {
       </div>`;
     }
 
-    // Loading
-    if (this.newsLoading) {
-      return `<div class="cn-policy-chips">${chipsHtml}</div>${reportHtml}${statsBar}<div class="cn-policy-empty"><i class="bi bi-arrow-repeat" style="animation:spin 1s linear infinite"></i> 加载政策新闻中...</div>`;
+    // Loading — show spinner when actively loading, when backend signals cold cache (_loading),
+    // or when data hasn't been fetched yet (first visit)
+    const isBackendLoading = (this.newsData as any)?._loading;
+    const isWaitingRetry = this._newsRetryTimer !== null;
+    if (this.newsLoading || isBackendLoading || isWaitingRetry || !this.newsFetched) {
+      const hint = isBackendLoading || isWaitingRetry
+        ? '正在采集最新政策数据，请稍候...'
+        : '加载政策新闻中...';
+      return `<div class="cn-policy-chips">${chipsHtml}</div>${reportHtml}${statsBar}<div class="cn-policy-empty"><i class="bi bi-arrow-repeat" style="animation:spin 1s linear infinite"></i> ${hint}</div>`;
     }
     if (!this.newsData) {
-      return `<div class="cn-policy-chips">${chipsHtml}</div>${reportHtml}<div class="cn-policy-empty">暂无数据</div>`;
+      return `<div class="cn-policy-chips">${chipsHtml}</div>${reportHtml}<div class="cn-policy-empty"><i class="bi bi-arrow-repeat" style="animation:spin 1s linear infinite"></i> 正在加载政策数据...</div>`;
     }
 
     // Filter items

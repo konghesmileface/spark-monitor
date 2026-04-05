@@ -1,6 +1,6 @@
 from flask import Blueprint, jsonify
 from services.akshare_data import get_sentiment_data
-from services.cache import cache_get, cache_set, cache_get_stale, is_trading_time
+from services.cache import cache_get, cache_set, cache_get_stale, cache_set_stale, is_trading_time
 from services.error_handler import safe_route
 
 sentiment_bp = Blueprint('sentiment', __name__)
@@ -37,9 +37,11 @@ def cn_sentiment():
         stale = cache_get_stale(cache_key)
         if stale and not _is_empty_sentiment(stale):
             stale['_stale'] = True
+            stale['_staleNote'] = '数据来自最近交易日'
             return jsonify(stale)
-        return jsonify(data)
+        return jsonify(data or {'score': 50, 'label': '中性', 'factors': [], '_empty': True})
 
     ttl = 300 if is_trading_time() else 21600
     cache_set(cache_key, data, ttl)
+    cache_set_stale(cache_key, data)  # 7-day stale copy for non-trading fallback
     return jsonify(data)
