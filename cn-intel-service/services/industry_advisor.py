@@ -7,11 +7,12 @@ business advice from an industry/consulting perspective (not trading).
 import hashlib
 import json
 import logging
+import threading
 from datetime import datetime, timedelta
 
 from config import Config
 from services.ai_analysis import call_ai
-from services.cache import cache_get, cache_set, is_trading_time
+from services.cache import cache_get, cache_set, cache_set_stale, cache_get_stale, is_trading_time
 from services.cross_domain_engine import build_correlation_context, detect_cross_signals
 from services.data_provider import get_north_flow, get_sector_rank, get_macro_indicators, get_margin_data
 from services.global_signals import build_global_signal_context
@@ -132,6 +133,9 @@ DEEP_ANALYSIS_PROMPT = """你是一位资深产业咨询顾问。请对以下政
 
 必须返回合法JSON，不要添加markdown代码块标记。"""
 
+# ── Stale-while-revalidate state ─────────────────────────────────────────────
+_bg_regenerating: dict[str, bool] = {}  # per-user lock to avoid duplicate bg threads
+
 RISK_LABELS = {
     'low': '低', 'moderate': '适中', 'elevated': '偏高',
     'high': '高', 'critical': '严峻',
@@ -222,13 +226,51 @@ def _build_market_context() -> str:
 
 
 def generate_industry_brief(user_id: str) -> dict:
-    """Generate AI-powered industry brief for a user."""
-    # 1. Check cache
+    """Generate AI-powered industry brief for a user.
+
+    Uses stale-while-revalidate: when cache expires, return stale data immediately
+    and regenerate fresh data in a background thread. This avoids 60-180s blocking
+    on AI generation that causes sidecar proxy timeouts (90s).
+    """
+    global _bg_regenerating
     cache_key = f'cn:industry:brief:{user_id}'
+
+    # 1. Check live cache
     cached = cache_get(cache_key)
     if cached:
         return cached
 
+    # 2. Cache miss — try stale-while-revalidate
+    stale = cache_get_stale(cache_key)
+    if stale and isinstance(stale, dict) and stale.get('headline'):
+        # Return stale immediately, regenerate in background
+        if not _bg_regenerating.get(user_id):
+            _bg_regenerating[user_id] = True
+            from flask import current_app
+            app = current_app._get_current_object()
+            def _regen(app_ref):
+                try:
+                    with app_ref.app_context():
+                        result = _generate_industry_brief_inner(user_id, cache_key)
+                        if result:
+                            logger.warning('产业简报后台重新生成完成 user=%s', user_id)
+                except Exception as e:
+                    logger.warning('产业简报后台重新生成失败 user=%s: %s', user_id, e)
+                finally:
+                    _bg_regenerating.pop(user_id, None)
+            threading.Thread(target=_regen, args=(app,), daemon=True, name=f'industry-regen-{user_id[:8]}').start()
+            logger.warning('产业简报返回stale数据, 后台重新生成中 user=%s', user_id)
+        stale_copy = stale.copy() if isinstance(stale, dict) else stale
+        if isinstance(stale_copy, dict):
+            stale_copy['_stale'] = True
+        return stale_copy
+
+    # 3. No stale data — synchronous generation (first-ever request)
+    return _generate_industry_brief_inner(user_id, cache_key)
+
+
+def _generate_industry_brief_inner(user_id: str, cache_key: str) -> dict:
+    """Core industry brief generation logic (called synchronously or from background thread)."""
     # 2. Load user profile (MySQL → Redis cache fallback)
     profile = get_profile(user_id)
     if not profile or not profile.get('industries'):
@@ -386,6 +428,7 @@ def generate_industry_brief(user_id: str) -> dict:
             ttl = _industry_ttl(Config.CACHE_TTL_INDUSTRY_BRIEF_TRADING,
                                 Config.CACHE_TTL_INDUSTRY_BRIEF_OFF)
             cache_set(cache_key, result, ttl=ttl)
+            cache_set_stale(cache_key, result)  # 7-day stale copy for SWR
             # Archive to MySQL for history
             try:
                 from services.report_archive import archive_report

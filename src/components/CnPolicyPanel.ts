@@ -1974,30 +1974,35 @@ export class CnPolicyPanel extends Panel {
       </div>`;
     }
 
-    // Loading — show spinner when actively loading, when backend signals cold cache (_loading),
-    // or when data hasn't been fetched yet (first visit)
-    const isBackendLoading = (this.newsData as any)?._loading;
-    const isWaitingRetry = this._newsRetryTimer !== null;
-    if (this.newsLoading || isBackendLoading || isWaitingRetry || !this.newsFetched) {
-      const hint = isBackendLoading || isWaitingRetry
-        ? '正在采集最新政策数据，请稍候...'
-        : '加载政策新闻中...';
-      return `<div class="cn-policy-chips">${chipsHtml}</div>${reportHtml}${statsBar}<div class="cn-policy-empty"><i class="bi bi-arrow-repeat" style="animation:spin 1s linear infinite"></i> ${hint}</div>`;
-    }
-    if (!this.newsData) {
-      return `<div class="cn-policy-chips">${chipsHtml}</div>${reportHtml}<div class="cn-policy-empty"><i class="bi bi-arrow-repeat" style="animation:spin 1s linear infinite"></i> 正在加载政策数据...</div>`;
+    // If we have real data (total > 0), always show it — don't block with spinner
+    const hasRealData = this.newsData && (this.newsData.total ?? 0) > 0;
+    if (!hasRealData) {
+      // Loading — show spinner when actively loading, when backend signals cold cache (_loading),
+      // or when data hasn't been fetched yet (first visit)
+      const isBackendLoading = (this.newsData as any)?._loading;
+      const isWaitingRetry = this._newsRetryTimer !== null;
+      if (this.newsLoading || isBackendLoading || isWaitingRetry) {
+        const hint = isBackendLoading || isWaitingRetry
+          ? '正在采集最新政策数据，请稍候...'
+          : '加载政策新闻中...';
+        return `<div class="cn-policy-chips">${chipsHtml}</div>${reportHtml}${statsBar}<div class="cn-policy-empty"><i class="bi bi-arrow-repeat" style="animation:spin 1s linear infinite"></i> ${hint}</div>`;
+      }
+      if (!this.newsData) {
+        return `<div class="cn-policy-chips">${chipsHtml}</div>${reportHtml}<div class="cn-policy-empty"><i class="bi bi-arrow-repeat" style="animation:spin 1s linear infinite"></i> 正在加载政策数据...</div>`;
+      }
     }
 
-    // Filter items
+    // Filter items — after the early-return block above, newsData is guaranteed non-null
+    const nd = this.newsData!;
     let items: GovNewsItem[] = [];
     if (this.categoryFilter === 'all') {
-      items = this.newsData.all || [];
+      items = nd.all || [];
     } else {
-      items = (this.newsData.categories || {})[this.categoryFilter] || [];
+      items = (nd.categories || {})[this.categoryFilter] || [];
     }
 
     // Track new items
-    const allUrls = new Set((this.newsData?.all || []).map(it => it.url));
+    const allUrls = new Set((nd.all || []).map(it => it.url));
     const newUrls = this.seenPolicyUrls.size > 0
       ? new Set(items.filter(it => !this.seenPolicyUrls.has(it.url)).map(it => it.url))
       : new Set<string>();
