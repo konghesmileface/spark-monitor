@@ -83,7 +83,8 @@ let _countryPromise: Promise<string | null> | undefined;
 async function resolveCountryCodeInternal(): Promise<string | null> {
   if (!isDesktopRuntime()) {
     try {
-      const res = await fetch('/api/geo', { signal: AbortSignal.timeout(3000) });
+      const { timeoutSignal: mkTimeout } = await import('@/utils');
+      const res = await fetch('/api/geo', { signal: mkTimeout(3000) });
       if (res.ok) {
         const data = await res.json();
         if (data.country && data.country !== 'XX') return data.country;

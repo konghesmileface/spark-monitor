@@ -172,6 +172,14 @@ export function chunkArray<T>(items: T[], size: number): T[][] {
   return chunks;
 }
 
+/** AbortSignal.timeout() polyfill for older WebKit (macOS 12 Tauri WebView). */
+export function timeoutSignal(ms: number): AbortSignal {
+  if (typeof AbortSignal.timeout === 'function') return AbortSignal.timeout(ms);
+  const ctrl = new AbortController();
+  setTimeout(() => ctrl.abort(), ms);
+  return ctrl.signal;
+}
+
 export { proxyUrl, fetchWithProxy, rssProxyUrl } from './proxy';
 export { exportToJSON, exportToCSV, ExportPanel } from './export';
 export { buildMapUrl, parseMapUrlState } from './urlState';

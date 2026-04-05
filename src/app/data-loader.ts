@@ -81,7 +81,7 @@ import { fetchSecurityAdvisories } from '@/services/security-advisories';
 import { fetchTelegramFeed } from '@/services/telegram-intel';
 import { fetchOrefAlerts, startOrefPolling, stopOrefPolling, onOrefAlertsUpdate } from '@/services/oref-alerts';
 import { enrichEventsWithExposure } from '@/services/population-exposure';
-import { debounce, getCircuitBreakerCooldownInfo, resetAllCircuitBreakers } from '@/utils';
+import { debounce, getCircuitBreakerCooldownInfo, resetAllCircuitBreakers, timeoutSignal } from '@/utils';
 import { isFeatureAvailable, isFeatureEnabled } from '@/services/runtime-config';
 import { getAiFlowSettings } from '@/services/ai-flow-settings';
 import { t, getCurrentLanguage } from '@/services/i18n';
@@ -242,7 +242,7 @@ export class DataLoaderManager implements AppModule {
     try {
       const resp = await fetch(
         `/api/news/v1/list-feed-digest?variant=${SITE_VARIANT}&lang=${getCurrentLanguage()}`,
-        { signal: AbortSignal.timeout(this.digestRequestTimeoutMs) },
+        { signal: timeoutSignal(this.digestRequestTimeoutMs) },
       );
       if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
       const data = await resp.json() as ListFeedDigestResponse;

@@ -1,5 +1,6 @@
 import { cellToLatLng } from 'h3-js';
 import { getApiBaseUrl } from '@/services/runtime';
+import { timeoutSignal } from '@/utils';
 
 export interface GpsJamHex {
   h3: string;
@@ -35,7 +36,7 @@ export async function fetchGpsInterference(): Promise<GpsJamData | null> {
   try {
     const base = getApiBaseUrl();
     const resp = await fetch(`${base}/api/gpsjam`, {
-      signal: AbortSignal.timeout(90_000),
+      signal: timeoutSignal(90_000),
     });
     if (!resp.ok) {
       if (cachedData) return cachedData;

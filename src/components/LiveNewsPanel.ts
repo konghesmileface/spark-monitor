@@ -344,7 +344,7 @@ export class LiveNewsPanel extends Panel {
       try {
         await fetch('https://www.youtube.com/iframe_api', {
           mode: 'no-cors',
-          signal: AbortSignal.timeout(3000),
+          signal: (() => { const c = new AbortController(); setTimeout(() => c.abort(), 3000); return c.signal; })(),
         });
         LiveNewsPanel.youtubeBlocked = false;
         return true;
