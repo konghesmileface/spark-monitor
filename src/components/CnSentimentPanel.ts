@@ -564,10 +564,10 @@ export class CnSentimentPanel extends Panel {
     } catch (err) {
       if (this.isAbortError(err)) return;
       if (!this.element?.isConnected) return;
-      if (this.retryAttempt < 3) {
+      if (this.retryAttempt < 5) {
         this.retryAttempt++;
-        this.showRetrying(`加载情绪数据...重试 ${this.retryAttempt}/3`);
-        setTimeout(() => void this.fetchData(), 15_000);
+        this.showRetrying(`加载情绪数据...重试 ${this.retryAttempt}/5`);
+        setTimeout(() => void this.fetchData(), 20_000);
         return;
       }
       this.showError('市场情绪数据加载失败');

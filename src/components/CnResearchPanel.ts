@@ -1101,10 +1101,10 @@ export class CnResearchPanel extends Panel {
     } catch (err) {
       if (this.isAbortError(err)) return;
       if (!this.element?.isConnected) return;
-      if (this.retryAttempt < 3) {
+      if (this.retryAttempt < 5) {
         this.retryAttempt++;
-        this.showRetrying(`加载研报数据...重试 ${this.retryAttempt}/3`);
-        setTimeout(() => void this.fetchDbReports(), 15_000);
+        this.showRetrying(`加载研报数据...重试 ${this.retryAttempt}/5`);
+        setTimeout(() => void this.fetchDbReports(), 20_000);
         return;
       }
       this.showError('研报数据加载失败');
