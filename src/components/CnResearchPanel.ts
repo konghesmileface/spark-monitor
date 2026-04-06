@@ -838,6 +838,7 @@ export class CnResearchPanel extends Panel {
       if (dtChip?.dataset.doctype) {
         this.dbDocType = dtChip.dataset.doctype as 'all' | '04' | '05';
         this.dbPage = 1;
+        this.dbData = null; // Clear old data to trigger loading state
         void this.fetchDbReports();
         return;
       }
