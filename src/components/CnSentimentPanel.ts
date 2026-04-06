@@ -567,7 +567,7 @@ export class CnSentimentPanel extends Panel {
       if (this.retryAttempt < 3) {
         this.retryAttempt++;
         this.showRetrying(`加载情绪数据...重试 ${this.retryAttempt}/3`);
-        setTimeout(() => void this.fetchData(), 8_000);
+        setTimeout(() => void this.fetchData(), 15_000);
         return;
       }
       this.showError('市场情绪数据加载失败');

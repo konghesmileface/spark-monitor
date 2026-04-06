@@ -367,7 +367,7 @@ export class CnBriefPanel extends Panel {
       if (this.retryAttempt < 3) {
         this.retryAttempt++;
         this.showRetrying(`加载AI投资简报...重试 ${this.retryAttempt}/3`);
-        setTimeout(() => void this.fetchData(), 8_000);
+        setTimeout(() => void this.fetchData(), 15_000);
         return;
       }
       this.showError('AI投资简报加载失败');

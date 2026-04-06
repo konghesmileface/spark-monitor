@@ -1104,7 +1104,7 @@ export class CnResearchPanel extends Panel {
       if (this.retryAttempt < 3) {
         this.retryAttempt++;
         this.showRetrying(`加载研报数据...重试 ${this.retryAttempt}/3`);
-        setTimeout(() => void this.fetchDbReports(), 8_000);
+        setTimeout(() => void this.fetchDbReports(), 15_000);
         return;
       }
       this.showError('研报数据加载失败');

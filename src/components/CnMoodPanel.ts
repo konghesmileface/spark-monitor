@@ -1233,7 +1233,7 @@ export class CnMoodPanel extends Panel {
       if (this.retryAttempt < 3) {
         this.retryAttempt++;
         this.showRetrying(`加载舆情数据...重试 ${this.retryAttempt}/3`);
-        setTimeout(() => void this.fetchData(), 8_000);
+        setTimeout(() => void this.fetchData(), 15_000);
         return;
       }
       this.showError('舆情数据加载失败');

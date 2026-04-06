@@ -350,7 +350,7 @@ export class CnMarketPanel extends Panel {
       if (this.retryAttempt < 3) {
         this.retryAttempt++;
         this.showRetrying(`加载行情数据...重试 ${this.retryAttempt}/3`);
-        setTimeout(() => void this.fetchData(), 8_000);
+        setTimeout(() => void this.fetchData(), 15_000);
         return;
       }
       this.showError('A股行情数据加载失败');
