@@ -63,7 +63,7 @@ class Config:
     CACHE_TTL_HOT_EVENTS_OFF = 300         # 5min off-hours
     CACHE_TTL_BRIEF = 7200  # 2h (was 6h)
     CACHE_TTL_REGIONAL = 600
-    CACHE_TTL_GOV_NEWS = 1800
+    CACHE_TTL_GOV_NEWS = 7200  # 2h (was 30min, too short)
 
     # Industry advisor TTLs (trading / non-trading)
     CACHE_TTL_INDUSTRY_BRIEF_TRADING = 900     # 15min

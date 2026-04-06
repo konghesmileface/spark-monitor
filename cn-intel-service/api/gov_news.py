@@ -9,7 +9,7 @@ from datetime import date, datetime, timedelta
 from flask import Blueprint, jsonify, request, current_app
 from services.gov_news_crawler import get_gov_news, GOV_CATEGORIES, GOV_SOURCES
 from services.article_fetcher import fetch_article, can_fetch, is_api_fetcher_domain
-from services.cache import cache_get, cache_set, cache_get_stale
+from services.cache import cache_get, cache_set, cache_get_stale, cache_set_stale
 from services.ai_analysis import call_ai
 from services import policy_store
 from services.error_handler import safe_route
@@ -28,7 +28,8 @@ def _background_refresh(app, cache_key, categories):
     with app.app_context():
         try:
             data = get_gov_news(categories=categories)
-            cache_set(cache_key, data, 1800)
+            cache_set(cache_key, data, 7200)  # 2-hour fresh cache (was 30min)
+            cache_set_stale(cache_key, data)  # 7-day stale fallback
             if not categories:
                 _auto_store(data)
             logger.warning(f'[gov-news] Background refresh done: {data.get("total", 0)} items')
