@@ -637,3 +637,34 @@ jobs:
         run: |
           echo "Files in OSS bucket:"
           ossutil ls "oss://${OSS_BUCKET}/" || true
+
+      - name: Update nginx configuration with new version
+        env:
+          SSH_KEY: ${{ secrets.SSH_DEPLOY_KEY }}
+          SSH_HOST: ${{ secrets.SSH_DEPLOY_HOST }}
+          SSH_USER: ${{ secrets.SSH_DEPLOY_USER }}
+        run: |
+          VERSION="${GITHUB_REF#refs/tags/v}"
+          
+          # Setup SSH
+          mkdir -p ~/.ssh
+          echo "$SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H "$SSH_HOST" >> ~/.ssh/known_hosts
+          
+          # Update nginx config on server
+          ssh -i ~/.ssh/deploy_key "${SSH_USER}@${SSH_HOST}" bash << REMOTE
+            # Backup current config
+            cp /etc/nginx/conf.d/worldmonitor.conf /etc/nginx/conf.d/worldmonitor.conf.bak-\$(date +%Y%m%d-%H%M%S)
+            
+            # Update version numbers in config
+            sed -i 's/Spark\.Monitor_[0-9]\+\.[0-9]\+\.[0-9]\+/Spark.Monitor_${VERSION}/g' /etc/nginx/conf.d/worldmonitor.conf
+            
+            # Test and reload nginx
+            nginx -t && systemctl reload nginx
+            
+            echo "✅ Nginx updated to version ${VERSION}"
+          REMOTE
+          
+          # Cleanup
+          rm ~/.ssh/deploy_key
