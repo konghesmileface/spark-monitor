@@ -806,6 +806,7 @@ export class CnResearchPanel extends Panel {
   private drawer: ResearchDrawer;
   private lastFetchTime = 0;
   private freshnessTimer: ReturnType<typeof setInterval> | null = null;
+  private retryAttempt = 0;
 
   constructor() {
     super({ id: 'cn-research', title: '券商研报 <span class="spark-subtitle">RESEARCH</span>' });
@@ -1089,6 +1090,7 @@ export class CnResearchPanel extends Panel {
       const res = await cnFetch(`${CN_INTEL_BASE}/api/cn/research/db?${params}`, { signal: this.signal });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       this.dbData = await res.json();
+      this.retryAttempt = 0;
       this.lastFetchTime = Date.now();
       if ((this.dbData as any)?._stale) {
         this.setDataBadge('cached', '数据可能过时');
@@ -1098,6 +1100,13 @@ export class CnResearchPanel extends Panel {
       this.renderPanel();
     } catch (err) {
       if (this.isAbortError(err)) return;
+      if (!this.element?.isConnected) return;
+      if (this.retryAttempt < 3) {
+        this.retryAttempt++;
+        this.showRetrying(`加载研报数据...重试 ${this.retryAttempt}/3`);
+        setTimeout(() => void this.fetchDbReports(), 8_000);
+        return;
+      }
       this.showError('研报数据加载失败');
     }
   }

@@ -309,6 +309,7 @@ export class CnBriefPanel extends Panel {
   private refreshing = false;
   private lastFetchTime = 0;
   private freshnessTimer: ReturnType<typeof setInterval> | null = null;
+  private retryAttempt = 0;
 
   constructor() {
     super({ id: 'cn-brief', title: 'AI投资简报 <span class="spark-subtitle">DAILY BRIEF</span>' });
@@ -352,6 +353,7 @@ export class CnBriefPanel extends Panel {
       const res = await cnFetch(`${CN_INTEL_BASE}/api/cn/brief`, { signal: this.signal });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       this.data = await res.json();
+      this.retryAttempt = 0;
       this.lastFetchTime = Date.now();
       if ((this.data as any)?._stale) {
         this.setDataBadge('cached', '数据可能过时');
@@ -361,6 +363,13 @@ export class CnBriefPanel extends Panel {
       this.renderPanel();
     } catch (err) {
       if (this.isAbortError(err)) return;
+      if (!this.element?.isConnected) return;
+      if (this.retryAttempt < 3) {
+        this.retryAttempt++;
+        this.showRetrying(`加载AI投资简报...重试 ${this.retryAttempt}/3`);
+        setTimeout(() => void this.fetchData(), 8_000);
+        return;
+      }
       this.showError('AI投资简报加载失败');
     }
   }

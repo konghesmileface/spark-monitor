@@ -1011,6 +1011,7 @@ export class CnMoodPanel extends Panel {
   private seenPostKeys = new Set<string>();
   private lastFetchTime = 0;
   private freshnessTimer: ReturnType<typeof setInterval> | null = null;
+  private retryAttempt = 0;
   // AI analysis report state
   private moodReportData: { report: string; generated: boolean } | null = null;
   private moodReportLoading = false;
@@ -1214,6 +1215,7 @@ export class CnMoodPanel extends Panel {
       const res = await cnFetch(`${CN_INTEL_BASE}/api/cn/mood`, { signal: this.signal });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       this.data = await res.json();
+      this.retryAttempt = 0;
       this.lastFetchTime = Date.now();
       if ((this.data as any)?._stale) {
         this.setDataBadge('cached', '数据可能过时');
@@ -1227,6 +1229,13 @@ export class CnMoodPanel extends Panel {
       }
     } catch (err) {
       if (this.isAbortError(err)) return;
+      if (!this.element?.isConnected) return;
+      if (this.retryAttempt < 3) {
+        this.retryAttempt++;
+        this.showRetrying(`加载舆情数据...重试 ${this.retryAttempt}/3`);
+        setTimeout(() => void this.fetchData(), 8_000);
+        return;
+      }
       this.showError('舆情数据加载失败');
     }
   }

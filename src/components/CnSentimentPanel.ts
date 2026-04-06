@@ -530,6 +530,7 @@ export class CnSentimentPanel extends Panel {
   private insights: SentimentInsights | null = null;
   private lastFetchTime = 0;
   private freshnessTimer: ReturnType<typeof setInterval> | null = null;
+  private retryAttempt = 0;
 
   constructor() {
     super({ id: 'cn-sentiment', title: '市场情绪 <span class="spark-subtitle">SENTIMENT</span>' });
@@ -552,6 +553,7 @@ export class CnSentimentPanel extends Panel {
         const geoData = await geoRes.json();
         this.insights = geoData.insights || null;
       }
+      this.retryAttempt = 0;
       this.lastFetchTime = Date.now();
       if ((this.data as any)?._stale) {
         this.setDataBadge('cached', '数据可能过时');
@@ -561,6 +563,13 @@ export class CnSentimentPanel extends Panel {
       this.renderPanel();
     } catch (err) {
       if (this.isAbortError(err)) return;
+      if (!this.element?.isConnected) return;
+      if (this.retryAttempt < 3) {
+        this.retryAttempt++;
+        this.showRetrying(`加载情绪数据...重试 ${this.retryAttempt}/3`);
+        setTimeout(() => void this.fetchData(), 8_000);
+        return;
+      }
       this.showError('市场情绪数据加载失败');
     }
   }

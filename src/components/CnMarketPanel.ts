@@ -307,6 +307,7 @@ export class CnMarketPanel extends Panel {
   private data: CnMarketData | null = null;
   private lastFetchTime = 0;
   private freshnessTimer: ReturnType<typeof setInterval> | null = null;
+  private retryAttempt = 0;
 
   constructor() {
     super({ id: 'cn-market', title: 'A股行情 <span class="spark-subtitle">CN MARKET</span>' });
@@ -335,6 +336,7 @@ export class CnMarketPanel extends Panel {
       const res = await cnFetch(`${CN_INTEL_BASE}/api/cn/market`, { signal: this.signal });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       this.data = await res.json();
+      this.retryAttempt = 0;
       this.lastFetchTime = Date.now();
       if ((this.data as any)?._stale) {
         this.setDataBadge('cached', '数据可能过时');
@@ -344,6 +346,13 @@ export class CnMarketPanel extends Panel {
       this.renderPanel();
     } catch (err) {
       if (this.isAbortError(err)) return;
+      if (!this.element?.isConnected) return;
+      if (this.retryAttempt < 3) {
+        this.retryAttempt++;
+        this.showRetrying(`加载行情数据...重试 ${this.retryAttempt}/3`);
+        setTimeout(() => void this.fetchData(), 8_000);
+        return;
+      }
       this.showError('A股行情数据加载失败');
     }
   }
