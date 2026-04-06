@@ -1,0 +1,122 @@
+name: 'Upload to OSS'
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to upload (e.g. 2.5.52)'
+        required: true
+        type: string
+
+jobs:
+  upload-to-oss:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install ossutil
+        run: |
+          wget -q https://gosspublic.alicdn.com/ossutil/1.7.19/ossutil-v1.7.19-linux-amd64.zip
+          unzip -q ossutil-v1.7.19-linux-amd64.zip
+          chmod +x ossutil-v1.7.19-linux-amd64/ossutil64
+          sudo mv ossutil-v1.7.19-linux-amd64/ossutil64 /usr/local/bin/ossutil
+
+      - name: Configure ossutil
+        env:
+          OSS_ACCESS_KEY_ID: ${{ secrets.ALIYUN_OSS_ACCESS_KEY_ID }}
+          OSS_ACCESS_KEY_SECRET: ${{ secrets.ALIYUN_OSS_ACCESS_KEY_SECRET }}
+          OSS_ENDPOINT: ${{ secrets.ALIYUN_OSS_ENDPOINT }}
+        run: |
+          ossutil config \
+            -e "${OSS_ENDPOINT}.aliyuncs.com" \
+            -i "$OSS_ACCESS_KEY_ID" \
+            -k "$OSS_ACCESS_KEY_SECRET"
+
+      - name: Download from WM server and upload to OSS
+        env:
+          SSH_KEY: ${{ secrets.SSH_DEPLOY_KEY }}
+          SSH_HOST: ${{ secrets.SSH_DEPLOY_HOST }}
+          SSH_USER: ${{ secrets.SSH_DEPLOY_USER }}
+          OSS_BUCKET: ${{ secrets.ALIYUN_OSS_BUCKET }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          # Setup SSH
+          mkdir -p ~/.ssh
+          echo "$SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H "$SSH_HOST" >> ~/.ssh/known_hosts 2>/dev/null
+
+          # Download files from WM server
+          mkdir -p downloads
+          scp -i ~/.ssh/deploy_key "${SSH_USER}@${SSH_HOST}:/opt/worldmonitor/dist/downloads/Spark.Monitor_${VERSION}_*" downloads/ || {
+            echo "Failed to download files from server"
+            exit 1
+          }
+
+          echo "Downloaded files:"
+          ls -lh downloads/
+
+          # Upload to OSS
+          for file in downloads/Spark.Monitor_*; do
+            if [ -f "$file" ]; then
+              echo "Uploading $(basename "$file")..."
+              ossutil cp "$file" "oss://${OSS_BUCKET}/$(basename "$file")" \
+                --meta "Cache-Control:public,max-age=604800" \
+                --meta "Content-Disposition:attachment" \
+                -f
+            fi
+          done
+
+          echo "All files uploaded to OSS"
+
+          # List bucket contents
+          echo "Files in OSS bucket:"
+          ossutil ls "oss://${OSS_BUCKET}/" || true
+
+          # Cleanup
+          rm ~/.ssh/deploy_key
+
+      - name: Update nginx to OSS redirect mode
+        env:
+          SSH_KEY: ${{ secrets.SSH_DEPLOY_KEY }}
+          SSH_HOST: ${{ secrets.SSH_DEPLOY_HOST }}
+          SSH_USER: ${{ secrets.SSH_DEPLOY_USER }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          mkdir -p ~/.ssh
+          echo "$SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H "$SSH_HOST" >> ~/.ssh/known_hosts 2>/dev/null
+
+          ssh -i ~/.ssh/deploy_key "${SSH_USER}@${SSH_HOST}" bash << REMOTE
+            set -e
+
+            # Backup current config
+            cp /etc/nginx/conf.d/worldmonitor.conf /etc/nginx/conf.d/worldmonitor.conf.bak-\$(date +%Y%m%d-%H%M%S)
+
+            # Use sed to update the downloads block to OSS redirect mode
+            # Step 1: Replace the /downloads/ location block content
+            sed -i '/location \/downloads\/ {/,/^    }/ {
+              /location \/downloads\/ {/!{
+                /^    }/!d
+              }
+            }' /etc/nginx/conf.d/worldmonitor.conf
+
+            # Insert OSS redirect inside the location block
+            sed -i '/location \/downloads\/ {/a\        # Redirect to Aliyun OSS (China CDN accelerated)\n        return 302 https://worldmonitor-downloads.oss-cn-shanghai.aliyuncs.com\$request_uri;' /etc/nginx/conf.d/worldmonitor.conf
+
+            # Step 2: Update the /api/download block
+            # Replace dl_base with oss_base
+            sed -i 's|set \$dl_base "/downloads"|set \$oss_base "https://worldmonitor-downloads.oss-cn-shanghai.aliyuncs.com"|g' /etc/nginx/conf.d/worldmonitor.conf
+            sed -i 's|\$dl_base/|\$oss_base/|g' /etc/nginx/conf.d/worldmonitor.conf
+
+            # Step 3: Update version numbers
+            sed -i 's/Spark\.Monitor_[0-9]\+\.[0-9]\+\.[0-9]\+/Spark.Monitor_${VERSION}/g' /etc/nginx/conf.d/worldmonitor.conf
+
+            # Update comment
+            sed -i 's/Desktop installer downloads (local files from dist\/downloads\/)/Desktop installer downloads (OSS CDN accelerated)/g' /etc/nginx/conf.d/worldmonitor.conf
+
+            # Test and reload nginx
+            nginx -t && systemctl reload nginx
+            echo "Nginx updated to OSS redirect mode with version ${VERSION}"
+          REMOTE
+
+          rm ~/.ssh/deploy_key
