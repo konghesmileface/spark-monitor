@@ -253,6 +253,126 @@ GOV_SOURCES = {
         'url': 'http://politics.people.com.cn/GB/1024/index1.html',
         'icon': 'bi-person-badge',
     },
+    'xinhua_leaders': {
+        'name': '新华网领导活动',
+        'category': '领导活动',
+        'url': 'http://www.news.cn/politics/leaders/',
+        'icon': 'bi-person-badge-fill',
+    },
+    'gov_premier': {
+        'name': '国务院总理',
+        'category': '领导活动',
+        'url': 'https://www.gov.cn/premier/',
+        'icon': 'bi-stars',
+    },
+    'pbc_governor': {
+        'name': '央行行长',
+        'category': '领导活动',
+        'url': 'http://www.pbc.gov.cn/hangzhang/',
+        'icon': 'bi-bank',
+    },
+    'mof_minister': {
+        'name': '财政部部长',
+        'category': '领导活动',
+        'url': 'http://www.mof.gov.cn/zhengwuxinxi/buzhanghuodong/',
+        'icon': 'bi-cash-coin',
+    },
+    'ndrc_chairman': {
+        'name': '发改委主任',
+        'category': '领导活动',
+        'url': 'https://www.ndrc.gov.cn/xxgk/ldxx/',
+        'icon': 'bi-building',
+    },
+    'csrc_chairman': {
+        'name': '证监会主席',
+        'category': '领导活动',
+        'url': 'http://www.csrc.gov.cn/zjhxwfb/xwdd/zjhlddt/',
+        'icon': 'bi-shield-check',
+    },
+    'nfra_chairman': {
+        'name': '金监总局局长',
+        'category': '领导活动',
+        'url': 'https://www.nfra.gov.cn/cn/view/pages/ItemList.html?itemPId=923',
+        'icon': 'bi-shield-lock',
+    },
+    'mofcom_minister': {
+        'name': '商务部部长',
+        'category': '领导活动',
+        'url': 'http://www.mofcom.gov.cn/article/i/jyjl/',
+        'icon': 'bi-shop',
+    },
+    'mfa_spokesman': {
+        'name': '外交部发言人',
+        'category': '领导活动',
+        'url': 'https://www.mfa.gov.cn/web/fyrbt_673021/',
+        'icon': 'bi-globe2',
+    },
+    'safe_director': {
+        'name': '外汇局局长',
+        'category': '领导活动',
+        'url': 'https://www.safe.gov.cn/safe/rdjj/index.html',
+        'icon': 'bi-currency-exchange',
+    },
+    'miit_minister': {
+        'name': '工信部部长',
+        'category': '领导活动',
+        'url': 'https://www.miit.gov.cn/gzcy/bzhdxwfbh/ld/',
+        'icon': 'bi-cpu-fill',
+    },
+    'mohrss_minister': {
+        'name': '人社部部长',
+        'category': '领导活动',
+        'url': 'http://www.mohrss.gov.cn/SYrlzyhshbzb/dongtaixinwen/buneiyaowen/',
+        'icon': 'bi-people',
+    },
+    'mohurd_minister': {
+        'name': '住建部部长',
+        'category': '领导活动',
+        'url': 'https://www.mohurd.gov.cn/xinwen/lingdaohuodong/',
+        'icon': 'bi-house-door',
+    },
+    'mot_minister': {
+        'name': '交通部部长',
+        'category': '领导活动',
+        'url': 'https://www.mot.gov.cn/jiaotongyaowen/202109/t20210901_3617449.html',
+        'icon': 'bi-truck',
+    },
+    'moa_minister': {
+        'name': '农业部部长',
+        'category': '领导活动',
+        'url': 'http://www.moa.gov.cn/xw/bmdt/',
+        'icon': 'bi-flower1',
+    },
+    'most_minister': {
+        'name': '科技部部长',
+        'category': '领导活动',
+        'url': 'https://www.most.gov.cn/kjbgz/',
+        'icon': 'bi-cpu',
+    },
+    'mee_minister': {
+        'name': '环境部部长',
+        'category': '领导活动',
+        'url': 'https://www.mee.gov.cn/home/bzhdt/',
+        'icon': 'bi-tree',
+    },
+    'nhc_director': {
+        'name': '卫健委主任',
+        'category': '领导活动',
+        'url': 'http://www.nhc.gov.cn/wjw/ldxx/list.shtml',
+        'icon': 'bi-heart-pulse',
+    },
+    'mem_minister': {
+        'name': '应急部部长',
+        'category': '领导活动',
+        'url': 'https://www.mem.gov.cn/gk/ldxx/',
+        'icon': 'bi-shield-exclamation',
+    },
+    'sasac_director': {
+        'name': '国资委主任',
+        'category': '领导活动',
+        'url': 'http://www.sasac.gov.cn/n2588025/n2588119/index.html',
+        'icon': 'bi-building-gear',
+    },
     # ── 纪检监察 ──
     'ccdi_inspect': {
         'name': '审查调查',
@@ -1512,6 +1632,124 @@ def _fetch_leaders():
     return items[:30]
 
 
+def _fetch_xinhua_leaders():
+    """新华网领导活动专栏"""
+    return _fetch_gov_generic('http://www.news.cn/politics/leaders/', 'xinhua_leaders')
+
+
+def _fetch_gov_premier():
+    """国务院总理活动"""
+    return _fetch_gov_generic('https://www.gov.cn/premier/', 'gov_premier',
+                              base_url='https://www.gov.cn')
+
+
+def _fetch_pbc_governor():
+    """人民银行行长活动"""
+    return _fetch_gov_generic('http://www.pbc.gov.cn/hangzhang/', 'pbc_governor',
+                              base_url='http://www.pbc.gov.cn')
+
+
+def _fetch_mof_minister():
+    """财政部部长活动"""
+    return _fetch_gov_generic('http://www.mof.gov.cn/zhengwuxinxi/buzhanghuodong/', 'mof_minister',
+                              base_url='http://www.mof.gov.cn')
+
+
+def _fetch_ndrc_chairman():
+    """发改委主任活动"""
+    return _fetch_gov_generic('https://www.ndrc.gov.cn/xxgk/ldxx/', 'ndrc_chairman',
+                              base_url='https://www.ndrc.gov.cn')
+
+
+def _fetch_csrc_chairman():
+    """证监会主席活动"""
+    return _fetch_gov_generic('http://www.csrc.gov.cn/zjhxwfb/xwdd/zjhlddt/', 'csrc_chairman',
+                              base_url='http://www.csrc.gov.cn')
+
+
+def _fetch_nfra_chairman():
+    """金监总局局长活动"""
+    return _fetch_gov_generic('https://www.nfra.gov.cn/cn/view/pages/ItemList.html?itemPId=923', 'nfra_chairman',
+                              base_url='https://www.nfra.gov.cn')
+
+
+def _fetch_mofcom_minister():
+    """商务部部长活动"""
+    return _fetch_gov_generic('http://www.mofcom.gov.cn/article/i/jyjl/', 'mofcom_minister',
+                              base_url='http://www.mofcom.gov.cn')
+
+
+def _fetch_mfa_spokesman():
+    """外交部发言人例行记者会"""
+    return _fetch_gov_generic('https://www.mfa.gov.cn/web/fyrbt_673021/', 'mfa_spokesman',
+                              base_url='https://www.mfa.gov.cn')
+
+
+def _fetch_safe_director():
+    """外汇局局长活动"""
+    return _fetch_gov_generic('https://www.safe.gov.cn/safe/rdjj/index.html', 'safe_director',
+                              base_url='https://www.safe.gov.cn')
+
+
+def _fetch_miit_minister():
+    """工信部部长活动"""
+    return _fetch_gov_generic('https://www.miit.gov.cn/gzcy/bzhdxwfbh/ld/', 'miit_minister',
+                              base_url='https://www.miit.gov.cn')
+
+
+def _fetch_mohrss_minister():
+    """人社部部长活动"""
+    return _fetch_gov_generic('http://www.mohrss.gov.cn/SYrlzyhshbzb/dongtaixinwen/buneiyaowen/', 'mohrss_minister',
+                              base_url='http://www.mohrss.gov.cn')
+
+
+def _fetch_mohurd_minister():
+    """住建部部长活动"""
+    return _fetch_gov_generic('https://www.mohurd.gov.cn/xinwen/lingdaohuodong/', 'mohurd_minister',
+                              base_url='https://www.mohurd.gov.cn')
+
+
+def _fetch_mot_minister():
+    """交通部部长活动"""
+    return _fetch_gov_generic('https://www.mot.gov.cn/', 'mot_minister')
+
+
+def _fetch_moa_minister():
+    """农业部部长活动"""
+    return _fetch_gov_generic('http://www.moa.gov.cn/xw/bmdt/', 'moa_minister',
+                              base_url='http://www.moa.gov.cn')
+
+
+def _fetch_most_minister():
+    """科技部部长活动"""
+    return _fetch_gov_generic('https://www.most.gov.cn/kjbgz/', 'most_minister',
+                              base_url='https://www.most.gov.cn')
+
+
+def _fetch_mee_minister():
+    """环境部部长活动"""
+    return _fetch_gov_generic('https://www.mee.gov.cn/home/bzhdt/', 'mee_minister',
+                              base_url='https://www.mee.gov.cn')
+
+
+def _fetch_nhc_director():
+    """卫健委主任活动"""
+    return _fetch_gov_generic('http://www.nhc.gov.cn/wjw/ldxx/list.shtml', 'nhc_director',
+                              base_url='http://www.nhc.gov.cn')
+
+
+def _fetch_mem_minister():
+    """应急部部长活动"""
+    return _fetch_gov_generic('https://www.mem.gov.cn/gk/ldxx/', 'mem_minister',
+                              base_url='https://www.mem.gov.cn')
+
+
+def _fetch_sasac_director():
+    """国资委主任活动"""
+    return _fetch_gov_generic('http://www.sasac.gov.cn/n2588025/n2588119/index.html', 'sasac_director',
+                              base_url='http://www.sasac.gov.cn')
+
+
 # ── 纪检监察 fetchers ──────────────────────────────────────────────────────
 
 def _fetch_ccdi_inspect():
@@ -2396,6 +2634,26 @@ def _fetch_bis():
 _FETCHERS = {
     # 领导活动
     'leaders': _fetch_leaders,
+    'xinhua_leaders': _fetch_xinhua_leaders,
+    'gov_premier': _fetch_gov_premier,
+    'pbc_governor': _fetch_pbc_governor,
+    'mof_minister': _fetch_mof_minister,
+    'ndrc_chairman': _fetch_ndrc_chairman,
+    'csrc_chairman': _fetch_csrc_chairman,
+    'nfra_chairman': _fetch_nfra_chairman,
+    'mofcom_minister': _fetch_mofcom_minister,
+    'mfa_spokesman': _fetch_mfa_spokesman,
+    'safe_director': _fetch_safe_director,
+    'miit_minister': _fetch_miit_minister,
+    'mohrss_minister': _fetch_mohrss_minister,
+    'mohurd_minister': _fetch_mohurd_minister,
+    'mot_minister': _fetch_mot_minister,
+    'moa_minister': _fetch_moa_minister,
+    'most_minister': _fetch_most_minister,
+    'mee_minister': _fetch_mee_minister,
+    'nhc_director': _fetch_nhc_director,
+    'mem_minister': _fetch_mem_minister,
+    'sasac_director': _fetch_sasac_director,
     # 央媒
     'people': _fetch_people,
     'xinhua': _fetch_xinhua,
