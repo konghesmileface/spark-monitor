@@ -22,11 +22,10 @@ const DEFAULT_LOCAL_API_PORT: u16 = 46123;
 const KEYRING_SERVICE: &str = "spark-monitor";
 const LOCAL_API_LOG_FILE: &str = "local-api.log";
 const DESKTOP_LOG_FILE: &str = "desktop.log";
-const MENU_FILE_SETTINGS_ID: &str = "file.settings";
 const MENU_HELP_GITHUB_ID: &str = "help.github";
 #[cfg(feature = "devtools")]
 const MENU_HELP_DEVTOOLS_ID: &str = "help.devtools";
-const TRUSTED_WINDOWS: [&str; 3] = ["main", "settings", "live-channels"];
+const TRUSTED_WINDOWS: [&str; 2] = ["main", "live-channels"];
 const SUPPORTED_SECRET_KEYS: [&str; 25] = [
     "GROQ_API_KEY",
     "OPENROUTER_API_KEY",
@@ -505,11 +504,6 @@ fn open_sidecar_log_file(app: AppHandle) -> Result<String, String> {
 }
 
 #[tauri::command]
-async fn open_settings_window_command(app: AppHandle) -> Result<(), String> {
-    open_settings_window(&app)
-}
-
-#[tauri::command]
 fn close_settings_window(app: AppHandle) -> Result<(), String> {
     if let Some(window) = app.get_webview_window("settings") {
         window
@@ -565,32 +559,6 @@ async fn fetch_polymarket(webview: Webview, path: String, params: String) -> Res
     resp.text()
         .await
         .map_err(|e| format!("Read body failed: {e}"))
-}
-
-fn open_settings_window(app: &AppHandle) -> Result<(), String> {
-    if let Some(window) = app.get_webview_window("settings") {
-        let _ = window.show();
-        window
-            .set_focus()
-            .map_err(|e| format!("Failed to focus settings window: {e}"))?;
-        return Ok(());
-    }
-
-    let _settings_window = WebviewWindowBuilder::new(app, "settings", WebviewUrl::App("settings.html".into()))
-        .title("Spark Monitor Settings")
-        .inner_size(980.0, 600.0)
-        .min_inner_size(820.0, 480.0)
-        .resizable(true)
-        .background_color(tauri::webview::Color(26, 28, 30, 255))
-        .build()
-        .map_err(|e| format!("Failed to create settings window: {e}"))?;
-
-    // On Windows/Linux, menus are per-window. Remove the inherited app menu
-    // from the settings window (macOS uses a shared app-wide menu bar instead).
-    #[cfg(not(target_os = "macos"))]
-    let _ = _settings_window.remove_menu();
-
-    Ok(())
 }
 
 fn open_live_channels_window(app: &AppHandle, base_url: Option<String>) -> Result<(), String> {
@@ -661,20 +629,12 @@ async fn open_youtube_login(app: AppHandle) -> Result<(), String> {
 }
 
 fn build_app_menu(handle: &AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
-    let settings_item = MenuItem::with_id(
-        handle,
-        MENU_FILE_SETTINGS_ID,
-        "Settings...",
-        true,
-        Some("CmdOrCtrl+,"),
-    )?;
-    let separator = PredefinedMenuItem::separator(handle)?;
     let quit_item = PredefinedMenuItem::quit(handle, Some("Quit"))?;
     let file_menu = Submenu::with_items(
         handle,
         "File",
         true,
-        &[&settings_item, &separator, &quit_item],
+        &[&quit_item],
     )?;
 
     let about_metadata = AboutMetadata {
@@ -742,12 +702,6 @@ fn build_app_menu(handle: &AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
 
 fn handle_menu_event(app: &AppHandle, event: tauri::menu::MenuEvent) {
     match event.id().as_ref() {
-        MENU_FILE_SETTINGS_ID => {
-            if let Err(err) = open_settings_window(app) {
-                append_desktop_log(app, "ERROR", &format!("settings menu failed: {err}"));
-                eprintln!("[tauri] settings menu failed: {err}");
-            }
-        }
         MENU_HELP_GITHUB_ID => {
             let _ = open_in_shell("https://github.com/konghesmileface/spark-monitor");
         }
@@ -1361,7 +1315,6 @@ fn main() {
             clear_all_cache_entries,
             open_logs_folder,
             open_sidecar_log_file,
-            open_settings_window_command,
             close_settings_window,
             open_live_channels_window_command,
             close_live_channels_window,
@@ -1407,20 +1360,6 @@ fn main() {
                     if let Some(w) = app.get_webview_window("main") {
                         let _ = w.show();
                         let _ = w.set_focus();
-                    }
-                }
-                // Only macOS needs explicit re-raising to keep settings above the main window.
-                // On Windows, focusing the settings window here can trigger rapid focus churn
-                // between windows and present as a UI hang.
-                #[cfg(target_os = "macos")]
-                RunEvent::WindowEvent {
-                    label,
-                    event: WindowEvent::Focused(true),
-                    ..
-                } if label == "main" => {
-                    if let Some(sw) = app.get_webview_window("settings") {
-                        let _ = sw.show();
-                        let _ = sw.set_focus();
                     }
                 }
                 RunEvent::ExitRequested { .. } | RunEvent::Exit => {

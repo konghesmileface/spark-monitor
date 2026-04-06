@@ -8,6 +8,31 @@ from services.cache import cache_get, cache_set
 
 logger = logging.getLogger('cn-intel.signal-tracker')
 
+
+def _fetch_titles_and_dates(start_date: str, end_date: str) -> list:
+    """Lightweight DB fetch: only title + date for keyword scanning."""
+    import pymysql
+    from services.db_pool import get_connection
+    try:
+        conn = get_connection()
+        try:
+            with conn.cursor(pymysql.cursors.DictCursor) as cur:
+                cur.execute(
+                    "SELECT title, news_date FROM policy_news "
+                    "WHERE news_date BETWEEN %s AND %s "
+                    "ORDER BY news_date DESC LIMIT 2000",
+                    (start_date, end_date),
+                )
+                return [{'title': r['title'] or '', 'date': str(r['news_date']) if r['news_date'] else ''}
+                        for r in cur.fetchall()]
+        finally:
+            conn.close()
+    except Exception as e:
+        logger.warning(f'signal-tracker DB fetch failed: {e}')
+        from services import policy_store
+        return policy_store.get_items_by_date_range(start_date, end_date, limit=2000)
+
+
 # Tracked keyword groups — each group represents a policy domain
 TRACKED_KEYWORDS = {
     '货币政策基调': ['稳健', '适度宽松', '宽松', '偏紧', '精准有力', '灵活适度'],
@@ -47,15 +72,11 @@ def compute_keyword_trends(days_back: int = 90) -> dict:
     if cached:
         return cached
 
-    from services import policy_store
-
     today = date.today()
     start_date = today - timedelta(days=days_back)
 
-    # Fetch all items in range
-    items = policy_store.get_items_by_date_range(
-        start_date.isoformat(), today.isoformat(), limit=5000
-    )
+    # Lightweight query: only title + date (no SELECT *, no _rows_to_items overhead)
+    items = _fetch_titles_and_dates(start_date.isoformat(), today.isoformat())
 
     if not items:
         result = {'groups': [], 'emerging': [], 'timestamp': today.isoformat()}
@@ -70,7 +91,37 @@ def compute_keyword_trends(days_back: int = 90) -> dict:
         weeks.append((w_start, w_end))
         w_start = w_end + timedelta(days=1)
 
-    # Count keyword occurrences per week
+    # Flatten all keywords and build reverse lookup
+    all_kw_set = set()
+    for keywords in TRACKED_KEYWORDS.values():
+        all_kw_set.update(keywords)
+    all_kw_list = list(all_kw_set)
+
+    # Build week index lookup: date_str → week_index
+    week_iso = [(w_start.isoformat(), w_end.isoformat()) for w_start, w_end in weeks]
+
+    # Single pass: scan all items once, count keyword hits per week — O(items × keywords)
+    # counts[(kw, week_idx)] = count
+    counts = {}
+    for item in items:
+        item_date = item.get('date', '')
+        title = item.get('title', '') or ''
+        if not item_date or not title:
+            continue
+        # Find which week this item belongs to (binary-ish but weeks are small ~13)
+        week_idx = -1
+        for wi, (ws, we) in enumerate(week_iso):
+            if ws <= item_date <= we:
+                week_idx = wi
+                break
+        if week_idx < 0:
+            continue
+        # Check all keywords in title
+        for kw in all_kw_list:
+            if kw in title:
+                counts[(kw, week_idx)] = counts.get((kw, week_idx), 0) + 1
+
+    # Build results from precomputed counts
     groups_result = []
     all_emerging = []
 
@@ -79,15 +130,8 @@ def compute_keyword_trends(days_back: int = 90) -> dict:
         for kw in keywords:
             weekly_counts = []
             total = 0
-            for w_start, w_end in weeks:
-                count = 0
-                for item in items:
-                    item_date = item.get('date', '')
-                    if not item_date:
-                        continue
-                    if w_start.isoformat() <= item_date <= w_end.isoformat():
-                        if kw in (item.get('title', '') or ''):
-                            count += 1
+            for wi, (w_start, _) in enumerate(weeks):
+                count = counts.get((kw, wi), 0)
                 weekly_counts.append({
                     'week_start': w_start.isoformat(),
                     'count': count,
@@ -158,5 +202,5 @@ def compute_keyword_trends(days_back: int = 90) -> dict:
         },
         'timestamp': today.isoformat(),
     }
-    cache_set(cache_key, result, 3600)  # 1h cache
+    cache_set(cache_key, result, 21600)  # 6h cache (trend data changes slowly)
     return result

@@ -1,5 +1,3 @@
-import { isDesktopRuntime } from '../services/runtime';
-import { invokeTauri } from '../services/tauri-bridge';
 import { t } from '../services/i18n';
 import { h, replaceChildren, safeHtml } from '../utils/dom-utils';
 import { trackPanelResized } from '@/services/analytics';
@@ -648,15 +646,6 @@ export class Panel {
 
   public showConfigError(message: string): void {
     const msgEl = h('div', { className: 'config-error-message' }, message);
-    if (isDesktopRuntime()) {
-      msgEl.appendChild(
-        h('button', {
-          type: 'button',
-          className: 'config-error-settings-btn',
-          onClick: () => void invokeTauri<void>('open_settings_window_command').catch(() => { }),
-        }, t('components.panel.openSettings')),
-      );
-    }
     replaceChildren(this.content, msgEl);
   }
 

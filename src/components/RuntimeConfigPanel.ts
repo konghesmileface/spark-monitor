@@ -342,11 +342,6 @@ export class RuntimeConfigPanel extends Panel {
     if (!isDesktopRuntime()) return;
 
     if (this.mode === 'alert') {
-      this.content.querySelector<HTMLButtonElement>('[data-open-settings]')?.addEventListener('click', () => {
-        void invokeTauri<void>('open_settings_window_command').catch((error) => {
-          console.warn('[runtime-config] Failed to open settings window', error);
-        });
-      });
       return;
     }
 

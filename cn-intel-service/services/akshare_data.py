@@ -654,8 +654,10 @@ _TYPE_LABELS = {
 
 def get_db_research_reports(page=1, page_size=30, keyword='', doc_type='all'):
     """Get research reports from remote MySQL database.
-    doc_type: 'all' (04+05), '04' (研报 only), '05' (自媒体 only)."""
+    doc_type: 'all' (04+05), '04' (研报 only), '05' (自媒体 only).
+    Default: only last 7 days (unless keyword search spans all time)."""
     from services.db_pool import get_connection
+    from datetime import timedelta
     reports = []
     total = 0
     sources = []
@@ -671,22 +673,28 @@ def get_db_research_reports(page=1, page_size=30, keyword='', doc_type='all'):
                 else:
                     where = "type IN ('04', '05')"
                 params = []
+
+                # Default 7-day window when no keyword search
                 if keyword:
                     where += " AND (info_title LIKE %s OR media LIKE %s OR resume LIKE %s)"
                     like = f'%{keyword}%'
                     params.extend([like, like, like])
+                else:
+                    cutoff = (datetime.now() - timedelta(days=7)).strftime('%Y-%m-%d')
+                    where += " AND news_date >= %s"
+                    params.append(cutoff)
 
                 # Total count
                 cur.execute(f"SELECT COUNT(*) as cnt FROM news WHERE {where}", params)
                 total = cur.fetchone()['cnt']
 
-                # Paginated results
+                # Paginated list — lightweight fields only (no macro_array)
                 offset = (page - 1) * page_size
                 cur.execute(
-                    f"""SELECT id, info_title, news_date, info_publ_time, media,
-                               resume, link_address, industry_array,
-                               secu_array_stock, emotion, type,
-                               LEFT(macro_array, 20000) as content
+                    f"""SELECT id, info_title, news_date, media,
+                               LEFT(resume, 300) as resume,
+                               link_address, industry_array, secu_array_stock,
+                               emotion, type
                         FROM news
                         WHERE {where}
                         ORDER BY news_date DESC, id DESC
@@ -696,38 +704,29 @@ def get_db_research_reports(page=1, page_size=30, keyword='', doc_type='all'):
                 rows = cur.fetchall()
 
                 for row in rows:
-                    title = str(row.get('info_title') or '')
-                    source = str(row.get('media') or '')
                     date_val = row.get('news_date')
-                    date_str = str(date_val)[:10] if date_val else ''
-                    resume = str(row.get('resume') or '')
-                    content = str(row.get('content') or '')
-                    industry = str(row.get('industry_array') or '')
-                    stocks = str(row.get('secu_array_stock') or '')
-                    emotion = row.get('emotion')
-                    link = str(row.get('link_address') or '')
                     row_type = str(row.get('type') or '04')
-
                     reports.append({
                         'id': f'db_{row["id"]}',
-                        'title': title,
-                        'institution': source,
-                        'date': date_str,
-                        'summary': resume,
-                        'content': content,
-                        'link': link,
-                        'industry': industry,
-                        'stocks': stocks,
-                        'emotion': emotion,
+                        'title': str(row.get('info_title') or ''),
+                        'institution': str(row.get('media') or ''),
+                        'date': str(date_val)[:10] if date_val else '',
+                        'summary': str(row.get('resume') or ''),
+                        'link': str(row.get('link_address') or ''),
+                        'industry': str(row.get('industry_array') or ''),
+                        'stocks': str(row.get('secu_array_stock') or ''),
+                        'emotion': row.get('emotion'),
                         'type': row_type,
                         'typeLabel': _TYPE_LABELS.get(row_type, '其他'),
                     })
 
-                # Get distinct sources (both types)
+                # Get distinct sources (recent 30 days only for speed)
                 type_cond = "type IN ('04','05')" if doc_type == 'all' else f"type='{doc_type}'"
+                src_cutoff = (datetime.now() - timedelta(days=30)).strftime('%Y-%m-%d')
                 cur.execute(
                     f"SELECT media, COUNT(*) as cnt FROM news WHERE {type_cond} "
-                    "GROUP BY media ORDER BY cnt DESC LIMIT 20"
+                    "AND news_date >= %s GROUP BY media ORDER BY cnt DESC LIMIT 20",
+                    (src_cutoff,),
                 )
                 sources = [{'name': r['media'], 'count': r['cnt']} for r in cur.fetchall() if r['media']]
         finally:
@@ -747,8 +746,10 @@ def get_db_research_reports(page=1, page_size=30, keyword='', doc_type='all'):
 
 def get_db_news_articles(page=1, page_size=30, keyword='', news_type='all'):
     """Get news articles (types 0/01/02/03) from remote MySQL for 舆情 panel.
-    news_type: 'all' (0+01+02+03), '0', '01', '02', '03'."""
+    news_type: 'all' (0+01+02+03), '0', '01', '02', '03'.
+    Default: last 7 days (keyword search spans all time)."""
     from services.db_pool import get_connection
+    from datetime import timedelta
     articles = []
     total = 0
     try:
@@ -764,6 +765,10 @@ def get_db_news_articles(page=1, page_size=30, keyword='', news_type='all'):
                     where += " AND (info_title LIKE %s OR media LIKE %s OR resume LIKE %s)"
                     like = f'%{keyword}%'
                     params.extend([like, like, like])
+                else:
+                    cutoff = (datetime.now() - timedelta(days=7)).strftime('%Y-%m-%d')
+                    where += " AND news_date >= %s"
+                    params.append(cutoff)
 
                 cur.execute(f"SELECT COUNT(*) as cnt FROM news WHERE {where}", params)
                 total = cur.fetchone()['cnt']
