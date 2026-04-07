@@ -465,17 +465,8 @@
 
 /* ---- Responsive: wide 2-col layout — panels in right column ---- */
 @media (min-width: 1600px) {
-  /* Right column is ~40% of screen — full-width panels, tall rows */
-  [data-variant="spark"] .panels-grid {
-    grid-template-columns: 1fr !important;
-    grid-auto-rows: minmax(400px, 560px) !important;
-    gap: 6px;
-    padding: 6px;
-  }
-
-  /* All panels: single column, no col/row spanning */
+  /* Right column is ~40% of screen — prevent multi-col span in narrow column */
   [data-variant="spark"] .panels-grid > .panel {
-    grid-row: span 1 !important;
     grid-column: span 1 !important;
   }
 }
@@ -502,13 +493,13 @@
   }
 }
 
-/* ---- Windows: taller panels to compensate for DPI scaling ---- */
-/* Windows 125% DPI on 1920x1080 = 1536px CSS viewport, misses the 1600px breakpoint.
-   Give Windows the single-column tall layout at a lower threshold. */
+/* ---- Windows: single-column tall panels for Tauri desktop ---- */
+/* Windows 125% DPI on 1920×1080 = 1536px CSS viewport.
+   Single-column with tall panels for full readability in desktop app. */
 @media (min-width: 1200px) {
   [data-platform="windows"][data-variant="spark"] .panels-grid {
     grid-template-columns: 1fr !important;
-    grid-auto-rows: minmax(400px, 560px) !important;
+    grid-auto-rows: minmax(600px, 800px) !important;
     gap: 6px;
     padding: 6px;
   }
@@ -521,7 +512,7 @@
 /* Windows smaller screens: still increase row height */
 @media (max-width: 1199px) {
   [data-platform="windows"][data-variant="spark"] .panels-grid {
-    grid-auto-rows: minmax(340px, 500px);
+    grid-auto-rows: minmax(500px, 700px);
   }
 }
 

@@ -1010,63 +1010,6 @@ export class PanelLayoutManager implements AppModule {
       }
     });
 
-    // Spark world-mode: force tall single-column panels on wide screens.
-    // v2.5.55-61: inline styles + !important all failed because main.css
-    // is wrapped in @layer base (base-layer.css), and for !important
-    // declarations @layer !important > inline !important in CSS cascade.
-    // v2.5.62: inject an UNLAYERED <style> at document end — unlayered
-    // normal declarations beat @layer normal declarations.
-    if (SITE_VARIANT === 'spark') {
-      const cs = window.getComputedStyle(panelsGrid);
-      const firstPanel = panelsGrid.querySelector('.panel') as HTMLElement | null;
-      const fps = firstPanel ? window.getComputedStyle(firstPanel) : null;
-
-      // Diagnostic: show computed styles to debug cascade issues
-      const dbg = document.createElement('div');
-      dbg.style.cssText = 'position:fixed;bottom:0;left:0;right:0;background:#1a1a2e;color:#0f0;padding:8px 12px;font:11px/1.4 monospace;z-index:99999;max-height:120px;overflow-y:auto;border-top:2px solid #e53e3e;';
-      dbg.innerHTML = [
-        `<b>v2.5.62 DIAG</b>`,
-        `variant=${document.documentElement.dataset.variant} platform=${document.documentElement.dataset.platform}`,
-        `viewport=${window.innerWidth}x${window.innerHeight}`,
-        `panelsGrid: display=${cs.display} cols=${cs.gridTemplateColumns} rows=${cs.gridAutoRows}`,
-        `panelsGrid: overflow=${cs.overflowY} height=${cs.height}`,
-        `panelsGrid.style.cssText="${panelsGrid.style.cssText}"`,
-        `panel[0]: h=${fps?.height} w=${fps?.width} display=${fps?.display}`,
-        `panels.length=${panelsGrid.querySelectorAll('.panel').length}`,
-      ].join('<br>');
-      document.body.appendChild(dbg);
-
-      // Fix: inject unlayered CSS that overrides @layer base.
-      // For normal declarations: unlayered > @layer > inline
-      // So these rules beat everything in main.css/@layer base WITHOUT !important.
-      const fix = document.createElement('style');
-      fix.textContent = `
-        @media (min-width: 1200px) {
-          #panelsGrid {
-            display: flex;
-            flex-direction: column;
-            gap: 6px;
-            padding: 6px;
-            overflow-y: auto;
-            min-height: 0;
-          }
-          #panelsGrid > .panel {
-            height: 450px;
-            min-height: 450px;
-            flex-shrink: 0;
-            width: 100%;
-          }
-          .main-content {
-            display: grid;
-            grid-template-columns: 60% 1fr;
-            grid-template-rows: 1fr;
-            overflow: hidden;
-          }
-        }
-      `;
-      document.head.appendChild(fix);
-    }
-
     this.syncBottomGridVisibility();
     window.addEventListener('resize', () => this.ensureCorrectZones());
 
