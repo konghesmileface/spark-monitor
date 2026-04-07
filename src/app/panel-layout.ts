@@ -1010,28 +1010,19 @@ export class PanelLayoutManager implements AppModule {
       }
     });
 
-    // DEBUG v2.5.59: diagnostic banner — shows for 15s to confirm code path executes
-    {
-      const isWin = /Windows/i.test(navigator.userAgent);
-      const dbg = document.createElement('div');
-      dbg.style.cssText = 'position:fixed;top:0;left:50%;transform:translateX(-50%);background:#e53e3e;color:#fff;padding:6px 16px;font:bold 13px monospace;z-index:99999;border-radius:0 0 6px 6px;white-space:nowrap;';
-      dbg.textContent = `v2.5.59 | ${isWin ? 'WIN' : 'OTHER'} | ${SITE_VARIANT} | ${window.innerWidth}x${window.innerHeight} | panels:${panelsGrid.children.length}`;
-      document.body.appendChild(dbg);
-      setTimeout(() => dbg.remove(), 15000);
-    }
-
-    // Spark world-mode: force tall single-column panels via inline styles.
-    // CSS cascade fixes failed across v2.5.55-58; inline style.setProperty
-    // with !important is the absolute highest CSS priority.
-    // Applied unconditionally (no Windows check) to eliminate UA detection as failure point.
+    // Spark world-mode: force tall panels.
+    // v2.5.55-59: grid-auto-rows (CSS + inline) all failed on Windows WebView2.
+    // v2.5.60: bypass grid track sizing entirely — set height directly on each panel.
     if (SITE_VARIANT === 'spark') {
-      panelsGrid.style.setProperty('grid-auto-rows', 'minmax(400px, 560px)', 'important');
+      // Single-column layout in the panels grid
       panelsGrid.style.setProperty('grid-template-columns', '1fr', 'important');
       panelsGrid.style.setProperty('gap', '6px', 'important');
+      // Force each panel to a fixed height — no grid-auto-rows dependency
       panelsGrid.querySelectorAll<HTMLElement>('.panel').forEach(p => {
+        p.style.setProperty('height', '450px', 'important');
+        p.style.setProperty('min-height', '450px', 'important');
         p.style.setProperty('grid-row', 'span 1', 'important');
         p.style.setProperty('grid-column', 'span 1', 'important');
-        p.style.setProperty('min-height', '400px', 'important');
       });
       // Ensure parent uses side-by-side grid layout
       const mc = panelsGrid.closest('.main-content') as HTMLElement | null;
