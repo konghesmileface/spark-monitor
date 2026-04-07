@@ -1006,11 +1006,6 @@ canvas,
   /* This ensures panels scroll UNDER the pinned map (z-index: 100) */
 }
 
-/* Windows + Spark: taller panels — Windows DPI scaling makes panels too short */
-[data-platform="windows"] .panels-grid {
-  grid-auto-rows: minmax(400px, 560px) !important;
-}
-
 .panel {
   background: var(--surface);
   border: 1px solid var(--border);

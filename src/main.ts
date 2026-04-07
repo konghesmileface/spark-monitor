@@ -268,10 +268,6 @@ if (SITE_VARIANT && SITE_VARIANT !== 'full') {
 // Set data-platform on <html> so platform-specific CSS can target it
 if (/Windows/i.test(navigator.userAgent)) {
   document.documentElement.dataset.platform = 'windows';
-  // Windows DPI scaling makes panels too short — inject override directly
-  const winStyle = document.createElement('style');
-  winStyle.textContent = '.panels-grid { grid-auto-rows: minmax(400px, 560px) !important; }';
-  document.head.appendChild(winStyle);
 } else if (/Mac/i.test(navigator.userAgent)) {
   document.documentElement.dataset.platform = 'macos';
 } else if (/Linux/i.test(navigator.userAgent) && !/Android/i.test(navigator.userAgent)) {

@@ -1010,6 +1010,28 @@ export class PanelLayoutManager implements AppModule {
       }
     });
 
+    // Windows + Spark: force tall single-column panels via inline styles.
+    // CSS cascade fixes in spark-theme.css / main.css failed across v2.5.55-57;
+    // inline style + !important is the highest possible CSS priority.
+    if (/Windows/i.test(navigator.userAgent) && SITE_VARIANT === 'spark') {
+      panelsGrid.style.setProperty('grid-auto-rows', 'minmax(400px, 560px)', 'important');
+      panelsGrid.style.setProperty('grid-template-columns', '1fr', 'important');
+      panelsGrid.style.setProperty('gap', '6px', 'important');
+      panelsGrid.querySelectorAll<HTMLElement>('.panel').forEach(p => {
+        p.style.setProperty('grid-row', 'span 1', 'important');
+        p.style.setProperty('grid-column', 'span 1', 'important');
+        p.style.setProperty('min-height', '400px', 'important');
+      });
+      // Ensure parent uses side-by-side grid even below the 1600px breakpoint
+      const mc = panelsGrid.closest('.main-content') as HTMLElement | null;
+      if (mc && window.innerWidth >= 1200) {
+        mc.style.setProperty('display', 'grid', 'important');
+        mc.style.setProperty('grid-template-columns', '60% 1fr', 'important');
+        mc.style.setProperty('grid-template-rows', '1fr', 'important');
+        mc.style.setProperty('overflow', 'hidden', 'important');
+      }
+    }
+
     this.syncBottomGridVisibility();
     window.addEventListener('resize', () => this.ensureCorrectZones());
 

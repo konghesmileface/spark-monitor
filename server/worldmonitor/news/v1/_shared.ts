@@ -104,7 +104,15 @@ Rules:
       ? `Each headline is a separate story. What's the key tech trend?\n${headlineText}${intelSection}`
       : `Each headline is a separate story. What's the key pattern or risk?\n${headlineText}${intelSection}`;
   } else if (opts.mode === 'translate') {
-    const targetLang = opts.variant;
+    const langCode = opts.variant || 'en';
+    const LANG_NAMES: Record<string, string> = {
+      zh: 'Simplified Chinese (简体中文)', en: 'English', ja: 'Japanese', ko: 'Korean',
+      fr: 'French', de: 'German', es: 'Spanish', pt: 'Portuguese', ru: 'Russian',
+      ar: 'Arabic', hi: 'Hindi', it: 'Italian', nl: 'Dutch', tr: 'Turkish',
+      vi: 'Vietnamese', th: 'Thai', id: 'Indonesian', ms: 'Malay', pl: 'Polish',
+      uk: 'Ukrainian', fa: 'Persian', he: 'Hebrew', sv: 'Swedish', da: 'Danish',
+    };
+    const targetLang = LANG_NAMES[langCode] || langCode;
     systemPrompt = `You are a professional news translator. Translate the following news headlines/summaries into ${targetLang}.
 Rules:
 - Maintain the original tone and journalistic style.
