@@ -1010,10 +1010,21 @@ export class PanelLayoutManager implements AppModule {
       }
     });
 
-    // Windows + Spark: force tall single-column panels via inline styles.
-    // CSS cascade fixes in spark-theme.css / main.css failed across v2.5.55-57;
-    // inline style + !important is the highest possible CSS priority.
-    if (/Windows/i.test(navigator.userAgent) && SITE_VARIANT === 'spark') {
+    // DEBUG v2.5.59: diagnostic banner — shows for 15s to confirm code path executes
+    {
+      const isWin = /Windows/i.test(navigator.userAgent);
+      const dbg = document.createElement('div');
+      dbg.style.cssText = 'position:fixed;top:0;left:50%;transform:translateX(-50%);background:#e53e3e;color:#fff;padding:6px 16px;font:bold 13px monospace;z-index:99999;border-radius:0 0 6px 6px;white-space:nowrap;';
+      dbg.textContent = `v2.5.59 | ${isWin ? 'WIN' : 'OTHER'} | ${SITE_VARIANT} | ${window.innerWidth}x${window.innerHeight} | panels:${panelsGrid.children.length}`;
+      document.body.appendChild(dbg);
+      setTimeout(() => dbg.remove(), 15000);
+    }
+
+    // Spark world-mode: force tall single-column panels via inline styles.
+    // CSS cascade fixes failed across v2.5.55-58; inline style.setProperty
+    // with !important is the absolute highest CSS priority.
+    // Applied unconditionally (no Windows check) to eliminate UA detection as failure point.
+    if (SITE_VARIANT === 'spark') {
       panelsGrid.style.setProperty('grid-auto-rows', 'minmax(400px, 560px)', 'important');
       panelsGrid.style.setProperty('grid-template-columns', '1fr', 'important');
       panelsGrid.style.setProperty('gap', '6px', 'important');
@@ -1022,7 +1033,7 @@ export class PanelLayoutManager implements AppModule {
         p.style.setProperty('grid-column', 'span 1', 'important');
         p.style.setProperty('min-height', '400px', 'important');
       });
-      // Ensure parent uses side-by-side grid even below the 1600px breakpoint
+      // Ensure parent uses side-by-side grid layout
       const mc = panelsGrid.closest('.main-content') as HTMLElement | null;
       if (mc && window.innerWidth >= 1200) {
         mc.style.setProperty('display', 'grid', 'important');
