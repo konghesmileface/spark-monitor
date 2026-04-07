@@ -1626,8 +1626,11 @@ export class CnPolicyPanel extends Panel {
       }
     });
 
-    // Auto-fetch morning brief on mount (default view)
+    // Auto-fetch data on mount based on default view
     void this.fetchMorningBrief();
+    if (this.viewMode === 'live' && !this.newsFetched) {
+      void this.fetchLiveNews();
+    }
     this.freshnessTimer = setInterval(() => this.updateFreshness(), 30_000);
 
     // Load delta banner (Phase 2)

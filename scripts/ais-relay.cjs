@@ -318,6 +318,34 @@ function loadTelegramChannels() {
   }
 }
 
+/**
+ * Detect if text is primarily Arabic/Farsi/Hebrew script.
+ * Returns true if >40% of alphabetic characters are in these ranges.
+ */
+function isNonLatinScript(text) {
+  if (!text || text.length < 10) return false;
+  let rtlCount = 0;
+  let alphaCount = 0;
+  for (let i = 0; i < text.length; i++) {
+    const c = text.charCodeAt(i);
+    // Arabic: U+0600-U+06FF, U+0750-U+077F, U+08A0-U+08FF
+    // Arabic Presentation Forms: U+FB50-U+FDFF, U+FE70-U+FEFF
+    // Hebrew: U+0590-U+05FF
+    if ((c >= 0x0590 && c <= 0x06FF) || (c >= 0x0750 && c <= 0x077F) ||
+        (c >= 0x08A0 && c <= 0x08FF) || (c >= 0xFB50 && c <= 0xFDFF) ||
+        (c >= 0xFE70 && c <= 0xFEFF)) {
+      rtlCount++;
+      alphaCount++;
+    } else if ((c >= 0x41 && c <= 0x5A) || (c >= 0x61 && c <= 0x7A) ||  // Latin
+               (c >= 0x0400 && c <= 0x04FF) ||  // Cyrillic (Ukraine/Russia — keep)
+               (c >= 0x4E00 && c <= 0x9FFF)) {  // CJK (Chinese — keep)
+      alphaCount++;
+    }
+  }
+  if (alphaCount < 5) return false;
+  return rtlCount / alphaCount > 0.4;
+}
+
 function normalizeTelegramMessage(msg, channel) {
   const textRaw = String(msg?.message || '');
   const text = textRaw.slice(0, TELEGRAM_MAX_TEXT_CHARS);
@@ -334,6 +362,100 @@ function normalizeTelegramMessage(msg, channel) {
     tags: [channel.region].filter(Boolean),
     earlySignal: true,
   };
+}
+
+// ── Groq batch translation for non-Latin Telegram messages ─────────────────
+const GROQ_API_KEY = process.env.GROQ_API_KEY || '';
+const GROQ_TRANSLATE_MODEL = 'llama-3.3-70b-versatile';
+const GROQ_TRANSLATE_MAX_BATCH = 15;
+
+/**
+ * Batch-translate non-Latin messages to English via Groq.
+ * Modifies items in-place: replaces .text and sets .translated = true.
+ */
+async function translateNonLatinBatch(items) {
+  const toTranslate = items.filter(it => it._needsTranslation);
+  if (!GROQ_API_KEY || toTranslate.length === 0) {
+    // Clean up flags even if we can't translate
+    for (const it of toTranslate) delete it._needsTranslation;
+    return 0;
+  }
+
+  const batch = toTranslate.slice(0, GROQ_TRANSLATE_MAX_BATCH);
+  const numbered = batch.map((it, i) => `[${i + 1}] ${it.text}`).join('\n\n');
+
+  try {
+    const resp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${GROQ_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: GROQ_TRANSLATE_MODEL,
+        messages: [
+          {
+            role: 'system',
+            content: 'Translate each numbered text to English. Return ONLY a JSON object: {"t":["translation1","translation2",...]}. Keep translations concise and faithful to the original meaning. Do not add commentary.',
+          },
+          { role: 'user', content: numbered },
+        ],
+        temperature: 0.1,
+        max_tokens: 4096,
+      }),
+      signal: AbortSignal.timeout(20000),
+    });
+
+    if (!resp.ok) {
+      console.warn(`[Relay] Groq translate HTTP ${resp.status}: ${(await resp.text()).slice(0, 200)}`);
+      for (const it of batch) delete it._needsTranslation;
+      return 0;
+    }
+
+    const data = await resp.json();
+    const content = (data.choices?.[0]?.message?.content || '').trim();
+
+    // Parse translations — try JSON first, fallback to regex
+    let translations;
+    try {
+      const parsed = JSON.parse(content);
+      translations = parsed.t || parsed.translations || (Array.isArray(parsed) ? parsed : Object.values(parsed));
+    } catch {
+      // Fallback: try to extract JSON array from response
+      const arrMatch = content.match(/\[[\s\S]*\]/);
+      if (arrMatch) {
+        try { translations = JSON.parse(arrMatch[0]); } catch {}
+      }
+    }
+
+    if (!Array.isArray(translations)) {
+      console.warn('[Relay] Groq translate: could not parse response');
+      for (const it of batch) delete it._needsTranslation;
+      return 0;
+    }
+
+    let applied = 0;
+    for (let i = 0; i < batch.length; i++) {
+      const tr = String(translations[i] || '').trim();
+      if (tr) {
+        batch[i].text = tr;
+        batch[i].translated = true;
+        applied++;
+      }
+      delete batch[i]._needsTranslation;
+    }
+
+    // Clean up remaining items beyond batch limit
+    for (const it of toTranslate.slice(GROQ_TRANSLATE_MAX_BATCH)) {
+      delete it._needsTranslation;
+    }
+
+    return applied;
+  } catch (e) {
+    console.warn('[Relay] Groq translate error:', e?.message || String(e));
+    for (const it of toTranslate) delete it._needsTranslation;
+    return 0;
+  }
 }
 
 let telegramPermanentlyDisabled = false;
@@ -414,6 +536,7 @@ async function pollTelegramOnce() {
   let channelsPolled = 0;
   let channelsFailed = 0;
   let mediaSkipped = 0;
+  let langFilteredTotal = 0;
 
   for (const channel of channels) {
     if (Date.now() - pollStart > TELEGRAM_POLL_CYCLE_TIMEOUT_MS) {
@@ -439,6 +562,10 @@ async function pollTelegramOnce() {
         if (!msg || !msg.id) continue;
         if (!msg.message) { mediaSkipped++; continue; }
         const item = normalizeTelegramMessage(msg, channel);
+        if (isNonLatinScript(msg.message)) {
+          item._needsTranslation = true;
+          langFilteredTotal++;
+        }
         newItems.push(item);
         if (!telegramState.cursorByHandle[handle] || msg.id > telegramState.cursorByHandle[handle]) {
           telegramState.cursorByHandle[handle] = msg.id;
@@ -482,7 +609,21 @@ async function pollTelegramOnce() {
 
   telegramState.lastPollAt = Date.now();
   const elapsed = ((Date.now() - pollStart) / 1000).toFixed(1);
-  console.log(`[Relay] Telegram poll: ${channelsPolled}/${channels.length} channels, ${newItems.length} new msgs, ${telegramState.items.length} total, ${channelsFailed} errors, ${mediaSkipped} media-only skipped (${elapsed}s)`);
+  console.log(`[Relay] Telegram poll: ${channelsPolled}/${channels.length} channels, ${newItems.length} new msgs, ${telegramState.items.length} total, ${channelsFailed} errors, ${mediaSkipped} media-only skipped, ${langFilteredTotal} non-Latin detected (${elapsed}s)`);
+
+  // Translate non-Latin messages (Arabic/Farsi/Hebrew) to English via Groq
+  if (langFilteredTotal > 0) {
+    try {
+      const translated = await translateNonLatinBatch(telegramState.items);
+      if (translated > 0) {
+        console.log(`[Relay] Translated ${translated} non-Latin Telegram messages to English`);
+      }
+    } catch (e) {
+      console.warn('[Relay] Telegram translation pass failed:', e?.message || String(e));
+    }
+    // Clean up internal flag so it never leaks to API responses
+    for (const it of telegramState.items) { delete it._needsTranslation; }
+  }
 
   // Persist Telegram feed to Redis for restart recovery
   if (UPSTASH_ENABLED && telegramState.items.length > 0) {

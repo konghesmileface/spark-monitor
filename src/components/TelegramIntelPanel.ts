@@ -11,7 +11,7 @@ import {
 } from '@/services/telegram-intel';
 
 /** Max items to auto-translate per render cycle (avoid burning API quota) */
-const AUTO_TRANSLATE_LIMIT = 20;
+const AUTO_TRANSLATE_LIMIT = 50;
 
 export class TelegramIntelPanel extends Panel {
   private items: TelegramItem[] = [];
@@ -98,8 +98,8 @@ export class TelegramIntelPanel extends Panel {
       ),
     );
 
-    // Auto-translate for non-English UI
-    if (getCurrentLanguage() !== 'en' && !this.autoTranslateRunning) {
+    // Auto-translate non-Latin messages (Arabic/Cyrillic/etc.) regardless of UI language
+    if (!this.autoTranslateRunning) {
       this.startAutoTranslate();
     }
   }
@@ -107,6 +107,16 @@ export class TelegramIntelPanel extends Panel {
   private buildItem(item: TelegramItem): HTMLElement {
     const timeAgo = formatTelegramTime(item.ts);
     const cached = this.translationCache.get(item.id);
+    const isTranslated = item.translated || !!cached;
+
+    const headerChildren: (HTMLElement | string)[] = [
+      h('span', { className: 'telegram-intel-channel' }, item.channelTitle || item.channel),
+      h('span', { className: 'telegram-intel-topic' }, item.topic),
+    ];
+    if (isTranslated) {
+      headerChildren.push(h('span', { className: 'telegram-intel-translated' }, 'EN'));
+    }
+    headerChildren.push(h('span', { className: 'telegram-intel-time' }, timeAgo));
 
     return h('a', {
       href: sanitizeUrl(item.url),
@@ -115,20 +125,35 @@ export class TelegramIntelPanel extends Panel {
       className: 'telegram-intel-item',
       dataset: { itemId: item.id },
     },
-      h('div', { className: 'telegram-intel-item-header' },
-        h('span', { className: 'telegram-intel-channel' }, item.channelTitle || item.channel),
-        h('span', { className: 'telegram-intel-topic' }, item.topic),
-        h('span', { className: 'telegram-intel-time' }, timeAgo),
-      ),
+      h('div', { className: 'telegram-intel-item-header' }, ...headerChildren),
       h('div', { className: 'telegram-intel-text' }, cached || item.text),
     );
   }
 
-  /** Serial auto-translate of visible items (limited to AUTO_TRANSLATE_LIMIT) */
+  /** Check if text contains significant non-Latin characters (Arabic/Farsi/Hebrew/Cyrillic). */
+  private static needsTranslation(text: string): boolean {
+    if (!text || text.length < 10) return false;
+    let nonLatin = 0;
+    let alpha = 0;
+    for (let i = 0; i < text.length; i++) {
+      const c = text.charCodeAt(i);
+      if ((c >= 0x0590 && c <= 0x06FF) || (c >= 0x0750 && c <= 0x077F) ||
+          (c >= 0x08A0 && c <= 0x08FF) || (c >= 0xFB50 && c <= 0xFDFF) ||
+          (c >= 0xFE70 && c <= 0xFEFF) || (c >= 0x0400 && c <= 0x04FF)) {
+        nonLatin++;
+        alpha++;
+      } else if ((c >= 0x41 && c <= 0x5A) || (c >= 0x61 && c <= 0x7A) ||
+                 (c >= 0x4E00 && c <= 0x9FFF)) {
+        alpha++;
+      }
+    }
+    return alpha >= 5 && nonLatin / alpha > 0.4;
+  }
+
+  /** Serial auto-translate of non-Latin items (limited to AUTO_TRANSLATE_LIMIT) */
   private startAutoTranslate(): void {
     if (this.autoTranslateRunning) return;
     const lang = getCurrentLanguage();
-    if (lang === 'en') return;
 
     const ac = new AbortController();
     this.autoTranslateAbort = ac;
@@ -148,7 +173,7 @@ export class TelegramIntelPanel extends Panel {
         const itemId = el.dataset.itemId;
         if (!itemId) continue;
 
-        // Skip if already translated
+        // Skip if already translated (by relay or previous auto-translate)
         if (this.translationCache.has(itemId)) continue;
 
         const textEl = el.querySelector('.telegram-intel-text') as HTMLElement;
@@ -157,8 +182,12 @@ export class TelegramIntelPanel extends Panel {
         const originalText = textEl.textContent || '';
         if (!originalText.trim()) continue;
 
+        // Only translate messages that contain non-Latin text
+        if (!TelegramIntelPanel.needsTranslation(originalText)) continue;
+
         try {
-          const result = await translateText(originalText, lang);
+          const targetLang = lang === 'en' ? 'en' : lang;
+          const result = await translateText(originalText, targetLang);
           if (ac.signal.aborted || !this.element?.isConnected) break;
 
           if (result) {
