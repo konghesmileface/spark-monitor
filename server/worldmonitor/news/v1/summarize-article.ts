@@ -50,6 +50,7 @@ export async function summarizeArticle(
   // Provider credential check
   const skipReasons: Record<string, string> = {
     ollama: 'OLLAMA_API_URL not configured',
+    deepseek: 'DEEPSEEK_API_KEY not configured',
     groq: 'GROQ_API_KEY not configured',
     openrouter: 'OPENROUTER_API_KEY not configured',
   };
@@ -113,7 +114,7 @@ export async function summarizeArticle(
               { role: 'user', content: userPrompt },
             ],
             temperature: 0.3,
-            max_tokens: 100,
+            max_tokens: mode === 'translate' ? 1024 : 100,
             top_p: 0.9,
             ...extraBody,
           }),

@@ -3,6 +3,7 @@ import { SITE_VARIANT } from '@/config/variant';
 import { invokeTauri } from './tauri-bridge';
 
 export type RuntimeSecretKey =
+  | 'DEEPSEEK_API_KEY'
   | 'GROQ_API_KEY'
   | 'OPENROUTER_API_KEY'
   | 'FRED_API_KEY'
@@ -29,6 +30,7 @@ export type RuntimeSecretKey =
   | 'ICAO_API_KEY';
 
 export type RuntimeFeatureId =
+  | 'aiDeepSeek'
   | 'aiGroq'
   | 'aiOpenRouter'
   | 'economicFred'
@@ -79,6 +81,7 @@ function getSidecarSecretValidateUrl(): string {
 }
 
 const defaultToggles: Record<RuntimeFeatureId, boolean> = {
+  aiDeepSeek: true,
   aiGroq: true,
   aiOpenRouter: true,
   economicFred: true,
@@ -111,9 +114,16 @@ export const RUNTIME_FEATURES: RuntimeFeatureDefinition[] = [
     fallback: 'Falls back to Groq, then OpenRouter, then local browser model.',
   },
   {
+    id: 'aiDeepSeek',
+    name: 'DeepSeek summarization',
+    description: 'Fast LLM provider for AI summary and translation (no proxy needed from China/HK).',
+    requiredSecrets: ['DEEPSEEK_API_KEY'],
+    fallback: 'Falls back to Groq, then OpenRouter, then local browser model.',
+  },
+  {
     id: 'aiGroq',
     name: 'Groq summarization',
-    description: 'Primary fast LLM provider used for AI summary generation.',
+    description: 'Fast LLM provider used for AI summary generation (requires US proxy).',
     requiredSecrets: ['GROQ_API_KEY'],
     fallback: 'Falls back to OpenRouter, then local browser model.',
   },

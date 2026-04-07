@@ -160,6 +160,19 @@ export function getProviderCredentials(provider: string): ProviderCredentials | 
     };
   }
 
+  if (provider === 'deepseek') {
+    const apiKey = process.env.DEEPSEEK_API_KEY;
+    if (!apiKey) return null;
+    return {
+      apiUrl: 'https://api.deepseek.com/chat/completions',
+      model: 'deepseek-chat',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+    };
+  }
+
   if (provider === 'groq') {
     const apiKey = process.env.GROQ_API_KEY;
     if (!apiKey) return null;

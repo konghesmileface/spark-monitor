@@ -34,6 +34,7 @@ export const PLAINTEXT_KEYS = new Set<RuntimeSecretKey>([
 export const MASKED_SENTINEL = '__WM_MASKED__';
 
 export const HUMAN_LABELS: Record<RuntimeSecretKey, string> = {
+  DEEPSEEK_API_KEY: 'DeepSeek API Key',
   GROQ_API_KEY: 'Groq API Key',
   OPENROUTER_API_KEY: 'OpenRouter API Key',
   FRED_API_KEY: 'FRED API Key',

@@ -364,98 +364,116 @@ function normalizeTelegramMessage(msg, channel) {
   };
 }
 
-// ── Groq batch translation for non-Latin Telegram messages ─────────────────
+// ── Batch translation for non-Latin Telegram messages ─────────────────────
+// Provider chain: Groq → DeepSeek (Groq is 403 from HK, DeepSeek works directly)
 const GROQ_API_KEY = process.env.GROQ_API_KEY || '';
+const DEEPSEEK_API_KEY = process.env.DEEPSEEK_API_KEY || '';
 const GROQ_TRANSLATE_MODEL = 'llama-3.3-70b-versatile';
-const GROQ_TRANSLATE_MAX_BATCH = 15;
+const DEEPSEEK_TRANSLATE_MODEL = 'deepseek-chat';
+const TRANSLATE_MAX_BATCH = 15;
+
+const TRANSLATE_PROVIDERS = [
+  { name: 'Groq', key: () => GROQ_API_KEY, url: 'https://api.groq.com/openai/v1/chat/completions', model: GROQ_TRANSLATE_MODEL },
+  { name: 'DeepSeek', key: () => DEEPSEEK_API_KEY, url: 'https://api.deepseek.com/chat/completions', model: DEEPSEEK_TRANSLATE_MODEL },
+];
 
 /**
- * Batch-translate non-Latin messages to English via Groq.
+ * Batch-translate non-Latin messages to English via Groq or DeepSeek.
  * Modifies items in-place: replaces .text and sets .translated = true.
  */
 async function translateNonLatinBatch(items) {
   const toTranslate = items.filter(it => it._needsTranslation);
-  if (!GROQ_API_KEY || toTranslate.length === 0) {
-    // Clean up flags even if we can't translate
+  if (toTranslate.length === 0) {
+    return 0;
+  }
+
+  // Find first provider with a key
+  const availableProviders = TRANSLATE_PROVIDERS.filter(p => p.key());
+  if (availableProviders.length === 0) {
+    console.warn('[Relay] No translation API keys configured (GROQ_API_KEY / DEEPSEEK_API_KEY)');
     for (const it of toTranslate) delete it._needsTranslation;
     return 0;
   }
 
-  const batch = toTranslate.slice(0, GROQ_TRANSLATE_MAX_BATCH);
+  const batch = toTranslate.slice(0, TRANSLATE_MAX_BATCH);
   const numbered = batch.map((it, i) => `[${i + 1}] ${it.text}`).join('\n\n');
 
-  try {
-    const resp = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${GROQ_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: GROQ_TRANSLATE_MODEL,
-        messages: [
-          {
-            role: 'system',
-            content: 'Translate each numbered text to English. Return ONLY a JSON object: {"t":["translation1","translation2",...]}. Keep translations concise and faithful to the original meaning. Do not add commentary.',
-          },
-          { role: 'user', content: numbered },
-        ],
-        temperature: 0.1,
-        max_tokens: 4096,
-      }),
-      signal: AbortSignal.timeout(20000),
-    });
-
-    if (!resp.ok) {
-      console.warn(`[Relay] Groq translate HTTP ${resp.status}: ${(await resp.text()).slice(0, 200)}`);
-      for (const it of batch) delete it._needsTranslation;
-      return 0;
-    }
-
-    const data = await resp.json();
-    const content = (data.choices?.[0]?.message?.content || '').trim();
-
-    // Parse translations — try JSON first, fallback to regex
-    let translations;
+  for (const provider of availableProviders) {
     try {
-      const parsed = JSON.parse(content);
-      translations = parsed.t || parsed.translations || (Array.isArray(parsed) ? parsed : Object.values(parsed));
-    } catch {
-      // Fallback: try to extract JSON array from response
-      const arrMatch = content.match(/\[[\s\S]*\]/);
-      if (arrMatch) {
-        try { translations = JSON.parse(arrMatch[0]); } catch {}
+      const resp = await fetch(provider.url, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${provider.key()}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: provider.model,
+          messages: [
+            {
+              role: 'system',
+              content: 'Translate each numbered text to English. Return ONLY a JSON object: {"t":["translation1","translation2",...]}. Keep translations concise and faithful to the original meaning. Do not add commentary.',
+            },
+            { role: 'user', content: numbered },
+          ],
+          temperature: 0.1,
+          max_tokens: 4096,
+        }),
+        signal: AbortSignal.timeout(20000),
+      });
+
+      if (!resp.ok) {
+        console.warn(`[Relay] ${provider.name} translate HTTP ${resp.status}: ${(await resp.text()).slice(0, 200)}`);
+        continue; // Try next provider
       }
-    }
 
-    if (!Array.isArray(translations)) {
-      console.warn('[Relay] Groq translate: could not parse response');
-      for (const it of batch) delete it._needsTranslation;
-      return 0;
-    }
+      const data = await resp.json();
+      const content = (data.choices?.[0]?.message?.content || '').trim();
 
-    let applied = 0;
-    for (let i = 0; i < batch.length; i++) {
-      const tr = String(translations[i] || '').trim();
-      if (tr) {
-        batch[i].text = tr;
-        batch[i].translated = true;
-        applied++;
+      // Parse translations — try JSON first, fallback to regex
+      let translations;
+      try {
+        const parsed = JSON.parse(content);
+        translations = parsed.t || parsed.translations || (Array.isArray(parsed) ? parsed : Object.values(parsed));
+      } catch {
+        // Fallback: try to extract JSON array from response
+        const arrMatch = content.match(/\[[\s\S]*\]/);
+        if (arrMatch) {
+          try { translations = JSON.parse(arrMatch[0]); } catch {}
+        }
       }
-      delete batch[i]._needsTranslation;
-    }
 
-    // Clean up remaining items beyond batch limit
-    for (const it of toTranslate.slice(GROQ_TRANSLATE_MAX_BATCH)) {
-      delete it._needsTranslation;
-    }
+      if (!Array.isArray(translations)) {
+        console.warn(`[Relay] ${provider.name} translate: could not parse response`);
+        continue; // Try next provider
+      }
 
-    return applied;
-  } catch (e) {
-    console.warn('[Relay] Groq translate error:', e?.message || String(e));
-    for (const it of toTranslate) delete it._needsTranslation;
-    return 0;
+      let applied = 0;
+      for (let i = 0; i < batch.length; i++) {
+        const tr = String(translations[i] || '').trim();
+        if (tr) {
+          batch[i].text = tr;
+          batch[i].translated = true;
+          applied++;
+        }
+        delete batch[i]._needsTranslation;
+      }
+
+      // Clean up remaining items beyond batch limit
+      for (const it of toTranslate.slice(TRANSLATE_MAX_BATCH)) {
+        delete it._needsTranslation;
+      }
+
+      if (applied > 0) console.log(`[Relay] Translated ${applied} messages via ${provider.name}`);
+      return applied;
+    } catch (e) {
+      console.warn(`[Relay] ${provider.name} translate error:`, e?.message || String(e));
+      continue; // Try next provider
+    }
   }
+
+  // All providers failed
+  for (const it of toTranslate) delete it._needsTranslation;
+  return 0;
 }
 
 let telegramPermanentlyDisabled = false;

@@ -1138,8 +1138,15 @@ def _fetch_with_playwright(url: str) -> dict | None:
         return None
 
     try:
+        # Use proxy for domains that need it (international sites)
+        domain = _get_domain(url)
+        needs_proxy = any(domain.endswith(pd) for pd in _PROXY_DOMAINS)
+        launch_opts = {'headless': True}
+        if needs_proxy:
+            launch_opts['proxy'] = {'server': 'http://127.0.0.1:17890'}
+
         with sync_playwright() as p:
-            browser = p.chromium.launch(headless=True)
+            browser = p.chromium.launch(**launch_opts)
             page = browser.new_page()
             try:
                 resp = page.goto(url, timeout=20000, wait_until='domcontentloaded')
@@ -1152,6 +1159,11 @@ def _fetch_with_playwright(url: str) -> dict | None:
 
                 html = page.content()
                 title = page.title() or ''
+
+                # Detect soft-404 (HTTP 200 but page content shows "not found")
+                if '404' in title.lower() or 'not found' in title.lower():
+                    logger.warning(f'Playwright soft-404 (title={title[:50]}): {url[:80]}')
+                    return None
             finally:
                 browser.close()
 
