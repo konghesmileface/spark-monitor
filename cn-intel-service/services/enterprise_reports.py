@@ -518,7 +518,7 @@ def generate_weekly_report(user_id: str = None) -> dict:
     except Exception as e:
         logger.debug(f'Archive weekly report error: {e}')
 
-    cache_set(cache_key, report, 3600)
+    cache_set(cache_key, report, 604800)  # 7 days — weekly report valid until next Monday
     _release_report_lock(cache_key)
     return report
 
@@ -632,7 +632,7 @@ def generate_monthly_report(user_id: str = None) -> dict:
     except Exception as e:
         logger.debug(f'Archive monthly report error: {e}')
 
-    cache_set(cache_key, report, 21600)  # 6h
+    cache_set(cache_key, report, 2592000)  # 30 days — monthly report valid until next month
     _release_report_lock(cache_key)
     return report
 
@@ -731,8 +731,7 @@ def generate_daily_report(user_id: str = None) -> dict:
     except Exception as e:
         logger.debug(f'Archive daily report error: {e}')
 
-    ttl = 14400 if is_trading_time() else 43200
-    cache_set(cache_key, report, ttl)
+    cache_set(cache_key, report, 86400)  # 24h — daily report valid until next day
     _release_report_lock(cache_key)
     return report
 
@@ -836,7 +835,7 @@ def generate_quarterly_report(user_id: str = None) -> dict:
     except Exception as e:
         logger.debug(f'Archive quarterly report error: {e}')
 
-    cache_set(cache_key, report, 21600)  # 6h
+    cache_set(cache_key, report, 7776000)  # 90 days — quarterly report valid until next quarter
     _release_report_lock(cache_key)
     return report
 
@@ -952,7 +951,7 @@ def generate_annual_report(user_id: str = None) -> dict:
     except Exception as e:
         logger.debug(f'Archive annual report error: {e}')
 
-    cache_set(cache_key, report, 86400)  # 24h
+    cache_set(cache_key, report, 31536000)  # 365 days — annual report valid until next year
     _release_report_lock(cache_key)
     return report
 
@@ -1147,11 +1146,21 @@ def export_to_html(report: dict) -> str:
 
 def check_scheduled_reports():
     """Check if any users have scheduled reports due.
-    Called periodically from report_scheduler loop."""
+    Called periodically from report_scheduler loop.
+    Uses daily Redis dedup keys to avoid regenerating same report multiple times."""
     from services.user_profile import get_all_profiles
+    from services.cache import get_redis
 
     profiles = get_all_profiles()
     today = date.today()
+    r = get_redis()
+
+    def _dedup_run(uid, rtype):
+        """Return True if this report should run (first time today)."""
+        if not r:
+            return True
+        key = f'cn:report_done:{uid}:{rtype}:{today.isoformat()}'
+        return r.set(key, '1', ex=86400, nx=True)
 
     for profile in profiles:
         user_id = profile.get('user_id', '')
@@ -1160,8 +1169,8 @@ def check_scheduled_reports():
 
         freq = profile.get('report_frequency', 'weekly')
 
-        # Daily: generate every trading day (for users with daily or weekly frequency)
-        if freq == 'daily' and today.weekday() < 5:
+        # Daily: generate every trading day (for users with daily frequency)
+        if freq == 'daily' and today.weekday() < 5 and _dedup_run(user_id, 'daily'):
             try:
                 generate_daily_report(user_id)
                 logger.warning(f'[enterprise] Generated daily report for {user_id[:8]}...')
@@ -1169,7 +1178,7 @@ def check_scheduled_reports():
                 logger.warning(f'[enterprise] Daily report error for {user_id[:8]}...: {e}')
 
         # Weekly: generate on Monday
-        if today.weekday() == 0:  # Monday
+        if today.weekday() == 0 and _dedup_run(user_id, 'weekly'):
             try:
                 generate_weekly_report(user_id)
                 logger.warning(f'[enterprise] Generated weekly report for {user_id[:8]}...')
@@ -1177,7 +1186,7 @@ def check_scheduled_reports():
                 logger.warning(f'[enterprise] Weekly report error for {user_id[:8]}...: {e}')
 
         # Monthly: generate on 1st
-        if today.day == 1:
+        if today.day == 1 and _dedup_run(user_id, 'monthly'):
             try:
                 generate_monthly_report(user_id)
                 logger.warning(f'[enterprise] Generated monthly report for {user_id[:8]}...')
@@ -1185,7 +1194,7 @@ def check_scheduled_reports():
                 logger.warning(f'[enterprise] Monthly report error for {user_id[:8]}...: {e}')
 
             # Quarterly: generate on 1st of Jan/Apr/Jul/Oct
-            if today.month in (1, 4, 7, 10):
+            if today.month in (1, 4, 7, 10) and _dedup_run(user_id, 'quarterly'):
                 try:
                     generate_quarterly_report(user_id)
                     logger.warning(f'[enterprise] Generated quarterly report for {user_id[:8]}...')
@@ -1193,7 +1202,7 @@ def check_scheduled_reports():
                     logger.warning(f'[enterprise] Quarterly report error for {user_id[:8]}...: {e}')
 
             # Annual: generate on Jan 1st
-            if today.month == 1:
+            if today.month == 1 and _dedup_run(user_id, 'annual'):
                 try:
                     generate_annual_report(user_id)
                     logger.warning(f'[enterprise] Generated annual report for {user_id[:8]}...')

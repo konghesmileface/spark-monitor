@@ -6,6 +6,8 @@ data into a structured, actionable executive brief.
 
 import json
 import logging
+import time
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta
 
 from config import Config
@@ -218,160 +220,120 @@ def generate_morning_brief(user_id: str) -> dict:
     regions = profile.get('business_regions', [])
     business_scope = profile.get('business_scope', '')
 
-    # 3. Gather data sources
-    from services.policy_store import get_items_by_date_range
+    # 3. Gather data sources IN PARALLEL (was sequential: 85-200s → now ~30-60s)
+    from flask import current_app
+    from services.policy_store import get_items_by_date_range, search_items
     from services.relevance_scorer import filter_items_for_user
     from services.alert_engine import get_alert_stats, get_user_alerts
     from services.industry_advisor import generate_industry_brief
     from services.cross_domain_engine import build_correlation_context, detect_cross_signals, detect_regime
     from services.delta_tracker import compute_delta
     from services.data_provider import get_north_flow, get_sector_rank, get_macro_indicators, get_margin_data, get_sector_rotation
+    from services.policy_signal_tracker import compute_keyword_trends
 
+    app = current_app._get_current_object()
+    t0 = time.time()
     end_date = datetime.now().strftime('%Y-%m-%d')
     start_date = (datetime.now() - timedelta(days=3)).strftime('%Y-%m-%d')
-    all_policies = get_items_by_date_range(start_date, end_date, limit=500)
-    relevant = filter_items_for_user(all_policies, profile, min_relevance=0.15)
 
-    # Alerts
-    alert_stats = get_alert_stats(user_id, days=3)
-    flash_alerts = get_user_alerts(user_id, tier='FLASH', limit=5)
-    priority_alerts = get_user_alerts(user_id, tier='PRIORITY', limit=5)
+    def _safe(fn, *a, **kw):
+        """Run fn with Flask app context, suppress errors."""
+        try:
+            with app.app_context():
+                return fn(*a, **kw)
+        except Exception as e:
+            logger.debug(f'Brief parallel [{fn.__name__}]: {e}')
+            return None
 
-    # Industry brief (may be cached already)
-    industry_brief = generate_industry_brief(user_id)
+    def _fetch_regional():
+        if not regions:
+            return []
+        with app.app_context():
+            results = []
+            for rk in regions[:5]:
+                results.extend(search_items(rk, limit=5))
+            return results
 
-    # Cross-domain signals
-    context = build_correlation_context(sectors)
-    cross_signals = detect_cross_signals(context)[:5]
-    regime = detect_regime()
+    with ThreadPoolExecutor(max_workers=8, thread_name_prefix='brief') as pool:
+        # Submit all independent tasks in parallel
+        f_policies = pool.submit(_safe, get_items_by_date_range, start_date, end_date, limit=500)
+        f_fiscal = pool.submit(_safe, get_items_by_date_range, start_date, end_date, category='财政货币', limit=10)
+        f_trade = pool.submit(_safe, get_items_by_date_range, start_date, end_date, category='外贸外交', limit=10)
+        f_intl_cb = pool.submit(_safe, get_items_by_date_range, start_date, end_date, category='国际央行', limit=5)
+        f_alert_stats = pool.submit(_safe, get_alert_stats, user_id, days=3)
+        f_flash = pool.submit(_safe, get_user_alerts, user_id, tier='FLASH', limit=5)
+        f_priority = pool.submit(_safe, get_user_alerts, user_id, tier='PRIORITY', limit=5)
+        f_industry = pool.submit(_safe, generate_industry_brief, user_id)
+        f_cross_ctx = pool.submit(_safe, build_correlation_context, sectors)
+        f_regime = pool.submit(_safe, detect_regime)
+        f_delta = pool.submit(_safe, compute_delta, user_id)
+        f_sector = pool.submit(_safe, get_sector_rank, top_n=5)
+        f_north = pool.submit(_safe, get_north_flow)
+        f_macro = pool.submit(_safe, get_macro_indicators)
+        f_margin = pool.submit(_safe, get_margin_data)
+        f_rotation = pool.submit(_safe, get_sector_rotation, top_n=5)
+        f_kw = pool.submit(_safe, compute_keyword_trends, days_back=7)
+        f_global_sig = pool.submit(_safe, build_global_signal_context, user_id, max_items=5)
+        f_global_data = pool.submit(_safe, build_global_data_context, user_id, profile)
+        f_regional = pool.submit(_fetch_regional)
 
-    # Delta tracker
-    delta = compute_delta(user_id)
+        # Collect all results (blocks until each is done, but they run in parallel)
+        all_policies = f_policies.result() or []
+        relevant = filter_items_for_user(all_policies, profile, min_relevance=0.15)
+        alert_stats = f_alert_stats.result() or {}
+        flash_alerts = f_flash.result() or []
+        priority_alerts = f_priority.result() or []
+        industry_brief = f_industry.result()
+        cross_ctx = f_cross_ctx.result()
+        cross_signals = detect_cross_signals(cross_ctx)[:5] if cross_ctx else []
+        regime = f_regime.result()
+        delta = f_delta.result()
+        sector_rank = f_sector.result()
+        north = f_north.result()
+        macro = f_macro.result()
+        margin = f_margin.result()
+        rotation = f_rotation.result()
+        kw_trends = f_kw.result()
+        global_signal_text = f_global_sig.result() or ''
+        global_data_text = f_global_data.result() or ''
+        fiscal_policies = f_fiscal.result() or []
+        trade_policies = f_trade.result() or []
+        intl_cb_policies = f_intl_cb.result() or []
+        region_results = f_regional.result() or []
 
-    # Market data
-    market_parts = []
-    try:
-        sector_rank = get_sector_rank(top_n=5)
-        if sector_rank:
-            lines = [f"  {s['name']}: {s['changePercent']:+.2f}%" for s in sector_rank[:5]]
-            market_parts.append('板块涨跌TOP5:\n' + '\n'.join(lines))
-    except Exception as e:
-        logger.debug(f'Brief: sector_rank fetch error: {e}')
-    try:
-        north = get_north_flow()
-        if north and north.get('totalFlow', 0) != 0:
-            total = north['totalFlow']
-            d = '净流入' if total > 0 else '净流出'
-            market_parts.append(f'北向资金: {d} {abs(total):.0f}万元')
-    except Exception as e:
-        logger.debug(f'Brief: north_flow fetch error: {e}')
+    logger.warning(f'[morning-brief] Parallel data gathering: {time.time()-t0:.1f}s')
 
-    # Macro economic indicators
-    macro_text = ''
-    try:
-        macro = get_macro_indicators()
-        if macro:
-            parts = []
-            if macro.get('cpi'):
-                parts.append(f"CPI: {macro['cpi']}")
-            if macro.get('ppi'):
-                parts.append(f"PPI: {macro['ppi']}")
-            if macro.get('pmi'):
-                parts.append(f"PMI: {macro['pmi']}")
-            if parts:
-                macro_text = '宏观指标: ' + ' | '.join(parts)
-    except Exception as e:
-        logger.debug(f'Brief: macro_indicators fetch error: {e}')
-
-    # Margin trading data
-    margin_text = ''
-    try:
-        margin = get_margin_data()
-        if margin and margin.get('balance'):
-            margin_text = f"融资融券余额: {margin['balance']:.0f}亿元"
-            if margin.get('change'):
-                margin_text += f" (日变化: {margin['change']:+.0f}亿元)"
-    except Exception as e:
-        logger.debug(f'Brief: margin_data fetch error: {e}')
-
-    # Sentiment / social mood
-    sentiment_text = ''
-    try:
-        mood_data = cache_get('cn:mood:social') or {}
-        if mood_data.get('distribution'):
-            d = mood_data['distribution']
-            sentiment_text = f"舆情情绪: 正面{d.get('positive',0)} 负面{d.get('negative',0)} 中性{d.get('neutral',0)}"
-            kws = mood_data.get('keywords', [])
-            if kws:
-                sentiment_text += f"\n舆情热词: {', '.join(k.get('word','') for k in kws[:10])}"
-    except Exception as e:
-        logger.debug(f'Brief: sentiment fetch error: {e}')
-
-    # Sector rotation
-    rotation_text = ''
-    try:
-        rotation = get_sector_rotation(top_n=5)
-        if rotation:
-            lines = [f"  {r['name']}: 动量{r.get('momentum',0):+.2f}%" for r in rotation[:5]]
-            rotation_text = '板块轮动:\n' + '\n'.join(lines)
-    except Exception as e:
-        logger.debug(f'Brief: sector_rotation fetch error: {e}')
-
-    # Policy keyword trends
-    keyword_trend_text = ''
-    try:
-        from services.policy_signal_tracker import compute_keyword_trends
-        kw_trends = compute_keyword_trends(days_back=7)
-        if kw_trends:
-            rising = [f"{k['keyword']}(+{k['change']}%)" for k in kw_trends if k.get('change', 0) > 0][:5]
-            if rising:
-                keyword_trend_text = f"政策热词趋势(7日): {', '.join(rising)}"
-    except Exception as e:
-        logger.debug(f'Brief: keyword_trends fetch error: {e}')
-
-    # 4. Build AI prompt
+    # 4. Build AI prompt from collected data
     policy_text = '\n'.join(
         f"- [{p.get('category','')}] {p['title']} ({p.get('source','')}, {p.get('date','')})"
         for p in relevant[:15]
     )
 
-    # Targeted policy filtering for specific fields
-    fiscal_policies = get_items_by_date_range(start_date, end_date, category='财政货币', limit=10)
     fiscal_text = '\n'.join(
         f"- {p['title']} ({p.get('source','')}, {p.get('date','')})"
         for p in fiscal_policies[:8]
     ) if fiscal_policies else ''
 
-    trade_policies = get_items_by_date_range(start_date, end_date, category='外贸外交', limit=10)
-    intl_cb_policies = get_items_by_date_range(start_date, end_date, category='国际央行', limit=5)
     trade_text = '\n'.join(
         f"- {p['title']} ({p.get('source','')}, {p.get('date','')})"
         for p in (trade_policies + intl_cb_policies)[:10]
     ) if (trade_policies or intl_cb_policies) else ''
 
-    # Regional policy filtering based on user's business regions
     regional_policies_text = ''
-    if regions:
-        region_keywords = regions[:5]
-        from services.policy_store import search_items
-        region_results = []
-        for rk in region_keywords:
-            results = search_items(rk, limit=5)
-            region_results.extend(results)
-        if region_results:
-            seen_titles = set()
-            deduped_regional = []
-            for p in region_results:
-                if p['title'] not in seen_titles:
-                    seen_titles.add(p['title'])
-                    deduped_regional.append(p)
-            regional_policies_text = '\n'.join(
-                f"- [{p.get('category','')}] {p['title']} ({p.get('source','')}, {p.get('date','')})"
-                for p in deduped_regional[:8]
-            )
+    if region_results:
+        seen_titles = set()
+        deduped_regional = []
+        for p in region_results:
+            if p.get('title') and p['title'] not in seen_titles:
+                seen_titles.add(p['title'])
+                deduped_regional.append(p)
+        regional_policies_text = '\n'.join(
+            f"- [{p.get('category','')}] {p['title']} ({p.get('source','')}, {p.get('date','')})"
+            for p in deduped_regional[:8]
+        )
 
     alert_text = ''
-    all_alerts = flash_alerts + priority_alerts
+    all_alerts = (flash_alerts or []) + (priority_alerts or [])
     if all_alerts:
         alert_text = '\n'.join(
             f"- [{a.get('tier','?')}] {a.get('title','')} — {a.get('reason','')}"
@@ -383,12 +345,61 @@ def generate_morning_brief(user_id: str) -> dict:
         for s in (cross_signals or [])[:5]
     )
 
+    market_parts = []
+    if sector_rank:
+        lines = [f"  {s['name']}: {s['changePercent']:+.2f}%" for s in sector_rank[:5]]
+        market_parts.append('板块涨跌TOP5:\n' + '\n'.join(lines))
+    if north and north.get('totalFlow', 0) != 0:
+        total = north['totalFlow']
+        d = '净流入' if total > 0 else '净流出'
+        market_parts.append(f'北向资金: {d} {abs(total):.0f}万元')
+
+    macro_text = ''
+    if macro:
+        parts = []
+        if macro.get('cpi'):
+            parts.append(f"CPI: {macro['cpi']}")
+        if macro.get('ppi'):
+            parts.append(f"PPI: {macro['ppi']}")
+        if macro.get('pmi'):
+            parts.append(f"PMI: {macro['pmi']}")
+        if parts:
+            macro_text = '宏观指标: ' + ' | '.join(parts)
+
+    margin_text = ''
+    if margin and margin.get('balance'):
+        margin_text = f"融资融券余额: {margin['balance']:.0f}亿元"
+        if margin.get('change'):
+            margin_text += f" (日变化: {margin['change']:+.0f}亿元)"
+
+    sentiment_text = ''
+    try:
+        mood_data = cache_get('cn:mood:social') or {}
+        if mood_data.get('distribution'):
+            d = mood_data['distribution']
+            sentiment_text = f"舆情情绪: 正面{d.get('positive',0)} 负面{d.get('negative',0)} 中性{d.get('neutral',0)}"
+            kws = mood_data.get('keywords', [])
+            if kws:
+                sentiment_text += f"\n舆情热词: {', '.join(k.get('word','') for k in kws[:10])}"
+    except Exception:
+        pass
+
+    rotation_text = ''
+    if rotation:
+        lines = [f"  {r['name']}: 动量{r.get('momentum',0):+.2f}%" for r in rotation[:5]]
+        rotation_text = '板块轮动:\n' + '\n'.join(lines)
+
+    keyword_trend_text = ''
+    if kw_trends:
+        rising = [f"{k['keyword']}(+{k['change']}%)" for k in kw_trends if k.get('change', 0) > 0][:5]
+        if rising:
+            keyword_trend_text = f"政策热词趋势(7日): {', '.join(rising)}"
+
     industry_text = ''
     if industry_brief and industry_brief.get('headline'):
         industry_text = f"产业概况: {industry_brief['headline']}"
         if industry_brief.get('outlook', {}).get('summary'):
             industry_text += f"\n展望: {industry_brief['outlook']['summary']}"
-        # Inject detailed industry data for capacity_cycle / competitive_dynamics / supply_chain
         cycle = industry_brief.get('industry_cycle', {})
         if cycle:
             parts = []
@@ -448,20 +459,6 @@ def generate_morning_brief(user_id: str) -> dict:
     scope_text = ''
     if business_scope:
         scope_text = f"\n主营业务: {business_scope}"
-
-    # Global OSINT signals
-    global_signal_text = ''
-    try:
-        global_signal_text = build_global_signal_context(user_id, max_items=5)
-    except Exception as e:
-        logger.warning(f'Global signals fetch failed (non-blocking): {e}')
-
-    # International data feeds (RSS + Yahoo Finance + Polymarket)
-    global_data_text = ''
-    try:
-        global_data_text = build_global_data_context(user_id, profile)
-    except Exception as e:
-        logger.warning(f'Global data feeds fetch failed (non-blocking): {e}')
 
     user_prompt = f"""━━ 企业画像 ━━
 企业名称: {company or '未设置'}{scope_text}
@@ -548,8 +545,10 @@ def generate_morning_brief(user_id: str) -> dict:
     except Exception as e:
         logger.warning(f'Morning brief AI failed: {e}')
 
-    # 6. Rule-based fallback
-    return _build_fallback_brief(profile, relevant, all_alerts, industry_brief, delta)
+    # 6. Rule-based fallback — cache it too so we don't re-gather 36s of data every request
+    fallback = _build_fallback_brief(profile, relevant, all_alerts, industry_brief, delta)
+    cache_set(cache_key, fallback, ttl=300)  # 5min — retry AI sooner
+    return fallback
 
 
 def _build_fallback_brief(profile: dict, policies: list, alerts: list,

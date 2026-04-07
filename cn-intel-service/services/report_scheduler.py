@@ -543,7 +543,9 @@ def save_user_schedules(user_id: str, schedules: list) -> None:
 
 
 def _check_enterprise_schedules():
-    """Check all user schedules and trigger report generation if due."""
+    """Check all user schedules and trigger report generation if due.
+    Uses daily dedup key (shared with check_scheduled_reports) to avoid
+    generating the same report twice from two scheduling systems."""
     from flask import current_app
     import json
     try:
@@ -613,45 +615,49 @@ def _check_enterprise_schedules():
             if not r.set(dedup_key, '1', ex=120, nx=True):
                 continue
 
-            # Generate report in background thread
+            # Check daily dedup (shared with check_scheduled_reports)
+            daily_dedup = f'cn:report_done:{user_id}:{stype}:{now.strftime("%Y-%m-%d")}'
+            if not r.set(daily_dedup, '1', ex=86400, nx=True):
+                logger.debug(f'[enterprise-sched] Skip {stype} for {user_id[:8]}: already done today')
+                continue
+
+            # Generate report in background thread (pass app for context)
             import threading as _threading
             _threading.Thread(
                 target=_run_enterprise_report,
-                args=(user_id, stype),
+                args=(current_app._get_current_object(), user_id, stype),
                 daemon=True,
             ).start()
 
 
-def _run_enterprise_report(user_id: str, report_type: str) -> None:
-    """Generate a scheduled enterprise report and archive it."""
+def _run_enterprise_report(app, user_id: str, report_type: str) -> None:
+    """Generate a scheduled enterprise report and archive it.
+    Runs in a background thread — needs Flask app context."""
     try:
-        from services.enterprise_reports import (
-            generate_daily_report, generate_weekly_report,
-            generate_monthly_report, generate_quarterly_report,
-            generate_annual_report,
-        )
+        with app.app_context():
+            from services.enterprise_reports import (
+                generate_daily_report, generate_weekly_report,
+                generate_monthly_report, generate_quarterly_report,
+                generate_annual_report,
+            )
 
-        generators = {
-            'daily': generate_daily_report,
-            'weekly': generate_weekly_report,
-            'monthly': generate_monthly_report,
-            'quarterly': generate_quarterly_report,
-            'annual': generate_annual_report,
-        }
+            generators = {
+                'daily': generate_daily_report,
+                'weekly': generate_weekly_report,
+                'monthly': generate_monthly_report,
+                'quarterly': generate_quarterly_report,
+                'annual': generate_annual_report,
+            }
 
-        gen = generators.get(report_type)
-        if not gen:
-            return
+            gen = generators.get(report_type)
+            if not gen:
+                return
 
-        logger.warning(f'[enterprise-sched] Generating scheduled {report_type} for user {user_id}')
-        report = gen(user_id=user_id)
-
-        try:
-            from services.report_archive import archive_report
-            archive_report(user_id, report_type, report)
-            logger.warning(f'[enterprise-sched] Archived {report_type} for user {user_id}')
-        except Exception as e:
-            logger.warning(f'[enterprise-sched] Archive failed: {e}')
+            logger.warning(f'[enterprise-sched] Generating scheduled {report_type} for user {user_id}')
+            report = gen(user_id=user_id)
+            # Note: generate_*_report() already calls archive_report() internally,
+            # so we do NOT archive again here to avoid duplicates.
+            logger.warning(f'[enterprise-sched] Done {report_type} for user {user_id}')
 
     except Exception as e:
         logger.warning(f'[enterprise-sched] Failed to generate {report_type} for {user_id}: {e}')

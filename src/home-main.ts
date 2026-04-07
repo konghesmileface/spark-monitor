@@ -4,6 +4,9 @@
 // 3. Scroll reveal ([data-reveal])
 // 4. Smooth anchor scrolling
 
+// Bundle bootstrap-icons locally so Tauri CSP doesn't block the CDN stylesheet
+import 'bootstrap-icons/font/bootstrap-icons.css';
+
 // ── Nav scroll effect ──
 const nav = document.getElementById('mainNav');
 if (nav) {

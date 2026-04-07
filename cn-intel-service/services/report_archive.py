@@ -64,7 +64,8 @@ def _ensure_table():
 def archive_report(user_id: str, report_type: str, content: dict,
                    summary: str = '', risk_score: int | None = None,
                    title: str = '') -> int | None:
-    """Store a report in MySQL. Returns the report ID, or None on failure."""
+    """Store a report in MySQL. Returns the report ID, or None on failure.
+    Dedup: skips if same user+type already archived within last 1 hour."""
     _ensure_table()
     conn = _get_conn()
     if not conn:
@@ -75,9 +76,22 @@ def archive_report(user_id: str, report_type: str, content: dict,
         try:
             gen_dt = datetime.strptime(generated_at, '%Y-%m-%d %H:%M')
         except (ValueError, TypeError):
-            gen_dt = datetime.now()
+            try:
+                gen_dt = datetime.fromisoformat(generated_at)
+            except (ValueError, TypeError):
+                gen_dt = datetime.now()
 
+        # Dedup: check if same user+type was archived within last 1 hour
         with conn.cursor() as cur:
+            cur.execute("""
+                SELECT id FROM report_archives
+                WHERE user_id=%s AND report_type=%s AND created_at > %s
+                LIMIT 1
+            """, (user_id, report_type, datetime.now() - timedelta(hours=1)))
+            if cur.fetchone():
+                logger.debug(f'Skipping duplicate archive: {report_type} for {user_id}')
+                return None
+
             cur.execute("""
                 INSERT INTO report_archives (user_id, report_type, title, content, summary, risk_score, generated_at)
                 VALUES (%s, %s, %s, %s, %s, %s, %s)

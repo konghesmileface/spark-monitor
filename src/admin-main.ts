@@ -1,4 +1,5 @@
 // Spark Monitor — Admin panel logic
+import 'bootstrap-icons/font/bootstrap-icons.css';
 
 const CN_INTEL_BASE = import.meta.env.VITE_CN_INTEL_BASE || '';
 
