@@ -17286,6 +17286,11 @@ body.has-breaking-alert .panels-grid {
     align-content: start;
     overflow-y: auto;
   }
+
+  /* Windows + Spark: taller panels — Windows 125% DPI makes panels too short */
+  [data-platform="windows"] .panels-grid {
+    grid-auto-rows: minmax(400px, 560px);
+  }
 }
 
 /* ==========================================================================

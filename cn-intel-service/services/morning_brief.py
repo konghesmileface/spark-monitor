@@ -386,12 +386,16 @@ def generate_morning_brief(user_id: str) -> dict:
 
     rotation_text = ''
     if rotation:
-        lines = [f"  {r['name']}: 动量{r.get('momentum',0):+.2f}%" for r in rotation[:5]]
+        lines = [f"  {r['name']}: 动量{r.get('momentum',0):+.2f}%" for r in (rotation.get("sectors", []) if isinstance(rotation, dict) else rotation)[:5]]
         rotation_text = '板块轮动:\n' + '\n'.join(lines)
 
     keyword_trend_text = ''
     if kw_trends:
-        rising = [f"{k['keyword']}(+{k['change']}%)" for k in kw_trends if k.get('change', 0) > 0][:5]
+        _all_kw = []
+        for _g in (kw_trends.get('groups', []) if isinstance(kw_trends, dict) else []):
+            for _kw in _g.get('keywords', []):
+                _all_kw.append({'keyword': _kw.get('word', ''), 'change': _kw.get('change_pct', 0)})
+        rising = [f"{k['keyword']}(+{k['change']:.0f}%)" for k in _all_kw if k.get('change', 0) > 0][:5]
         if rising:
             keyword_trend_text = f"政策热词趋势(7日): {', '.join(rising)}"
 
