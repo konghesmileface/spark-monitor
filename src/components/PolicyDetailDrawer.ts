@@ -1964,24 +1964,41 @@ class PolicyDrawer {
     this.compareLoading = true;
     this.renderBody();
 
+    const fetchOpts = {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        title: this.item.title,
+        content: plainText,
+        url: this.item.url,
+        compare_items: compareItems,
+      }),
+      signal: this.abortController?.signal,
+      timeout: 180_000, // 180s — compare involves article fetching + AI analysis
+    } as RequestInit & { timeout?: number };
+
     try {
-      const res = await cnFetch(`${CN_INTEL_BASE}/api/cn/policy/compare`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title: this.item.title,
-          content: plainText,
-          url: this.item.url,
-          compare_items: compareItems,
-        }),
-        signal: this.abortController?.signal,
-        timeout: 120_000, // 120s — compare involves article fetching + AI analysis
-      } as RequestInit & { timeout?: number });
+      const res = await cnFetch(`${CN_INTEL_BASE}/api/cn/policy/compare`, fetchOpts);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       this.compareResult = await res.json();
     } catch (err) {
-      if (err instanceof DOMException && err.name === 'AbortError') return;
-      this.compareResult = { summary: '对比分析失败，请稍后重试。' };
+      if (err instanceof DOMException && err.name === 'AbortError') {
+        // Timeout or drawer closed — server may have cached result, retry once
+        try {
+          const retry = await cnFetch(`${CN_INTEL_BASE}/api/cn/policy/compare`, {
+            ...fetchOpts, timeout: 20_000,
+          } as RequestInit & { timeout?: number });
+          if (retry.ok) {
+            this.compareResult = await retry.json();
+          } else {
+            this.compareResult = { summary: '对比分析超时，请稍后重试。' };
+          }
+        } catch {
+          this.compareResult = { summary: '对比分析超时，请稍后重试。' };
+        }
+      } else {
+        this.compareResult = { summary: '对比分析失败，请稍后重试。' };
+      }
     } finally {
       this.compareLoading = false;
       this.renderBody();
