@@ -113,6 +113,7 @@ const MODAL_STYLE = `<style>
 </style>`;
 
 let _modalEl: HTMLElement | null = null;
+let _saving = false;
 
 // State
 let _providers: AIProvider[] = [];
@@ -149,6 +150,7 @@ export async function openAiSettingsModal(): Promise<void> {
 
   _modalEl = document.createElement('div');
   _render();
+  _bindEvents();   // bind click handler ONCE (not in every _render)
   document.body.appendChild(_modalEl);
 
   // ESC to close
@@ -252,8 +254,6 @@ function _render(): void {
       </div>
     </div>
   </div>`;
-
-  _bindEvents();
 }
 
 function _bindEvents(): void {
@@ -338,6 +338,8 @@ function _captureInputValues(): void {
 }
 
 async function _save(): Promise<void> {
+  if (_saving) return;
+  _saving = true;
   _captureInputValues();
   const errors: string[] = [];
 
@@ -367,6 +369,7 @@ async function _save(): Promise<void> {
   }
 
   if (errors.length > 0) {
+    _saving = false;
     const errEl = _modalEl?.querySelector('.cn-ai-save-error');
     if (errEl) {
       errEl.textContent = errors.join('；') + '，请重试';
@@ -377,6 +380,7 @@ async function _save(): Promise<void> {
     return;
   }
 
+  _saving = false;
   _close();
 }
 

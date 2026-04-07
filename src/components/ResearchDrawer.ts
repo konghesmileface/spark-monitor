@@ -1963,9 +1963,6 @@ export class ResearchDrawer {
     this.renderBody();
 
     try {
-      const ac = new AbortController();
-      const timer = setTimeout(() => ac.abort(), 90000);
-      this.abortController?.signal.addEventListener('abort', () => ac.abort());
       const res = await cnFetch(`${CN_INTEL_BASE}/api/cn/research/compare`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -1974,9 +1971,9 @@ export class ResearchDrawer {
           content: plainText.slice(0, 5000),
           compare_items: compareItems,
         }),
-        signal: ac.signal,
-      });
-      clearTimeout(timer);
+        signal: this.abortController?.signal,
+        timeout: 90_000, // 90s — compare involves AI analysis
+      } as RequestInit & { timeout?: number });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       this.compareResult = await res.json();
     } catch (err) {

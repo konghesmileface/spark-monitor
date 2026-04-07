@@ -1975,7 +1975,8 @@ class PolicyDrawer {
           compare_items: compareItems,
         }),
         signal: this.abortController?.signal,
-      });
+        timeout: 120_000, // 120s — compare involves article fetching + AI analysis
+      } as RequestInit & { timeout?: number });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       this.compareResult = await res.json();
     } catch (err) {
