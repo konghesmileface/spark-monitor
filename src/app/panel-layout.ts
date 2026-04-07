@@ -1011,18 +1011,24 @@ export class PanelLayoutManager implements AppModule {
     });
 
     // Spark world-mode: force tall panels.
-    // v2.5.55-59: grid-auto-rows (CSS + inline) all failed on Windows WebView2.
-    // v2.5.60: bypass grid track sizing entirely — set height directly on each panel.
+    // v2.5.55-60: CSS Grid approach failed on Windows — grid track max clamps
+    // panel height regardless of inline styles. Nuclear option: convert to flexbox.
     if (SITE_VARIANT === 'spark') {
-      // Single-column layout in the panels grid
-      panelsGrid.style.setProperty('grid-template-columns', '1fr', 'important');
-      panelsGrid.style.setProperty('gap', '6px', 'important');
-      // Force each panel to a fixed height — no grid-auto-rows dependency
+      // Convert panels-grid from CSS Grid → Flexbox column
+      panelsGrid.style.cssText = `
+        display: flex !important;
+        flex-direction: column !important;
+        gap: 6px !important;
+        padding: 6px !important;
+        overflow-y: auto !important;
+        min-height: 0 !important;
+      `;
+      // Each panel: fixed 450px, no flex shrink
       panelsGrid.querySelectorAll<HTMLElement>('.panel').forEach(p => {
         p.style.setProperty('height', '450px', 'important');
         p.style.setProperty('min-height', '450px', 'important');
-        p.style.setProperty('grid-row', 'span 1', 'important');
-        p.style.setProperty('grid-column', 'span 1', 'important');
+        p.style.setProperty('flex-shrink', '0', 'important');
+        p.style.setProperty('width', '100%', 'important');
       });
       // Ensure parent uses side-by-side grid layout
       const mc = panelsGrid.closest('.main-content') as HTMLElement | null;
