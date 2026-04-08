@@ -89,7 +89,8 @@ _DOMAIN_SELECTORS: dict[str, list[str]] = {
     'ccdi.gov.cn':         ['div.TRS_Editor', 'div#content', 'div.content'],
     'audit.gov.cn':        ['div#textSize', 'div.con-article-txt-box', 'div.TRS_Editor'],
     'mot.gov.cn':          ['div.TRS_Editor', 'div#UCAP-CONTENT', 'div.article_con'],
-    'moa.gov.cn':          ['div.TRS_Editor', 'div#UCAP-CONTENT', 'div.trs_editor_view'],
+    'moa.gov.cn':          ['div.gsj_htmlcon_bot', 'div.Custom_UnionStyle', 'div.gsj_htmlcon',
+                            'div.TRS_Editor', 'div#UCAP-CONTENT', 'div.trs_editor_view'],
     'most.gov.cn':         ['div.TRS_Editor', 'div#UCAP-CONTENT', 'div.article_con'],
     'mee.gov.cn':          ['div.TRS_Editor', 'div#UCAP-CONTENT', 'div.con_text'],
     'mwr.gov.cn':          ['div.view', 'div.TRS_UEDITOR', 'div.xlcontainer',
@@ -106,6 +107,15 @@ _DOMAIN_SELECTORS: dict[str, list[str]] = {
     'sse.com.cn':          ['div.article-content', 'div.allZoom', 'div#content'],
     'szse.cn':             ['div#desContent', 'div.des-content', 'div.des-cont', 'div.article-content'],
     'nhc.gov.cn':          ['div.TRS_Editor', 'div#zoom', 'div#UCAP-CONTENT', 'div.con_text'],
+    'moe.gov.cn':          ['div.TRS_Editor', 'div#UCAP-CONTENT', 'div.moe_content'],
+    'mct.gov.cn':          ['div.TRS_Editor', 'div#UCAP-CONTENT'],
+    'mnr.gov.cn':          ['div.TRS_Editor', 'div#UCAP-CONTENT'],
+    'samr.gov.cn':         ['div.TRS_Editor', 'div#UCAP-CONTENT', 'div.article_content'],
+    'mva.gov.cn':          ['div.TRS_Editor', 'div#UCAP-CONTENT'],
+    'nea.gov.cn':          ['div.TRS_Editor', 'div#UCAP-CONTENT', 'div.artcle'],
+    'moj.gov.cn':          ['div.TRS_Editor', 'div#UCAP-CONTENT'],
+    'mca.gov.cn':          ['div.TRS_Editor', 'div#UCAP-CONTENT', 'div.article_con'],
+    'nhsa.gov.cn':         ['div.TRS_Editor', 'div#UCAP-CONTENT', 'div.content'],
     'qstheory.cn':         ['div.highlight', 'div.TRS_Editor', 'div.article'],
 
     # ─── 财经媒体 Financial Media ───
@@ -475,6 +485,17 @@ _NOISE_TEXT_PATTERNS = [
     r'如需转载请与.*联系',
     r'^\s*每日经济新闻\s*$',
     r'^\s*封面图片来源\s*[:：].*$',
+    # Photo captions with source attribution (repeated in xinhua/people articles)
+    r'图片来源\s*[:：]\s*\S+[）\)]\s*$',
+    # Page navigation controls
+    r'^\s*【\s*TOP\s*】\s*$',
+    r'^\s*【\s*打印页面\s*】\s*$',
+    r'^\s*【\s*关闭页面\s*】\s*$',
+    r'^\s*【TOP】\s*【打印页面】\s*【关闭页面】\s*$',
+    # Reposting site headers (gov.cn subdomain gateway labels)
+    r'^\s*\S{2,10}(市|区|县|省)人民政府门户网站\s*$',
+    # Orphaned font control fragment
+    r'^\s*【字体\s*[:：]?\s*$',
     # jiemian.com (界面新闻) noise
     r'^\s*未经授权.*不得转载\s*$',
     r'^\s*界面新闻\s*$',
@@ -1355,7 +1376,8 @@ def fetch_article(url: str, use_proxy: bool = False, keyword: str = '') -> dict 
         content_html = _clean_html(content_el)
         plain_text = _to_plain_text(content_el)
 
-        if len(plain_text) < 30:
+        min_len = 20 if '.gov.cn' in url else 30
+        if len(plain_text) < min_len:
             return None
 
         logger.warning(f'Article OK: {len(plain_text)} chars from {url[:80]}')
@@ -1392,6 +1414,7 @@ def _extract_title(soup) -> str:
 def _find_content(soup, url: str):
     """Find article content element using domain-specific or generic selectors."""
     domain = _get_domain(url)
+    is_gov = domain.endswith('.gov.cn')
 
     # 1) Try domain-specific selectors
     selectors = _DOMAIN_SELECTORS.get(domain)
@@ -1407,10 +1430,14 @@ def _find_content(soup, url: str):
                 parent = '.'.join(parts[-2:])
             selectors = _DOMAIN_SELECTORS.get(parent)
 
+    # gov.cn pages often have short notices — use lower thresholds
+    domain_min = 30 if is_gov else 50
+    generic_min = 50 if is_gov else 80
+
     if selectors:
         for sel in selectors:
             el = soup.select_one(sel)
-            if el and len(el.get_text(strip=True)) > 50:
+            if el and len(el.get_text(strip=True)) > domain_min:
                 # Validate: check it's not a footer/nav area
                 if not _looks_like_footer(el):
                     return el
@@ -1418,7 +1445,7 @@ def _find_content(soup, url: str):
     # 2) Generic selectors (ordered by specificity)
     for sel in _GENERIC_SELECTORS:
         el = soup.select_one(sel)
-        if el and len(el.get_text(strip=True)) > 80:
+        if el and len(el.get_text(strip=True)) > generic_min:
             if not _looks_like_footer(el):
                 return el
 
@@ -1427,9 +1454,19 @@ def _find_content(soup, url: str):
 
 
 def _looks_like_footer(el) -> bool:
-    """Check if element looks like a page footer (ICP info, copyright, etc.)."""
+    """Check if element looks like a page footer/navigation, not article content.
+    Detects: (1) ICP/copyright indicators, (2) high link density (nav lists)."""
     if not isinstance(el, Tag):
         return False
+    # Check 1: Link density — navigation sections have many links relative to text
+    link_count = len(el.find_all('a'))
+    text_len = len(el.get_text(strip=True))
+    if link_count > 30:
+        return True  # 30+ links is definitely navigation/footer
+    if text_len > 0 and link_count > 10 and link_count / (text_len / 100) > 5:
+        return True  # >5 links per 100 chars = navigation-heavy
+
+    # Check 2: Footer keyword indicators
     text = el.get_text(strip=True)[:500]
     footer_indicators = [
         '京ICP备', '京公网安备', '网站识别码', '版权所有', '主办单位',
@@ -1437,8 +1474,9 @@ def _looks_like_footer(el) -> bool:
         '归档数据', 'ICP证', '网安备',
     ]
     hit_count = sum(1 for ind in footer_indicators if ind in text)
-    # If 2+ footer indicators in first 500 chars, it's likely footer
-    return hit_count >= 2
+    # If 3+ footer indicators in first 500 chars, it's likely footer
+    # (gov.cn content areas often contain "主办单位" metadata — 2 is too aggressive)
+    return hit_count >= 3
 
 
 def _get_domain(url: str) -> str:
@@ -1564,6 +1602,10 @@ def _strip_noise_elements(el):
             continue
         # People.com.cn toolbar: "订阅/取消订阅/收藏/大字号/点击播报"
         if re.match(r'^(订阅|取消订阅|已收藏|大字号|小字号)\s*$', text):
+            tag.decompose()
+            continue
+        # Page navigation: 【TOP】【打印页面】【关闭页面】
+        if re.match(r'^\s*【\s*(TOP|打印页面|关闭页面)\s*】', text) and len(text) < 40:
             tag.decompose()
             continue
         if re.match(r'^点击播报本文', text) and len(text) < 30:
@@ -1834,6 +1876,16 @@ def _clean_html(el):
         if not tag.get_text(strip=True) and not tag.find(['img', 'table', 'video']):
             tag.decompose()
 
+    # Dedup: remove repeated paragraph elements (photo captions in xinhua/people)
+    seen_texts = set()
+    for tag in el.find_all('p'):
+        text = tag.get_text(strip=True)
+        if len(text) > 30 and text in seen_texts:
+            tag.decompose()
+            continue
+        if text:
+            seen_texts.add(text)
+
     return el
 
 
@@ -1862,6 +1914,7 @@ def _to_plain_text(el) -> str:
     text = re.sub(r'\n{3,}', '\n\n', text)
     # Remove lines that are just punctuation or very short noise
     lines = []
+    seen_lines = set()
     for line in text.split('\n'):
         line = line.strip()
         if not line:
@@ -1869,5 +1922,9 @@ def _to_plain_text(el) -> str:
             continue
         if len(line) < 4 and re.match(r'^[|/·\-–—【】\[\]\s]+$', line):
             continue
+        # Dedup: skip repeated paragraphs (photo captions in xinhua/people articles)
+        if len(line) > 30 and line in seen_lines:
+            continue
+        seen_lines.add(line)
         lines.append(line)
     return '\n'.join(lines).strip()

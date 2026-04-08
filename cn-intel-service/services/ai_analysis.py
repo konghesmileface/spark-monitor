@@ -11,6 +11,84 @@ logger = logging.getLogger('cn-intel.ai')
 # Concurrency control: max 5 simultaneous AI calls
 _ai_semaphore = threading.Semaphore(5)
 
+# Sentinel for cache miss detection
+_UNSET = object()
+
+
+def _get_request_custom_keys():
+    """Auto-detect current user's AI custom keys from Flask request context.
+
+    Resolution order:
+    1. request.args['user_id'] or request body user_id (UUID) → get_profile()
+    2. g.current_user['profile_id'] (BIGINT PK) → direct ai_custom_keys lookup
+
+    Result is cached on Flask g for the duration of the request.
+    Returns None when called outside a request context (background threads,
+    schedulers, etc.), so those callers automatically use system keys.
+    """
+    try:
+        from flask import g, request as flask_req
+        # Accessing .args probes the request context; RuntimeError if absent
+        _ = flask_req.args
+    except (ImportError, RuntimeError):
+        return None
+
+    # Check if we already resolved for this request
+    ck = getattr(g, '_ai_custom_keys', _UNSET)
+    if ck is not _UNSET:
+        return ck
+
+    # Strategy 1: user_id UUID from query params or request body
+    user_id = flask_req.args.get('user_id', '').strip()
+    if not user_id:
+        try:
+            body = flask_req.get_json(silent=True)
+            if body and isinstance(body, dict):
+                user_id = str(body.get('user_id', '') or '').strip()
+        except Exception:
+            pass
+
+    keys = None
+
+    if user_id:
+        # Have UUID — standard profile lookup
+        try:
+            from services.user_profile import get_profile
+            profile = get_profile(user_id)
+            if profile:
+                keys = profile.get('ai_custom_keys') or None
+        except Exception:
+            pass
+    else:
+        # Strategy 2: resolve from auth context (profile_id BIGINT → direct key lookup)
+        cur_user = getattr(g, 'current_user', None)
+        pid = cur_user.get('profile_id') if cur_user else None
+        if pid:
+            try:
+                from services.db_pool import get_connection
+                import pymysql
+                conn = get_connection()
+                try:
+                    with conn.cursor(pymysql.cursors.DictCursor) as cur:
+                        cur.execute("SELECT ai_custom_keys FROM user_profiles WHERE id=%s", (pid,))
+                        row = cur.fetchone()
+                        if row and row.get('ai_custom_keys'):
+                            import json as _json
+                            raw = row['ai_custom_keys']
+                            if isinstance(raw, str):
+                                parsed = _json.loads(raw)
+                                keys = parsed if isinstance(parsed, dict) and parsed else None
+                            elif isinstance(raw, dict) and raw:
+                                keys = raw
+                finally:
+                    conn.close()
+            except Exception:
+                pass
+
+    g._ai_custom_keys = keys
+    return keys
+
+
 # Provider configurations
 _PROVIDERS = [
     {
@@ -50,7 +128,12 @@ def call_ai(prompt, system_prompt='你是一个专业的中国A股市场分析�
         provider_order: optional list of provider names e.g. ["gemini","deepseek"].
                         Providers not in the list are appended as final fallback.
         custom_keys: optional dict of {provider_name: api_key} for user-supplied keys.
+                     When None, auto-loads from current user's profile (if in request context).
     """
+    # Auto-inject user custom keys when not explicitly provided
+    if custom_keys is None:
+        custom_keys = _get_request_custom_keys()
+
     # DeepSeek enforces max 8192 tokens; clamp to avoid 400 errors
     max_tokens = min(max_tokens, 8192)
 
@@ -239,6 +322,10 @@ def _call_anthropic(provider, api_key, prompt, system_prompt, max_tokens, proxie
 def call_ai_stream(prompt, system_prompt='你是一个专业的中国A股市场分析师。', max_tokens=2000, provider_order=None, custom_keys=None):
     """Streaming AI call — yields text chunks.
     DeepSeek supports native streaming; other providers simulate via chunked response."""
+    # Auto-inject user custom keys when not explicitly provided
+    if custom_keys is None:
+        custom_keys = _get_request_custom_keys()
+
     proxies = {}
     if Config.HTTP_PROXY:
         proxies['http'] = Config.HTTP_PROXY

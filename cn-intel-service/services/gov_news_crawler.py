@@ -454,6 +454,60 @@ GOV_SOURCES = {
         'url': 'http://www.chinatax.gov.cn/',
         'icon': 'bi-receipt',
     },
+    'moe': {
+        'name': '教育部',
+        'category': '部委动态',
+        'url': 'http://www.moe.gov.cn/',
+        'icon': 'bi-mortarboard-fill',
+    },
+    'mct': {
+        'name': '文旅部',
+        'category': '部委动态',
+        'url': 'https://www.mct.gov.cn/',
+        'icon': 'bi-palette',
+    },
+    'mnr': {
+        'name': '自然资源部',
+        'category': '部委动态',
+        'url': 'https://www.mnr.gov.cn/',
+        'icon': 'bi-geo-alt',
+    },
+    'samr': {
+        'name': '市场监管总局',
+        'category': '部委动态',
+        'url': 'https://www.samr.gov.cn/',
+        'icon': 'bi-shop-window',
+    },
+    'mva': {
+        'name': '退役军人部',
+        'category': '部委动态',
+        'url': 'https://www.mva.gov.cn/',
+        'icon': 'bi-person-badge-fill',
+    },
+    'nea': {
+        'name': '国家能源局',
+        'category': '部委动态',
+        'url': 'http://www.nea.gov.cn/xwzx/nyyw.htm',
+        'icon': 'bi-lightning-charge',
+    },
+    'moj': {
+        'name': '司法部',
+        'category': '部委动态',
+        'url': 'http://www.moj.gov.cn/',
+        'icon': 'bi-balance-scale',
+    },
+    'mca': {
+        'name': '民政部',
+        'category': '部委动态',
+        'url': 'https://www.mca.gov.cn/',
+        'icon': 'bi-people-fill',
+    },
+    'nhsa': {
+        'name': '国家医保局',
+        'category': '部委动态',
+        'url': 'http://www.nhsa.gov.cn/',
+        'icon': 'bi-hospital',
+    },
     # ── 国资央企 ──
     'sasac': {
         'name': '国资委',
@@ -499,11 +553,30 @@ GOV_SOURCES = {
         'url': 'https://www.bis.org/list/press_rel/index.htm',
         'icon': 'bi-globe-americas',
     },
+    # ── 国际媒体 ──
+    'reuters': {
+        'name': 'Reuters',
+        'category': '国际媒体',
+        'url': 'https://www.reuters.com/business/',
+        'icon': 'bi-broadcast',
+    },
+    'cnbc': {
+        'name': 'CNBC',
+        'category': '国际媒体',
+        'url': 'https://www.cnbc.com/',
+        'icon': 'bi-tv-fill',
+    },
+    'nikkei': {
+        'name': '日经新闻',
+        'category': '国际媒体',
+        'url': 'https://asia.nikkei.com/',
+        'icon': 'bi-newspaper',
+    },
 }
 
 GOV_CATEGORIES = ['领导活动', '央媒', '纪检监察', '审计', '财政货币', '金融监管',
                   '国务院', '统计', '部委动态', '国资央企', '理论', '海外',
-                  '外贸外交', '财经媒体', '智库', '国际央行', '国际机构']
+                  '外贸外交', '财经媒体', '智库', '国际央行', '国际机构', '国际媒体']
 
 
 # ── HTTP helper ──────────────────────────────────────────────────────────────
@@ -630,6 +703,25 @@ def _parse_rss_items(xml_text, source_key, max_items=15):
     if items:
         return items
 
+    # RSS 1.0 (RDF): namespace http://purl.org/rss/1.0/
+    _RSS1 = '{http://purl.org/rss/1.0/}'
+    for item_el in root.iter(f'{_RSS1}item'):
+        title_el = item_el.find(f'{_RSS1}title')
+        link_el = item_el.find(f'{_RSS1}link')
+        date_el = item_el.find('{http://purl.org/dc/elements/1.1/}date')
+        if title_el is None or not (title_el.text or '').strip():
+            continue
+        title = title_el.text.strip()
+        link = (link_el.text or '').strip() if link_el is not None else ''
+        if not link:
+            continue
+        d = _parse_rss_date(date_el.text if date_el is not None else '')
+        items.append(_make_item(title, link, d, source_key))
+        if len(items) >= max_items:
+            break
+    if items:
+        return items
+
     # Atom: <entry><title><link href="..."><updated>
     for entry in root.iter('{http://www.w3.org/2005/Atom}entry'):
         title_el = entry.find('{http://www.w3.org/2005/Atom}title')
@@ -665,6 +757,23 @@ def _extract_date(text):
     return ''
 
 
+def _validate_date(date_str):
+    """Validate a YYYY-MM-DD date string: must be real calendar date,
+    not in the future, and not older than 365 days. Returns '' if invalid."""
+    if not date_str:
+        return ''
+    try:
+        d = datetime.strptime(date_str, '%Y-%m-%d').date()
+    except (ValueError, TypeError):
+        return ''
+    today = date.today()
+    if d > today:
+        return ''
+    if (today - d).days > 365:
+        return ''
+    return date_str
+
+
 def _abs_url(base, href):
     """Resolve relative URL."""
     if not href:
@@ -680,7 +789,7 @@ def _make_item(title, url, date_str, source_key):
     return {
         'title': title.strip(),
         'url': url,
-        'date': date_str,
+        'date': _validate_date(date_str),
         'source': src.get('name', source_key),
         'source_key': source_key,
         'category': src.get('category', ''),
@@ -932,7 +1041,12 @@ def _fetch_csrc():
             if full_url in seen_urls:
                 continue
             seen_urls.add(full_url)
-            d = _extract_date('')
+            # CSRC URL pattern: /c100028/202604/t20260407_xxx.shtml
+            m_date = re.search(r'/t(\d{4})(\d{2})(\d{2})_', href)
+            if m_date:
+                d = f'{m_date.group(1)}-{m_date.group(2)}-{m_date.group(3)}'
+            else:
+                d = _extract_date(href)
             items.append(_make_item(title, full_url, d, 'csrc'))
     if not items:
         return _fetch_search_news('证监会', 'csrc')
@@ -1603,11 +1717,15 @@ def _fetch_ciis():
 
 # ── 领导活动 fetchers ──────────────────────────────────────────────────────
 
+_TOP_LEADERS = ['习近平', '李强', '赵乐际', '王沪宁', '蔡奇', '丁薛祥', '韩正']
+
+
 def _fetch_leaders():
-    """高层动态 — people.com.cn 领导人活动专页 (li>a + em date)."""
+    """高层动态 — people.com.cn 领导人活动专页 (li>a + em date).
+    Results sorted by leader priority (top leaders first), then by date."""
     resp = _safe_get('http://politics.people.com.cn/GB/1024/index1.html')
     if not resp:
-        return _fetch_search_news('高层动态', 'leaders')
+        return _fetch_search_news('国家领导人活动 国务院', 'leaders')
     soup = BeautifulSoup(resp.text, 'html.parser')
     items = []
     seen = set()
@@ -1628,7 +1746,22 @@ def _fetch_leaders():
         if not d:
             continue
         seen.add(title)
-        items.append(_make_item(title, _abs_url('http://politics.people.com.cn', href), d, 'leaders'))
+        item = _make_item(title, _abs_url('http://politics.people.com.cn', href), d, 'leaders')
+        # Assign leader priority (lower = higher priority)
+        priority = len(_TOP_LEADERS)  # default: lower than any named leader
+        for idx, name in enumerate(_TOP_LEADERS):
+            if name in title:
+                priority = idx
+                break
+        item['_priority'] = priority
+        items.append(item)
+    # Sort by priority ASC then date DESC (negate date by inverting string)
+    def _sort_key(x):
+        p = x.pop('_priority', 99)
+        d = x.get('date', '')
+        # Invert date string for descending sort: '2026-04-08' → negative
+        return (p, [-ord(c) for c in d] if d else [0])
+    items.sort(key=_sort_key)
     return items[:30]
 
 
@@ -1645,8 +1778,11 @@ def _fetch_gov_premier():
 
 def _fetch_pbc_governor():
     """人民银行行长活动"""
-    return _fetch_gov_generic('http://www.pbc.gov.cn/hangzhang/', 'pbc_governor',
-                              base_url='http://www.pbc.gov.cn')
+    items = _fetch_gov_generic('http://www.pbc.gov.cn/hangzhang/', 'pbc_governor',
+                               base_url='http://www.pbc.gov.cn')
+    if not items:
+        return _fetch_search_news('央行行长 潘功胜', 'pbc_governor')
+    return items
 
 
 def _fetch_mof_minister():
@@ -1663,8 +1799,11 @@ def _fetch_ndrc_chairman():
 
 def _fetch_csrc_chairman():
     """证监会主席活动"""
-    return _fetch_gov_generic('http://www.csrc.gov.cn/zjhxwfb/xwdd/zjhlddt/', 'csrc_chairman',
-                              base_url='http://www.csrc.gov.cn')
+    items = _fetch_gov_generic('http://www.csrc.gov.cn/zjhxwfb/xwdd/zjhlddt/', 'csrc_chairman',
+                               base_url='http://www.csrc.gov.cn')
+    if not items:
+        return _fetch_search_news('证监会主席 吴清', 'csrc_chairman')
+    return items
 
 
 def _fetch_nfra_chairman():
@@ -1900,12 +2039,27 @@ def _fetch_search_news(keyword, source_key, n=10):
     cutoff = (date.today() - timedelta(days=30)).isoformat()
 
     def _make_search_item(title, href, d, src_key):
-        """Create item and mark non-official sources. Returns None for unfetchable URLs."""
+        """Create item and mark non-official sources. Returns None for unfetchable URLs.
+        Auto-recovers truncated titles (ending with ... or …) by fetching og:title/h1."""
         from urllib.parse import urlparse
         domain = urlparse(href).hostname or ''
         for uf in _UNFETCHABLE_DOMAINS:
             if domain == uf or domain.endswith('.' + uf):
                 return None
+        # Recover truncated titles
+        if title.endswith('...') or title.endswith('…'):
+            try:
+                resp = _safe_get(href, timeout=5, retries=0)
+                if resp and resp.ok:
+                    s = BeautifulSoup(resp.text, 'html.parser')
+                    og = s.find('meta', property='og:title')
+                    full = (og['content'].strip() if og and og.get('content') else '') or \
+                           (s.find('h1').get_text(strip=True) if s.find('h1') else '') or \
+                           (s.find('title').get_text(strip=True) if s.find('title') else '')
+                    if full and len(full) > len(title):
+                        title = full
+            except Exception:
+                pass
         item = _make_item(title, href, d, src_key)
         if not _is_official_domain(href):
             item['via_search'] = True
@@ -1948,7 +2102,7 @@ def _fetch_search_news(keyword, source_key, n=10):
             d = ''
             m = re.search(r'/(\d{4})(\d{2})(\d{2})[A-Z]', href)
             if m:
-                d = f'{m.group(1)}-{m.group(2)}-{m.group(3)}'
+                d = _validate_date(f'{m.group(1)}-{m.group(2)}-{m.group(3)}')
             if not d:
                 d = date.today().isoformat()
             if d < cutoff:
@@ -1981,7 +2135,7 @@ def _fetch_search_news(keyword, source_key, n=10):
             seen.add(title)
             crow = div.find('div', class_='c-row')
             crow_text = crow.get_text(strip=True)[:30] if crow else ''
-            d = _baidu_relative_to_date(crow_text)
+            d = _validate_date(_baidu_relative_to_date(crow_text)) or date.today().isoformat()
             if d < cutoff:
                 continue
             items.append(_make_search_item(title, href, d, source_key))
@@ -2021,9 +2175,9 @@ def _fetch_search_news(keyword, source_key, n=10):
                 continue
             if any(j in title for j in _JUNK):
                 continue
-            # Safety: still truncate overly long titles
-            if len(title) > 80:
-                title = title[:75] + '...'
+            # Safety: only truncate extremely long titles (>200 chars)
+            if len(title) > 200:
+                title = title[:195] + '...'
             stripped = re.sub(r'[- —_·|]', '', title)
             if len(stripped) < 10:
                 continue
@@ -2036,7 +2190,7 @@ def _fetch_search_news(keyword, source_key, n=10):
             if m:
                 y, mo, dy = m.group(1), m.group(2), m.group(3)
                 if 1 <= int(mo) <= 12 and 1 <= int(dy) <= 31:
-                    d = f'{y}-{mo}-{dy}'
+                    d = _validate_date(f'{y}-{mo}-{dy}')
             if not d:
                 d = date.today().isoformat()
             if d < cutoff:
@@ -2147,21 +2301,21 @@ def _fetch_gov_generic(url, source_key, base_url=None):
         # Pattern 1: /202603/t20260313_xxx.html
         m = re.search(r'/(\d{4})(\d{2})/t(\d{4})(\d{2})(\d{2})_', href)
         if m:
-            d = f'{m.group(3)}-{m.group(4)}-{m.group(5)}'
+            d = _validate_date(f'{m.group(3)}-{m.group(4)}-{m.group(5)}')
         else:
             # Pattern 2: /2026/0313/xxx or /2026-03/13/
             m = re.search(r'/(\d{4})/(\d{2})(\d{2})/', href) or \
                 re.search(r'/(\d{4})-(\d{2})/(\d{2})/', href) or \
                 re.search(r'/(\d{4})(\d{2})/(\d{2})/', href)
             if m:
-                d = f'{m.group(1)}-{m.group(2)}-{m.group(3)}'
+                d = _validate_date(f'{m.group(1)}-{m.group(2)}-{m.group(3)}')
         # Also try span sibling for date
         if not d:
             parent = a.parent
             if parent:
                 span = parent.find('span')
                 if span:
-                    d = _extract_date(span.get_text())
+                    d = _validate_date(_extract_date(span.get_text()))
         seen.add(title)
         items.append(_make_item(title, _abs_url(base_url, href), d, source_key))
     # Sort by date descending, take top 20
@@ -2169,7 +2323,24 @@ def _fetch_gov_generic(url, source_key, base_url=None):
     if not items:
         name = GOV_SOURCES.get(source_key, {}).get('name', source_key)
         return _fetch_search_news(name, source_key)
-    return items[:20]
+    result = items[:20]
+    # Recover truncated titles (ending with ... or …) via og:title/h1
+    for item in result:
+        t = item.get('title', '')
+        if t.endswith('...') or t.endswith('…'):
+            try:
+                r = _safe_get(item['url'], timeout=5, retries=0)
+                if r and r.ok:
+                    s = BeautifulSoup(r.text, 'html.parser')
+                    og = s.find('meta', property='og:title')
+                    full = (og['content'].strip() if og and og.get('content') else '') or \
+                           (s.find('h1').get_text(strip=True) if s.find('h1') else '') or \
+                           (s.find('title').get_text(strip=True) if s.find('title') else '')
+                    if full and len(full) > len(t):
+                        item['title'] = full
+            except Exception:
+                pass
+    return result
 
 
 def _fetch_mot():
@@ -2206,6 +2377,61 @@ def _fetch_mem():
 def _fetch_chinatax():
     """国家税务总局"""
     return _fetch_gov_generic('http://www.chinatax.gov.cn/', 'chinatax')
+
+
+def _fetch_moe():
+    """教育部"""
+    return _fetch_gov_generic('http://www.moe.gov.cn/jyb_xwfb/gzdt_gzdt/', 'moe',
+                              base_url='http://www.moe.gov.cn')
+
+
+def _fetch_mct():
+    """文旅部"""
+    return _fetch_gov_generic('https://www.mct.gov.cn/whzx/whyw/', 'mct',
+                              base_url='https://www.mct.gov.cn')
+
+
+def _fetch_mnr():
+    """自然资源部"""
+    return _fetch_gov_generic('https://www.mnr.gov.cn/dt/ywbb/', 'mnr',
+                              base_url='https://www.mnr.gov.cn')
+
+
+def _fetch_samr():
+    """市场监管总局"""
+    return _fetch_gov_generic('https://www.samr.gov.cn/xw/zj/', 'samr',
+                              base_url='https://www.samr.gov.cn')
+
+
+def _fetch_mva():
+    """退役军人部"""
+    return _fetch_gov_generic('https://www.mva.gov.cn/xinwen/ywdt/', 'mva',
+                              base_url='https://www.mva.gov.cn')
+
+
+def _fetch_nea():
+    """国家能源局"""
+    return _fetch_gov_generic('http://www.nea.gov.cn/xwzx/nyyw.htm', 'nea',
+                              base_url='http://www.nea.gov.cn')
+
+
+def _fetch_moj():
+    """司法部"""
+    return _fetch_gov_generic('http://www.moj.gov.cn/', 'moj')
+
+
+def _fetch_mca():
+    """民政部"""
+    items = _fetch_gov_generic('https://www.mca.gov.cn/n152/n166/index.html', 'mca',
+                               base_url='https://www.mca.gov.cn')
+    if not items:
+        items = _fetch_gov_generic('https://www.mca.gov.cn/', 'mca')
+    return items
+
+
+def _fetch_nhsa():
+    """国家医保局"""
+    return _fetch_gov_generic('http://www.nhsa.gov.cn/', 'nhsa')
 
 
 def _fetch_miit():
@@ -2629,6 +2855,73 @@ def _fetch_bis():
     return items
 
 
+# ── 国际媒体 fetchers ────────────────────────────────────────────────────────
+
+def _fetch_reuters():
+    """Reuters — business/markets wire via Google News RSS.
+    Reuters blocks direct access (401/404), so we use Google News RSS
+    filtered for reuters.com as a reliable proxy."""
+    resp = _safe_get_intl(
+        'https://news.google.com/rss/search?q=site:reuters.com+business+OR+markets&hl=en-US&gl=US&ceid=US:en')
+    if resp and resp.ok and '<item>' in resp.text:
+        items = _parse_rss_items(resp.text, 'reuters', max_items=15)
+        # Fix URLs: Google News wraps in redirect, extract original
+        for item in items:
+            m = re.search(r'url=(https?://[^&]+)', item.get('url', ''))
+            if m:
+                item['url'] = m.group(1)
+        if items:
+            return items
+    return []
+
+
+def _fetch_cnbc():
+    """CNBC — business/finance news. RSS primary."""
+    resp = _safe_get_intl('https://www.cnbc.com/id/100003114/device/rss/rss.html')
+    if resp and resp.ok:
+        items = _parse_rss_items(resp.text, 'cnbc', max_items=15)
+        if items:
+            return items
+    # HTML fallback
+    resp = _safe_get_intl('https://www.cnbc.com/world/')
+    if not resp:
+        return []
+    soup = BeautifulSoup(resp.text, 'html.parser')
+    items = []
+    seen = set()
+    for a in soup.select('a[href*="/202"]'):
+        href = a.get('href', '')
+        title = a.get_text(strip=True)
+        if len(title) < 15 or title in seen:
+            continue
+        seen.add(title)
+        m = re.search(r'/(\d{4})/(\d{2})/(\d{2})/', href)
+        d = _validate_date(f'{m.group(1)}-{m.group(2)}-{m.group(3)}') if m else date.today().isoformat()
+        items.append(_make_item(title, href, d, 'cnbc'))
+    return items[:15]
+
+
+def _fetch_nikkei():
+    """日経新聞 Nikkei Asia — business/finance via RSS feed."""
+    resp = _safe_get_intl('https://asia.nikkei.com/rss/feed/nar')
+    if resp and resp.ok:
+        items = _parse_rss_items(resp.text, 'nikkei', max_items=15)
+        if items:
+            return items
+    # Fallback: Google News RSS filtered for nikkei
+    resp = _safe_get_intl(
+        'https://news.google.com/rss/search?q=site:asia.nikkei.com&hl=en-US&gl=US&ceid=US:en')
+    if resp and resp.ok and '<item>' in resp.text:
+        items = _parse_rss_items(resp.text, 'nikkei', max_items=15)
+        for item in items:
+            m = re.search(r'url=(https?://[^&]+)', item.get('url', ''))
+            if m:
+                item['url'] = m.group(1)
+        if items:
+            return items
+    return []
+
+
 # ── Dispatcher ───────────────────────────────────────────────────────────────
 
 _FETCHERS = {
@@ -2691,6 +2984,15 @@ _FETCHERS = {
     'mwr': _fetch_mwr,
     'mem': _fetch_mem,
     'chinatax': _fetch_chinatax,
+    'moe': _fetch_moe,
+    'mct': _fetch_mct,
+    'mnr': _fetch_mnr,
+    'samr': _fetch_samr,
+    'mva': _fetch_mva,
+    'nea': _fetch_nea,
+    'moj': _fetch_moj,
+    'mca': _fetch_mca,
+    'nhsa': _fetch_nhsa,
     # 国资央企
     'sasac': _fetch_sasac,
     # 理论
@@ -2726,6 +3028,10 @@ _FETCHERS = {
     # 国际机构
     'imf': _fetch_imf,
     'bis': _fetch_bis,
+    # 国际媒体
+    'reuters': _fetch_reuters,
+    'cnbc': _fetch_cnbc,
+    'nikkei': _fetch_nikkei,
 }
 
 
@@ -2784,7 +3090,7 @@ def get_gov_news(categories=None):
     with ThreadPoolExecutor(max_workers=16) as executor:
         futures = {executor.submit(_fetch_source, key): key for key in source_keys}
         try:
-            for future in as_completed(futures, timeout=40):
+            for future in as_completed(futures, timeout=60):
                 try:
                     key, items = future.result(timeout=12)
                     source_counts[key] = len(items)
@@ -2805,6 +3111,27 @@ def get_gov_news(categories=None):
     from services.policy_store import _clean_title
     for item in raw_items:
         item['title'] = _clean_title(item.get('title', ''))
+        item['date'] = _validate_date(item.get('date', ''))
+
+    # Filter 领导活动 items from search engines — must be about gov/party leaders
+    _LEADER_KEYWORDS = (
+        '国务院', '中央', '总书记', '总理', '主席', '部长', '局长', '主任',
+        '书记', '省长', '市长', '部委', '发改委', '央行', '证监会', '银保监',
+        '金监', '财政部', '商务部', '外交部', '工信部', '人社部', '住建部',
+        '交通部', '农业', '科技部', '生态环境', '卫健委', '应急', '国资委',
+        '人民银行', '外汇局', '政协', '人大', '纪委', '监委', '党委',
+        '政府', '省委', '市委', '国家', '中共', '政治局', '常委',
+        '习近平', '李强', '赵乐际', '王沪宁', '蔡奇', '丁薛祥', '韩正',
+    )
+    filtered_items = []
+    for item in raw_items:
+        # Only filter search-sourced items in 领导活动 category
+        if item.get('category') == '领导活动' and item.get('via_search'):
+            title = item.get('title', '')
+            if not any(kw in title for kw in _LEADER_KEYWORDS):
+                continue  # Drop irrelevant search result
+        filtered_items.append(item)
+    raw_items = filtered_items
 
     # Cross-source dedup by URL (same article from multiple sources)
     seen_urls = set()

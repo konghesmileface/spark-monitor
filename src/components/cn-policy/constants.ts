@@ -17,6 +17,7 @@ export const GOV_CATEGORY_FILTERS = [
   { key: '智库', label: '智库' },
   { key: '国际央行', label: '国际央行' },
   { key: '国际机构', label: '国际机构' },
+  { key: '国际媒体', label: '国际媒体' },
 ];
 
 // View modes

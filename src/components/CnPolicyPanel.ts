@@ -2038,7 +2038,7 @@ export class CnPolicyPanel extends Panel {
     }
 
     // International categories use card layout
-    const isIntl = this.categoryFilter === '国际央行' || this.categoryFilter === '国际机构';
+    const isIntl = this.categoryFilter === '国际央行' || this.categoryFilter === '国际机构' || this.categoryFilter === '国际媒体';
     let newsHtml: string;
     if (items.length === 0) {
       newsHtml = '<div class="cn-policy-empty">该类别暂无新闻</div>';
@@ -3757,6 +3757,7 @@ export class CnPolicyPanel extends Panel {
       case '外贸外交': return { bg: 'rgba(0,150,136,0.12)', fg: '#009688' };
       case '国际央行': return { bg: 'rgba(63,81,181,0.12)', fg: '#5C6BC0' };
       case '国际机构': return { bg: 'rgba(236,64,122,0.12)', fg: '#EC407A' };
+      case '国际媒体': return { bg: 'rgba(0,172,193,0.12)', fg: '#00ACC1' };
       default: return { bg: 'rgba(158,158,158,0.12)', fg: '#9E9E9E' };
     }
   }

@@ -112,3 +112,87 @@ jobs:
         run: |
           rm -f certificate.p12
           security delete-keychain build.keychain 2>/dev/null || true
+
+  upload-to-oss:
+    needs: build-tauri
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    name: Upload to OSS
+    timeout-minutes: 15
+
+    steps:
+      - name: Extract version from tag
+        id: version
+        run: echo "version=${GITHUB_REF_NAME#v}" >> $GITHUB_OUTPUT
+
+      - name: Install ossutil
+        run: |
+          wget -q https://gosspublic.alicdn.com/ossutil/1.7.19/ossutil-v1.7.19-linux-amd64.zip
+          unzip -q ossutil-v1.7.19-linux-amd64.zip
+          chmod +x ossutil-v1.7.19-linux-amd64/ossutil64
+          sudo mv ossutil-v1.7.19-linux-amd64/ossutil64 /usr/local/bin/ossutil
+
+      - name: Configure ossutil
+        env:
+          OSS_ACCESS_KEY_ID: ${{ secrets.ALIYUN_OSS_ACCESS_KEY_ID }}
+          OSS_ACCESS_KEY_SECRET: ${{ secrets.ALIYUN_OSS_ACCESS_KEY_SECRET }}
+          OSS_ENDPOINT: ${{ secrets.ALIYUN_OSS_ENDPOINT }}
+        run: |
+          ossutil config \
+            -e "${OSS_ENDPOINT}.aliyuncs.com" \
+            -i "$OSS_ACCESS_KEY_ID" \
+            -k "$OSS_ACCESS_KEY_SECRET"
+
+      - name: Download from GitHub release and upload to OSS
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          OSS_BUCKET: ${{ secrets.ALIYUN_OSS_BUCKET }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          TAG="v${VERSION}"
+          mkdir -p downloads
+          echo "Downloading release assets for $TAG..."
+          gh release download "$TAG" \
+            --repo ${{ github.repository }} \
+            --pattern 'Spark.Monitor_*' \
+            --dir ./downloads 2>/dev/null && {
+            echo "Downloaded from GitHub release:"
+            ls -lh downloads/
+          } || {
+            echo "No release assets found for $TAG — build may still be uploading"
+            exit 0
+          }
+
+          for file in downloads/Spark.Monitor_*; do
+            if [ -f "$file" ]; then
+              echo "Uploading $(basename "$file")..."
+              ossutil cp "$file" "oss://${OSS_BUCKET}/$(basename "$file")" \
+                --meta "Cache-Control:public,max-age=604800" \
+                --meta "Content-Disposition:attachment" \
+                -f
+            fi
+          done
+          echo "All files uploaded to OSS"
+
+      - name: Update nginx download version
+        env:
+          SSH_KEY: ${{ secrets.SSH_DEPLOY_KEY }}
+          SSH_HOST: ${{ secrets.SSH_DEPLOY_HOST }}
+          SSH_USER: ${{ secrets.SSH_DEPLOY_USER }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          mkdir -p ~/.ssh
+          echo "$SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H "$SSH_HOST" >> ~/.ssh/known_hosts 2>/dev/null
+          ssh -o StrictHostKeyChecking=no -i ~/.ssh/deploy_key "${SSH_USER}@${SSH_HOST}" bash -s << SSHEOF
+            if [ -f /etc/nginx/conf.d/worldmonitor.conf ]; then
+              cp /etc/nginx/conf.d/worldmonitor.conf "/etc/nginx/conf.d/worldmonitor.conf.bak-\$(date +%Y%m%d-%H%M%S)"
+              sed -i 's/Spark\.Monitor_[0-9]\+\.[0-9]\+\.[0-9]\+/Spark.Monitor_${VERSION}/g' /etc/nginx/conf.d/worldmonitor.conf
+              nginx -t && systemctl reload nginx
+              echo "Nginx updated to version ${VERSION}"
+            else
+              echo "worldmonitor.conf not found, skipping nginx update"
+            fi
+          SSHEOF
+          rm ~/.ssh/deploy_key
