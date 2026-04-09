@@ -213,9 +213,10 @@ def store_items(items: list) -> int:
         return 0
     _ensure_table()
 
-    sql = """INSERT IGNORE INTO policy_news
+    sql = """INSERT INTO policy_news
         (url_hash, title, url, news_date, source_key, source_name, category, icon, summary, crawled_at)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"""
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        ON DUPLICATE KEY UPDATE summary = COALESCE(policy_news.summary, VALUES(summary))"""
 
     now = datetime.now()
     rows = []

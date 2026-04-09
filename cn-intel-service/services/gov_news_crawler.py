@@ -704,7 +704,16 @@ def _parse_rss_items(xml_text, source_key, max_items=15):
         if not link:
             continue
         d = _parse_rss_date(pubdate_el.text if pubdate_el is not None else '')
-        summary = (desc_el.text or '').strip() if desc_el is not None else ''
+        raw_desc = (desc_el.text or '').strip() if desc_el is not None else ''
+        # Strip HTML tags from description (Google News RSS returns HTML links)
+        if raw_desc and '<' in raw_desc:
+            import re
+            summary = re.sub(r'<[^>]+>', '', raw_desc).strip()
+        else:
+            summary = raw_desc
+        # Skip useless descriptions (too short or just a link)
+        if len(summary) < 30:
+            summary = ''
         items.append(_make_item(title, link, d, source_key, summary=summary))
         if len(items) >= max_items:
             break
