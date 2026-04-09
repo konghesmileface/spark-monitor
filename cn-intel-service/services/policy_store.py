@@ -162,6 +162,7 @@ CREATE TABLE IF NOT EXISTS policy_news (
     source_name VARCHAR(100) NOT NULL DEFAULT '',
     category    VARCHAR(50) NOT NULL DEFAULT '',
     icon        VARCHAR(50) NOT NULL DEFAULT '',
+    summary     TEXT,
     crawled_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     UNIQUE KEY uk_url_hash (url_hash),
     KEY idx_date (news_date),
@@ -194,6 +195,11 @@ def _ensure_table():
         with _get_conn() as conn:
             with conn.cursor() as cur:
                 cur.execute(_CREATE_TABLE_SQL)
+                # Migration: add summary column if missing
+                try:
+                    cur.execute("ALTER TABLE policy_news ADD COLUMN summary TEXT AFTER icon")
+                except Exception:
+                    pass  # Column already exists
             conn.commit()
         _TABLE_CREATED = True
         logger.warning('[policy-store] Table policy_news ensured')
@@ -208,8 +214,8 @@ def store_items(items: list) -> int:
     _ensure_table()
 
     sql = """INSERT IGNORE INTO policy_news
-        (url_hash, title, url, news_date, source_key, source_name, category, icon, crawled_at)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)"""
+        (url_hash, title, url, news_date, source_key, source_name, category, icon, summary, crawled_at)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)"""
 
     now = datetime.now()
     rows = []
@@ -238,6 +244,7 @@ def store_items(items: list) -> int:
             (item.get('source', '') or '')[:100],
             (item.get('category', '') or '')[:50],
             (item.get('icon', '') or '')[:50],
+            (item.get('summary', '') or '')[:2000] or None,
             now,
         ))
 
@@ -436,7 +443,7 @@ def _rows_to_items(rows: list) -> list:
         title = _clean_title(r.get('title', ''))
         if not title:
             continue
-        items.append({
+        item = {
             'title': title,
             'url': r.get('url', ''),
             'date': str(r['news_date']) if r.get('news_date') else '',
@@ -445,5 +452,8 @@ def _rows_to_items(rows: list) -> list:
             'category': r.get('category', ''),
             'icon': r.get('icon', ''),
             'crawled_at': r['crawled_at'].isoformat() if r.get('crawled_at') else '',
-        })
+        }
+        if r.get('summary'):
+            item['summary'] = r['summary']
+        items.append(item)
     return items

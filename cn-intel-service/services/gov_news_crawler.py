@@ -691,11 +691,12 @@ def _parse_rss_items(xml_text, source_key, max_items=15):
         logger.warning(f'RSS parse error for {source_key}: {e}')
         return []
 
-    # RSS 2.0: <channel><item><title><link><pubDate>
+    # RSS 2.0: <channel><item><title><link><pubDate><description>
     for item_el in root.iter('item'):
         title_el = item_el.find('title')
         link_el = item_el.find('link')
         pubdate_el = item_el.find('pubDate')
+        desc_el = item_el.find('description')
         if title_el is None or not (title_el.text or '').strip():
             continue
         title = title_el.text.strip()
@@ -703,7 +704,8 @@ def _parse_rss_items(xml_text, source_key, max_items=15):
         if not link:
             continue
         d = _parse_rss_date(pubdate_el.text if pubdate_el is not None else '')
-        items.append(_make_item(title, link, d, source_key))
+        summary = (desc_el.text or '').strip() if desc_el is not None else ''
+        items.append(_make_item(title, link, d, source_key, summary=summary))
         if len(items) >= max_items:
             break
     if items:
@@ -789,10 +791,10 @@ def _abs_url(base, href):
     return urljoin(base, href)
 
 
-def _make_item(title, url, date_str, source_key):
+def _make_item(title, url, date_str, source_key, summary=''):
     """Create a standardized news item."""
     src = GOV_SOURCES.get(source_key, {})
-    return {
+    item = {
         'title': title.strip(),
         'url': url,
         'date': _validate_date(date_str),
@@ -801,6 +803,9 @@ def _make_item(title, url, date_str, source_key):
         'category': src.get('category', ''),
         'icon': src.get('icon', 'bi-flag-fill'),
     }
+    if summary:
+        item['summary'] = summary[:2000]
+    return item
 
 
 # ── Per-source fetchers ─────────────────────────────────────────────────────

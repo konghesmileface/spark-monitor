@@ -18,6 +18,27 @@ logger = logging.getLogger('cn-intel.gov-news-api')
 
 gov_news_bp = Blueprint('gov_news', __name__)
 
+
+def _get_stored_summary(url: str) -> str:
+    """Look up RSS summary stored in policy_news table for a URL."""
+    try:
+        import hashlib
+        url_hash = hashlib.md5(url.encode()).hexdigest()
+        from services.db_pool import get_connection
+        import pymysql
+        conn = get_connection()
+        try:
+            with conn.cursor(pymysql.cursors.DictCursor) as cur:
+                cur.execute("SELECT summary FROM policy_news WHERE url_hash=%s", (url_hash,))
+                row = cur.fetchone()
+                if row and row.get('summary'):
+                    return row['summary']
+        finally:
+            conn.close()
+    except Exception:
+        pass
+    return ''
+
 # Track background refresh to avoid duplicate threads
 _refresh_lock = threading.Lock()
 _refreshing_keys: set = set()
@@ -192,13 +213,18 @@ def cn_gov_content():
 
     result = fetch_article(url, keyword=title_kw)
     if not result:
-        # For API-fetcher domains (bilibili, toutiao) or sites that block
-        # server IPs (reuters, etc.), return js_spa style so frontend
-        # shows excerpt + redirect button instead of a hard error
-        _PAYWALL_DOMAINS = ('nytimes.com', 'wsj.com', 'ft.com', 'bloomberg.com')
+        # For paywall/anti-scraping sites, try RSS summary from policy_store
+        _PAYWALL_DOMAINS = ('nytimes.com', 'wsj.com', 'ft.com', 'bloomberg.com',
+                            'reuters.com', 'cnbc.com')
         if is_api_fetcher_domain(url) or any(d in url for d in _PAYWALL_DOMAINS):
-            return jsonify({'error': 'js_spa', 'message': '该内容暂时无法提取正文，请前往原文查看', 'url': url}), 404
-        return jsonify({'error': '无法获取正文内容', 'url': url}), 404
+            # Try to get stored RSS summary as fallback content
+            summary = _get_stored_summary(url)
+            if summary:
+                result = {'content': summary, 'source_url': url, 'from_rss': True}
+            else:
+                return jsonify({'error': 'js_spa', 'message': '该内容暂时无法提取正文，请前往原文查看', 'url': url}), 404
+        else:
+            return jsonify({'error': '无法获取正文内容', 'url': url}), 404
 
     cache_set(cache_key, result, 3600)  # 1h cache
     return jsonify(result)
