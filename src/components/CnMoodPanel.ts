@@ -1285,7 +1285,20 @@ export class CnMoodPanel extends Panel {
     try {
       const res = await cnFetch(`${CN_INTEL_BASE}/api/cn/gov-news`, { signal: this.signal });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      this.govNewsData = await res.json();
+      const data = await res.json();
+      // Reconstruct flat `all` list from categories (server omits it to reduce payload ~35%)
+      if (!data.all && data.categories) {
+        const seen = new Set<string>();
+        const merged: any[] = [];
+        for (const items of Object.values(data.categories) as any[][]) {
+          for (const it of items) {
+            if (it.url && !seen.has(it.url)) { seen.add(it.url); merged.push(it); }
+          }
+        }
+        merged.sort((a: any, b: any) => (b.date || '').localeCompare(a.date || ''));
+        data.all = merged;
+      }
+      this.govNewsData = data;
       this.govNewsFetched = true;
     } catch (err) {
       if (this.isAbortError(err)) return;

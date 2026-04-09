@@ -2857,19 +2857,33 @@ def _fetch_bis():
 
 # ── 国际媒体 fetchers ────────────────────────────────────────────────────────
 
+def _resolve_google_news_url(gnews_url):
+    """Decode Google News article URL to get actual article URL.
+    Google News RSS wraps articles in /rss/articles/CBMi... encoded URLs.
+    Uses googlenewsdecoder library to decode the protobuf-encoded URL.
+    Note: Do NOT set HTTPS_PROXY — the library works faster without proxy (~1s vs ~20s)."""
+    if 'news.google.com' not in gnews_url:
+        return gnews_url
+    try:
+        from googlenewsdecoder import new_decoderv1
+        result = new_decoderv1(gnews_url, interval=0)
+        if result and result.get('status') and result.get('decoded_url'):
+            return result['decoded_url']
+    except Exception as e:
+        logger.debug(f'Google News URL decode failed: {e}')
+    return gnews_url
+
+
 def _fetch_reuters():
     """Reuters — business/markets wire via Google News RSS.
     Reuters blocks direct access (401/404), so we use Google News RSS
-    filtered for reuters.com as a reliable proxy."""
+    filtered for reuters.com as a reliable proxy.
+    URLs are stored as Google News encoded URLs; decoded on-demand in
+    article_fetcher.py when user requests content."""
     resp = _safe_get_intl(
         'https://news.google.com/rss/search?q=site:reuters.com+business+OR+markets&hl=en-US&gl=US&ceid=US:en')
     if resp and resp.ok and '<item>' in resp.text:
         items = _parse_rss_items(resp.text, 'reuters', max_items=15)
-        # Fix URLs: Google News wraps in redirect, extract original
-        for item in items:
-            m = re.search(r'url=(https?://[^&]+)', item.get('url', ''))
-            if m:
-                item['url'] = m.group(1)
         if items:
             return items
     return []

@@ -46,6 +46,11 @@ _WAF_DOMAINS = {
     'imf.org',  # Akamai WAF blocks requests, needs real browser TLS fingerprint
 }
 
+# Domains protected by DataDome — requires curl_cffi with safari TLS fingerprint
+_DATADOME_DOMAINS = {
+    'reuters.com',  # DataDome bot protection, only safari17_0 impersonation works
+}
+
 # Domains that need proxy (international sites)
 _PROXY_DOMAINS = {
     'federalreserve.gov', 'ecb.europa.eu', 'boj.or.jp', 'bankofengland.co.uk',
@@ -1146,6 +1151,62 @@ def _fetch_cnstock_nextdata(url: str) -> dict | None:
         return None
 
 
+def _fetch_with_curl_cffi(url: str) -> dict | None:
+    """Fetch article using curl_cffi with Safari TLS fingerprint (bypasses DataDome).
+
+    DataDome bot protection checks TLS fingerprint (JA3/JA4) and blocks all
+    non-browser fingerprints. curl_cffi impersonates real browser TLS stacks.
+    Only safari17_0 works against DataDome (Chrome fingerprints are blocked).
+    """
+    try:
+        from curl_cffi import requests as cffi_requests
+    except ImportError:
+        logger.warning('curl_cffi not installed, cannot bypass DataDome')
+        return None
+
+    domain = _get_domain(url)
+    needs_proxy = any(domain.endswith(pd) for pd in _PROXY_DOMAINS)
+    proxies = _WITH_PROXY if needs_proxy else _NO_PROXY
+
+    try:
+        resp = cffi_requests.get(
+            url,
+            impersonate='safari17_0',
+            proxies=proxies,
+            timeout=_TIMEOUT,
+            verify=False,
+        )
+        if resp.status_code != 200:
+            logger.warning(f'curl_cffi fetch HTTP {resp.status_code}: {url[:80]}')
+            return None
+
+        html = resp.text
+        if not html or len(html) < 500:
+            return None
+
+        soup = BeautifulSoup(html, 'html.parser')
+        title = _extract_title(soup)
+
+        content_el = _find_content(soup, url)
+        if not content_el:
+            return None
+
+        _strip_noise_elements(content_el)
+        _fix_image_urls(content_el, url)
+        _strip_footer_content(content_el)
+        content_html = _clean_html(content_el)
+        plain_text = _to_plain_text(content_el)
+
+        if len(plain_text) < 30:
+            return None
+
+        logger.warning(f'curl_cffi OK: {len(plain_text)} chars from {url[:80]}')
+        return {'content': str(content_html), 'plainText': plain_text, 'title': title}
+    except Exception as e:
+        logger.warning(f'curl_cffi fetch failed: {e}')
+        return None
+
+
 def _fetch_with_playwright(url: str) -> dict | None:
     """Fetch article using Playwright headless browser (bypasses WAF like Akamai).
 
@@ -1228,6 +1289,20 @@ def fetch_article(url: str, use_proxy: bool = False, keyword: str = '') -> dict 
     if not url:
         return None
 
+    # Resolve Google News encoded URLs to actual article URLs
+    if 'news.google.com' in url:
+        try:
+            from googlenewsdecoder import new_decoderv1
+            result = new_decoderv1(url, interval=0)
+            if result and result.get('status') and result.get('decoded_url'):
+                url = result['decoded_url']
+            else:
+                logger.debug(f'Google News URL decode returned no result: {url[:80]}')
+                return None
+        except Exception as e:
+            logger.debug(f'Google News URL decode failed: {e}')
+            return None
+
     # Try API-based fetchers first (bilibili view API, toutiao mobile API)
     domain = _get_domain(url)
     for d, fetcher in _API_FETCHERS.items():
@@ -1262,6 +1337,11 @@ def fetch_article(url: str, use_proxy: bool = False, keyword: str = '') -> dict 
         if result:
             return result
         # Fall through to HTML scraping if JSON extraction fails
+
+    # DataDome-protected domains — use curl_cffi with Safari TLS fingerprint
+    for dd in _DATADOME_DOMAINS:
+        if domain.endswith(dd):
+            return _fetch_with_curl_cffi(url)
 
     # WAF-protected domains (Akamai/Cloudflare) — use Playwright headless browser
     for wd in _WAF_DOMAINS:
@@ -1631,6 +1711,70 @@ def _strip_noise_elements(el):
             tag.decompose()
             continue
 
+    # ── Reuters noise removal ──
+    # Remove author bio card (<address> with author-bio classes)
+    for tag in el.find_all('address'):
+        tag.decompose()
+    # Remove elements by data-testid: AuthorBio, promo-box, SocialIcon
+    for testid in ('AuthorBio', 'SocialIcon'):
+        for tag in el.find_all(attrs={'data-testid': testid}):
+            tag.decompose()
+    # Remove promo-box elements
+    for tag in el.find_all(attrs={'data-testid': 'promo-box'}):
+        tag.decompose()
+    # Remove "Purchase Licensing Rights" links/buttons (class contains 'license')
+    for tag in el.find_all(class_=re.compile(r'license')):
+        tag.decompose()
+    # Remove "Our Standards: The Thomson Reuters Trust Principles" badge (class contains 'trust-badge')
+    for tag in el.find_all(class_=re.compile(r'trust.badge')):
+        tag.decompose()
+    # Remove all SVG elements (social icons, branding graphics)
+    for tag in el.find_all('svg'):
+        tag.decompose()
+    # Clean up empty/stub wrappers left after inner decomposition
+    # Walk all divs bottom-up; remove article-body-module elements with text < 30
+    # that are near the end (trailing noise wrappers after AuthorBio removal)
+    _body_elements = el.find_all('div', class_=re.compile(r'article-body-module__element'))
+    for tag in reversed(_body_elements[-5:] if len(_body_elements) > 5 else _body_elements):
+        text = tag.get_text(strip=True)
+        if not text or len(text) < 30:
+            tag.decompose()
+        else:
+            break  # stop at first element with real content
+    # Reuters text-pattern cleanup: promo paragraphs, disclaimers
+    for tag in el.find_all(['p', 'div', 'span']):
+        text = tag.get_text(strip=True)
+        if not text:
+            continue
+        # "Enjoying this column? Check out Reuters Open Interest..."
+        if re.search(r'Enjoying this (column|article)\?', text) and len(text) < 500:
+            tag.decompose()
+            continue
+        # "And listen to the Morning Bid daily podcast..." / "Check out Reuters Open Interest (ROI)"
+        if re.search(r'(listen to the.*Morning Bid|Reuters Open Interest|Check out.*ROI)', text) and len(text) < 500:
+            tag.decompose()
+            continue
+        # "(The opinions expressed here are those of XXX, a columnist for Reuters.)"
+        if re.search(r'opinions expressed.*are those of', text, re.I) and len(text) < 300:
+            tag.decompose()
+            continue
+        # "Subscribe to hear Reuters journalists discuss..."
+        if re.search(r'Subscribe.*to hear Reuters', text) and len(text) < 300:
+            tag.decompose()
+            continue
+        # "Our Standards: The Thomson Reuters Trust Principles"
+        if re.search(r'Thomson Reuters Trust Principles', text) and len(text) < 200:
+            tag.decompose()
+            continue
+        # "Purchase Licensing Rights"
+        if re.match(r'^Purchase Licensing Rights', text) and len(text) < 60:
+            tag.decompose()
+            continue
+        # "Sign up here" newsletter promo
+        if re.match(r'^Sign up\s*here', text) and len(text) < 30:
+            tag.decompose()
+            continue
+
     # International site noise (Fed, ECB, etc.) — HTML-level removal
     # Remove ShareThis sharing containers (IMF etc.): <div role="list"> containing sharing listitem
     for tag in el.find_all(attrs={'role': 'list'}):
@@ -1776,35 +1920,54 @@ def _strip_footer_content(el):
     if not isinstance(el, Tag):
         return
 
-    # Walk children from bottom up, remove footer-ish blocks
-    children = list(el.children)
-    for child in reversed(children):
-        if not isinstance(child, Tag):
-            continue
-        text = child.get_text(strip=True)
-        # Remove empty trailing blocks or blocks with only an image (QR code / ad)
-        if not text:
-            # Check if it's just an image (likely QR code at bottom)
-            if child.find('img') or child.name == 'img':
+    # Walk the tree bottom-up: find the deepest container with multiple children
+    # and strip trailing noise from its end.
+    def _strip_trailing(container):
+        children = list(container.children)
+        for child in reversed(children):
+            if not isinstance(child, Tag):
+                continue
+            text = child.get_text(strip=True)
+            # Remove empty trailing blocks or blocks with only an image (QR code / ad)
+            if not text:
+                if child.find('img') or child.name == 'img':
+                    child.decompose()
+                continue
+            # If this block has footer indicators, remove it
+            if _looks_like_footer(child):
                 child.decompose()
-            continue
-        # If this block has footer indicators, remove it
-        if _looks_like_footer(child):
-            child.decompose()
-            continue
-        # Trailing image-only blocks with very short text (e.g. "查看原文", caption)
-        if len(text) < 30 and child.find('img'):
-            child.decompose()
-            continue
-        # Trailing standalone images (direct <img> or <p><img></p>)
-        if child.name == 'img':
-            child.decompose()
-            continue
-        if child.name == 'p' and len(text) < 10 and child.find('img'):
-            child.decompose()
-            continue
-        # Stop walking once we hit real content
-        if len(text) > 100:
+                continue
+            # Trailing image-only blocks with very short text (e.g. "查看原文", caption)
+            if len(text) < 30 and child.find('img'):
+                child.decompose()
+                continue
+            # Trailing standalone images (direct <img> or <p><img></p>)
+            if child.name == 'img':
+                child.decompose()
+                continue
+            if child.name == 'p' and len(text) < 10 and child.find('img'):
+                child.decompose()
+                continue
+            # Very short trailing text without punctuation (likely stray author name, tag, etc.)
+            if len(text) < 30 and not re.search(r'[.。!！?？]', text):
+                child.decompose()
+                continue
+            # Stop walking once we hit real content
+            if len(text) > 100:
+                break
+
+    # Apply to el itself
+    _strip_trailing(el)
+    # Also recurse into the last large child div (handles deep nesting like Reuters)
+    for _ in range(3):
+        tag_children = [c for c in el.children if isinstance(c, Tag)]
+        if not tag_children:
+            break
+        last_div = tag_children[-1]
+        if last_div.name == 'div' and len(last_div.get_text(strip=True)) > 100:
+            _strip_trailing(last_div)
+            el = last_div
+        else:
             break
 
 

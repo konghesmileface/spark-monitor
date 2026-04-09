@@ -5,12 +5,15 @@ import dns from 'node:dns/promises';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { readdir } from 'node:fs/promises';
 import { promisify } from 'node:util';
-import { brotliCompress, gzipSync } from 'node:zlib';
+import { brotliCompress, gzipSync, constants as zlibConstants } from 'node:zlib';
 import path from 'node:path';
 import tls from 'node:tls';
 import { pathToFileURL } from 'node:url';
 
-const brotliCompressAsync = promisify(brotliCompress);
+// Use brotli quality 4 (fast) instead of default 11 (very slow for large payloads).
+// Quality 11 can take 300-1000ms for 700KB; quality 4 takes ~10-30ms with similar ratio.
+const brotliCompressAsync = promisify((buf, cb) =>
+  brotliCompress(buf, { params: { [zlibConstants.BROTLI_PARAM_QUALITY]: 4 } }, cb));
 
 // ── Proxy support for GFW bypass ─────────────────────────────────────────
 // The Vite dev server sets globalThis.__proxyDispatcher via undici ProxyAgent,

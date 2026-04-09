@@ -1668,6 +1668,19 @@ export class CnPolicyPanel extends Panel {
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
 
+      // Reconstruct flat `all` list from categories (server omits it to reduce payload ~35%)
+      if (!data.all && data.categories) {
+        const seen = new Set<string>();
+        const merged: any[] = [];
+        for (const items of Object.values(data.categories) as any[][]) {
+          for (const it of items) {
+            if (it.url && !seen.has(it.url)) { seen.add(it.url); merged.push(it); }
+          }
+        }
+        merged.sort((a: any, b: any) => (b.date || '').localeCompare(a.date || ''));
+        data.all = merged;
+      }
+
       // Backend returns _loading=true when cache is cold and crawl is in progress
       // Retry after a few seconds to get the real data
       if (data._loading || (data._from_db && !isRetry)) {

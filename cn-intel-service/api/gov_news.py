@@ -192,9 +192,11 @@ def cn_gov_content():
 
     result = fetch_article(url, keyword=title_kw)
     if not result:
-        # For API-fetcher domains (bilibili, toutiao), return js_spa style
-        # so the frontend shows excerpt + redirect instead of a hard error
-        if is_api_fetcher_domain(url):
+        # For API-fetcher domains (bilibili, toutiao) or sites that block
+        # server IPs (reuters, etc.), return js_spa style so frontend
+        # shows excerpt + redirect button instead of a hard error
+        _PAYWALL_DOMAINS = ('nytimes.com', 'wsj.com', 'ft.com', 'bloomberg.com')
+        if is_api_fetcher_domain(url) or any(d in url for d in _PAYWALL_DOMAINS):
             return jsonify({'error': 'js_spa', 'message': '该内容暂时无法提取正文，请前往原文查看', 'url': url}), 404
         return jsonify({'error': '无法获取正文内容', 'url': url}), 404
 
