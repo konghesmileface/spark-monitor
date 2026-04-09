@@ -1410,8 +1410,11 @@ export class PanelLayoutManager implements AppModule {
       });
     });
 
-    // Load initial alert badge
+    // Load initial alert badge — retry after delay to handle race condition on
+    // slower machines (Windows) where SSE stream may not be connected yet.
     this.updateCnAlertBadge();
+    setTimeout(() => this.updateCnAlertBadge(), 3000);
+    setTimeout(() => this.updateCnAlertBadge(), 10000);
   }
 
   private showLogoutModal(): void {

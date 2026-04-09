@@ -98,36 +98,40 @@ def _clean_title(title: str) -> str:
         r'October|November|December)\s+\d{1,2},\s*\d{4}', title)
     if m:
         title = title[m.end():].strip()
-    # Truncate titles with embedded body text (>80 chars almost certainly has body)
-    if len(title) > 80:
+    # Detect English/international titles (primarily ASCII/Latin) vs Chinese titles.
+    # Chinese titles >80 chars almost always have body text leaking in from search
+    # engines, but English news headlines routinely reach 100-150 chars.
+    _cjk_count = sum(1 for c in title if '\u4e00' <= c <= '\u9fff')
+    _is_intl = _cjk_count < len(title) * 0.2  # <20% CJK → international title
+    _hard_cap = 200 if _is_intl else 80
+
+    # Truncate titles with embedded body text
+    if len(title) > _hard_cap:
         # Try cutting at first newline-like boundary
         nl = title.find('\n', 15)
         if nl > 0:
             title = title[:nl].strip()
-    # Truncate search-result titles with concatenated snippets
-    # Detect snippet boundary: date stamp, or sentence-starting patterns mid-title
-    if len(title) > 80:
+    # Truncate search-result titles with concatenated snippets (Chinese only)
+    if not _is_intl and len(title) > _hard_cap:
         # Cut at inline date: "2026年03月26日 22:46"
         m = re.search(r'\d{4}年\d{1,2}月\d{1,2}日\s*\d{2}:\d{2}', title)
         if m and m.start() > 10:
             title = title[:m.start()].rstrip('，,。. ')
-        # Cut at snippet start patterns (after first 15 chars)
-        if len(title) > 80:
+        if len(title) > _hard_cap:
             m = re.search(
                 r'(?:据新华社|记者\d{1,2}月|本报讯|本报记者|此次|日前,|近日,|为贯彻|残联与|《通知》强调)',
                 title[15:])
             if m:
                 title = title[:15 + m.start()].rstrip('，,。. ')
-    # Hard cap at 80 chars — anything longer is body text leaking into title
-    if len(title) > 80:
-        # Cut at last complete sentence/clause boundary
+    # Hard cap
+    if len(title) > _hard_cap:
         for sep in ('。', '；', '，', ',', ' '):
-            idx = title.rfind(sep, 20, 80)
+            idx = title.rfind(sep, 20, _hard_cap)
             if idx > 20:
                 title = title[:idx]
                 break
         else:
-            title = title[:80]
+            title = title[:_hard_cap]
     # Reject navigation-only titles
     if len(title) < 5 or re.match(r'^\[.*\]$', title):
         return ''

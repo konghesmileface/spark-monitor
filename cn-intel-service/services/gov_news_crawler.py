@@ -572,6 +572,12 @@ GOV_SOURCES = {
         'url': 'https://asia.nikkei.com/',
         'icon': 'bi-newspaper',
     },
+    'bloomberg': {
+        'name': 'Bloomberg',
+        'category': '国际媒体',
+        'url': 'https://www.bloomberg.com/markets/',
+        'icon': 'bi-bar-chart-line-fill',
+    },
 }
 
 GOV_CATEGORIES = ['领导活动', '央媒', '纪检监察', '审计', '财政货币', '金融监管',
@@ -2936,6 +2942,24 @@ def _fetch_nikkei():
     return []
 
 
+def _fetch_bloomberg():
+    """Bloomberg — markets/finance via official RSS feed.
+    feeds.bloomberg.com serves clean RSS 2.0 with 30 items, no auth needed."""
+    resp = _safe_get_intl('https://feeds.bloomberg.com/markets/news.rss')
+    if resp and resp.ok:
+        items = _parse_rss_items(resp.text, 'bloomberg', max_items=15)
+        if items:
+            return items
+    # Fallback: Google News RSS filtered for bloomberg.com
+    resp = _safe_get_intl(
+        'https://news.google.com/rss/search?q=site:bloomberg.com+markets+when:1d&hl=en-US&gl=US&ceid=US:en')
+    if resp and resp.ok and '<item>' in resp.text:
+        items = _parse_rss_items(resp.text, 'bloomberg', max_items=15)
+        if items:
+            return items
+    return []
+
+
 # ── Dispatcher ───────────────────────────────────────────────────────────────
 
 _FETCHERS = {
@@ -3046,6 +3070,7 @@ _FETCHERS = {
     'reuters': _fetch_reuters,
     'cnbc': _fetch_cnbc,
     'nikkei': _fetch_nikkei,
+    'bloomberg': _fetch_bloomberg,
 }
 
 

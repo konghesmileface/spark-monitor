@@ -214,7 +214,7 @@ def _ai_batch_analyze(items: list, profile: dict) -> list:
         batch = items[batch_start:batch_start + _BATCH_SIZE]
 
         # Build numbered title list
-        title_list = '\n'.join(f'{i+1}. [{it["source"] or it["category"]}] {it["title"][:80]}'
+        title_list = '\n'.join(f'{i+1}. [{it["source"] or it["category"]}] {it["title"][:200]}'
                                for i, it in enumerate(batch))
 
         prompt = f"""你是企业情报分析师。以下是近期新闻/政策标题列表，请找出与目标企业**相关**的条目。

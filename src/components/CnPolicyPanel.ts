@@ -3601,6 +3601,7 @@ export class CnPolicyPanel extends Panel {
   private static readonly INTL_FLAGS: Record<string, string> = {
     '美联储': '🇺🇸', '欧央行': '🇪🇺', '日本央行': '🇯🇵', '英国央行': '🇬🇧',
     'IMF': '🌐', 'BIS': '🏦',
+    'Reuters': '🟠', 'CNBC': '📺', '日经新闻': '🇯🇵', 'Bloomberg': '🟣',
   };
 
   /** Render international news as source-grouped cards */
@@ -3620,7 +3621,7 @@ export class CnPolicyPanel extends Panel {
     const cards: string[] = [];
     for (const [source, sourceItems] of groups) {
       const flag = CnPolicyPanel.INTL_FLAGS[source] || '🏛';
-      const itemsHtml = sourceItems.slice(0, 8).map(item => {
+      const itemsHtml = sourceItems.slice(0, 15).map(item => {
         const idx = itemIndexMap.get(item) ?? 0;
         return `<div class="cn-policy-intl-item cn-policy-item" data-idx="${idx}" style="cursor:pointer">
           <div class="cn-policy-intl-item-title">${escapeHtml(item.title)}</div>
