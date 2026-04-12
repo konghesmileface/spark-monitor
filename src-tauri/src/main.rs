@@ -62,6 +62,11 @@ struct LocalApiState {
     port: Mutex<Option<u16>>,
 }
 
+#[derive(Default)]
+struct MenuActionState {
+    update_check_requested: Mutex<bool>,
+}
+
 /// In-memory cache for keychain secrets. Populated once at startup to avoid
 /// repeated macOS Keychain prompts (each `Entry::get_password()` triggers one).
 struct SecretsCache {
@@ -629,6 +634,14 @@ async fn open_youtube_login(app: AppHandle) -> Result<(), String> {
     open_youtube_login_window(&app)
 }
 
+#[tauri::command]
+fn take_menu_update_check(state: tauri::State<'_, MenuActionState>) -> bool {
+    let mut flag = state.update_check_requested.lock().unwrap_or_else(|e| e.into_inner());
+    let was_requested = *flag;
+    *flag = false;
+    was_requested
+}
+
 fn build_app_menu(handle: &AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
     let quit_item = PredefinedMenuItem::quit(handle, Some("Quit"))?;
     let file_menu = Submenu::with_items(
@@ -714,7 +727,11 @@ fn handle_menu_event(app: &AppHandle, event: tauri::menu::MenuEvent) {
             if let Some(window) = app.get_webview_window("main") {
                 let _ = window.show();
                 let _ = window.set_focus();
-                let _ = window.eval("document.dispatchEvent(new CustomEvent('spark-check-update'))");
+            }
+            if let Some(state) = app.try_state::<MenuActionState>() {
+                if let Ok(mut flag) = state.update_check_requested.lock() {
+                    *flag = true;
+                }
             }
         }
         MENU_HELP_GITHUB_ID => {
@@ -1314,6 +1331,7 @@ fn main() {
         .menu(build_app_menu)
         .on_menu_event(handle_menu_event)
         .manage(LocalApiState::default())
+        .manage(MenuActionState::default())
         .manage(SecretsCache::load_from_keychain())
         .invoke_handler(tauri::generate_handler![
             list_supported_secret_keys,
@@ -1335,7 +1353,8 @@ fn main() {
             close_live_channels_window,
             open_url,
             open_youtube_login,
-            fetch_polymarket
+            fetch_polymarket,
+            take_menu_update_check
         ])
         .setup(|app| {
             // Load persistent cache into memory (avoids 14MB file I/O on every IPC call)

@@ -21,7 +21,7 @@ const DESKTOP_BUILD_VARIANT: DesktopBuildVariant = (
 export class DesktopUpdater implements AppModule {
   private ctx: AppContext;
   private updateCheckIntervalId: ReturnType<typeof setInterval> | null = null;
-  private boundCheckHandler: (() => void) | null = null;
+  private menuPollIntervalId: ReturnType<typeof setInterval> | null = null;
   private readonly UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
 
   constructor(ctx: AppContext) {
@@ -43,8 +43,7 @@ export class DesktopUpdater implements AppModule {
   init(): void {
     this.setupUpdateChecks();
     if (this.ctx.isDesktopApp) {
-      this.boundCheckHandler = () => void this.manualCheckForUpdate();
-      document.addEventListener('spark-check-update', this.boundCheckHandler);
+      this.menuPollIntervalId = setInterval(() => void this.pollMenuUpdateCheck(), 500);
     }
   }
 
@@ -53,10 +52,17 @@ export class DesktopUpdater implements AppModule {
       clearInterval(this.updateCheckIntervalId);
       this.updateCheckIntervalId = null;
     }
-    if (this.boundCheckHandler) {
-      document.removeEventListener('spark-check-update', this.boundCheckHandler);
-      this.boundCheckHandler = null;
+    if (this.menuPollIntervalId) {
+      clearInterval(this.menuPollIntervalId);
+      this.menuPollIntervalId = null;
     }
+  }
+
+  private async pollMenuUpdateCheck(): Promise<void> {
+    try {
+      const requested = await invokeTauri<boolean>('take_menu_update_check');
+      if (requested) void this.manualCheckForUpdate();
+    } catch { /* command unavailable */ }
   }
 
   private setupUpdateChecks(): void {
