@@ -129,7 +129,7 @@ export class PanelLayoutManager implements AppModule {
   }
 
   renderLayout(): void {
-    const isCnMode = SITE_VARIANT === 'spark' && (localStorage.getItem(STORAGE_KEYS.intelMode) || 'cn') === 'cn';
+    const isCnMode = SITE_VARIANT === 'spark' && (sessionStorage.getItem(STORAGE_KEYS.intelMode) || 'cn') === 'cn';
     this.ctx.container.innerHTML = `
       <div class="header">
         <div class="header-left">
@@ -188,7 +188,7 @@ export class PanelLayoutManager implements AppModule {
       })()}</div>` : ''}
           <span class="logo">${SITE_VARIANT === 'spark' ? '<i class="bi bi-lightning-charge-fill"></i> SPARK' : 'MONITOR'}</span><span class="logo-mobile">${SITE_VARIANT === 'spark' ? 'Spark Monitor' : 'World Monitor'}</span>${SITE_VARIANT !== 'spark' ? `<span class="version">v${__APP_VERSION__}</span>` : ''}${BETA_MODE ? '<span class="beta-badge">BETA</span>' : ''}
           ${SITE_VARIANT === 'spark' ? (() => {
-            const currentMode = localStorage.getItem(STORAGE_KEYS.intelMode) || 'cn';
+            const currentMode = sessionStorage.getItem(STORAGE_KEYS.intelMode) || 'cn';
             return `<div class="intel-mode-switcher">
               <button class="intel-mode-btn ${currentMode === 'world' ? 'active' : ''}" data-intel-mode="world">世界情报</button>
               <button class="intel-mode-btn ${currentMode === 'cn' ? 'active' : ''}" data-intel-mode="cn">中文情报</button>
@@ -535,7 +535,7 @@ export class PanelLayoutManager implements AppModule {
 
     // Spark: check intel mode — if 'cn', create Chinese panels instead of world panels
     if (SITE_VARIANT === 'spark') {
-      const intelMode = localStorage.getItem(STORAGE_KEYS.intelMode) || 'cn';
+      const intelMode = sessionStorage.getItem(STORAGE_KEYS.intelMode) || 'cn';
       if (intelMode === 'cn') {
         void this.createCnIntelPanels(panelsGrid);
         return;

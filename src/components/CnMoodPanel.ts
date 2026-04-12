@@ -1212,7 +1212,7 @@ export class CnMoodPanel extends Panel {
   public async fetchData(): Promise<void> {
     if (!this.data) this.showLoading('加载舆情数据...');
     try {
-      const res = await cnFetch(`${CN_INTEL_BASE}/api/cn/mood`, { signal: this.signal });
+      const res = await cnFetch(`${CN_INTEL_BASE}/api/cn/mood`, { signal: this.signal, timeout: 120_000 });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       this.data = await res.json();
       this.retryAttempt = 0;
@@ -1246,7 +1246,7 @@ export class CnMoodPanel extends Panel {
     this.moodReportVisible = true;
     this.renderPanel();
     try {
-      const res = await cnFetch(`${CN_INTEL_BASE}/api/cn/mood/report`, { signal: this.signal });
+      const res = await cnFetch(`${CN_INTEL_BASE}/api/cn/mood/report`, { signal: this.signal, timeout: 120_000 });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       this.moodReportData = await res.json();
     } catch (err) {
@@ -1318,7 +1318,7 @@ export class CnMoodPanel extends Panel {
     this.govReportVisible = true;
     this.renderPanel();
     try {
-      const res = await cnFetch(`${CN_INTEL_BASE}/api/cn/gov-news/report`, { signal: this.signal });
+      const res = await cnFetch(`${CN_INTEL_BASE}/api/cn/gov-news/report`, { signal: this.signal, timeout: 120_000 });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       this.govReportData = await res.json();
     } catch (err) {
@@ -1554,6 +1554,13 @@ export class CnMoodPanel extends Panel {
 
   private renderPanel(): void {
     if (!this.data) {
+      // If AI report or gov report is loading, show that instead of "暂无数据"
+      if (this.moodReportLoading || this.govReportLoading) {
+        this.content.innerHTML = `<div style="padding:16px;text-align:center;opacity:.6">
+          <i class="bi bi-arrow-repeat" style="animation:spin 1s linear infinite"></i> AI正在生成报告，请稍候...
+        </div>`;
+        return;
+      }
       this.showError('暂无数据');
       return;
     }

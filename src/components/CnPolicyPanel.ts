@@ -1734,7 +1734,7 @@ export class CnPolicyPanel extends Panel {
     this.reportVisible = true;
     this.render();
     try {
-      const res = await cnFetch(`${CN_INTEL_BASE}/api/cn/gov-news/report`, { signal: this.signal });
+      const res = await cnFetch(`${CN_INTEL_BASE}/api/cn/gov-news/report`, { signal: this.signal, timeout: 120_000 });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       this.reportData = await res.json();
     } catch (err) {
@@ -1787,7 +1787,7 @@ export class CnPolicyPanel extends Panel {
     this.statsLoading = true;
     this.render();
     try {
-      const res = await cnFetch(`${CN_INTEL_BASE}/api/cn/policy/stats`, { signal: this.signal });
+      const res = await cnFetch(`${CN_INTEL_BASE}/api/cn/policy/stats`, { signal: this.signal, timeout: 60_000 });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       this.stats = await res.json();
     } catch (err) {
@@ -1874,7 +1874,7 @@ export class CnPolicyPanel extends Panel {
     if (this.sectorMatrixLoading) return;
     this.sectorMatrixLoading = true;
     try {
-      const res = await cnFetch(`${CN_INTEL_BASE}/api/cn/policy/sector-matrix`, { signal: this.signal });
+      const res = await cnFetch(`${CN_INTEL_BASE}/api/cn/policy/sector-matrix`, { signal: this.signal, timeout: 60_000 });
       if (res.ok) {
         const data = await res.json();
         this.sectorMatrix = data.sectors || [];

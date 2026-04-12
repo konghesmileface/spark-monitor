@@ -333,8 +333,8 @@ export class DataLoaderManager implements AppModule {
     // own data independently via polling. Loading world data in the background
     // ensures StatusPanel shows correct status and enables instant mode switching.
     if (SITE_VARIANT === 'spark') {
-      const intelMode = typeof localStorage !== 'undefined'
-        ? (localStorage.getItem('worldmonitor-intel-mode') || 'cn')
+      const intelMode = typeof sessionStorage !== 'undefined'
+        ? (sessionStorage.getItem('worldmonitor-intel-mode') || 'cn')
         : 'cn';
       this.debugLog(`[DataLoader] spark intelMode="${intelMode}" — loading world data regardless`);
     }

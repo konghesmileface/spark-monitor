@@ -1,5 +1,5 @@
 import { Panel } from './Panel';
-import { IDLE_PAUSE_MS } from '@/config';
+import { IDLE_PAUSE_MS, SITE_VARIANT } from '@/config';
 import { isDesktopRuntime, getLocalApiPort } from '@/services/runtime';
 import { escapeHtml } from '@/utils/sanitize';
 import { t } from '../services/i18n';
@@ -99,7 +99,7 @@ export class LiveWebcamsPanel extends Panel {
     if (this.forceSingleView) {
       this.viewMode = 'single';
     }
-    this.createFullscreenButton();
+    if (SITE_VARIANT !== 'spark') this.createFullscreenButton();
     this.createToolbar();
     this.setupIntersectionObserver();
     this.setupIdleDetection();

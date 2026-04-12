@@ -428,7 +428,7 @@ export class App {
     this.state.signalModal.setLocationClickHandler((lat, lon) => {
       this.state.map?.setCenter(lat, lon, 4);
     });
-    const isCnMode = SITE_VARIANT === 'spark' && (localStorage.getItem(STORAGE_KEYS.intelMode) || 'cn') === 'cn';
+    const isCnMode = SITE_VARIANT === 'spark' && (sessionStorage.getItem(STORAGE_KEYS.intelMode) || 'cn') === 'cn';
     if (!this.state.isMobile && !isCnMode) {
       this.state.findingsBadge = new IntelligenceGapBadge();
       this.state.findingsBadge.setOnSignalClick((signal) => {

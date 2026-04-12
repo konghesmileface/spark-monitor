@@ -753,7 +753,7 @@ export class LiveNewsPanel extends Panel {
     const header = this.element.querySelector('.panel-header');
     header?.appendChild(this.muteBtn);
 
-    this.createFullscreenButton();
+    if (SITE_VARIANT !== 'spark') this.createFullscreenButton();
   }
 
   private createFullscreenButton(): void {

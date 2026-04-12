@@ -77,8 +77,8 @@ export class StatusPanel extends Panel {
 
   private init(): void {
     if (SITE_VARIANT === 'spark') {
-      const intelMode = typeof localStorage !== 'undefined'
-        ? (localStorage.getItem('worldmonitor-intel-mode') || 'cn')
+      const intelMode = typeof sessionStorage !== 'undefined'
+        ? (sessionStorage.getItem('worldmonitor-intel-mode') || 'cn')
         : 'cn';
       this.allowedFeeds = intelMode === 'cn' ? SPARK_CN_FEEDS : SPARK_FEEDS;
       this.allowedApis = intelMode === 'cn' ? SPARK_CN_APIS : SPARK_APIS;

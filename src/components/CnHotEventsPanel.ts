@@ -323,7 +323,7 @@ export class CnHotEventsPanel extends Panel {
   public async fetchData(): Promise<void> {
     if (!this.data) this.showLoading('加载热点事件...');
     try {
-      const res = await cnFetch(`${CN_INTEL_BASE}/api/cn/hot-events`, { signal: this.signal });
+      const res = await cnFetch(`${CN_INTEL_BASE}/api/cn/hot-events`, { signal: this.signal, timeout: 90_000 });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       this.data = await res.json();
       this.retryAttempt = 0;

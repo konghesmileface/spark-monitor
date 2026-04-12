@@ -302,7 +302,7 @@ export class EventHandlerManager implements AppModule {
       btn.addEventListener('click', () => {
         const mode = btn.dataset.intelMode;
         if (mode) {
-          localStorage.setItem(STORAGE_KEYS.intelMode, mode);
+          sessionStorage.setItem(STORAGE_KEYS.intelMode, mode);
           window.location.reload();
         }
       });
