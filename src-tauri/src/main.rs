@@ -16,7 +16,7 @@ use reqwest::Url;
 use serde::Serialize;
 use serde_json::{Map, Value};
 use tauri::menu::{AboutMetadata, Menu, MenuItem, PredefinedMenuItem, Submenu};
-use tauri::{AppHandle, Manager, RunEvent, Webview, WebviewUrl, WebviewWindowBuilder, WindowEvent};
+use tauri::{AppHandle, Emitter, Manager, RunEvent, Webview, WebviewUrl, WebviewWindowBuilder, WindowEvent};
 
 const DEFAULT_LOCAL_API_PORT: u16 = 46123;
 const KEYRING_SERVICE: &str = "spark-monitor";
@@ -712,7 +712,9 @@ fn handle_menu_event(app: &AppHandle, event: tauri::menu::MenuEvent) {
     match event.id().as_ref() {
         MENU_HELP_UPDATE_ID => {
             if let Some(window) = app.get_webview_window("main") {
-                let _ = window.eval("window.__sparkCheckForUpdate?.()");
+                let _ = window.show();
+                let _ = window.set_focus();
+                let _ = window.emit("check-for-update", ());
             }
         }
         MENU_HELP_GITHUB_ID => {
