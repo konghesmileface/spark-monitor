@@ -1,4 +1,5 @@
 import type { AppContext, AppModule } from '@/app/app-context';
+import { SITE_VARIANT } from '@/config';
 import { invokeTauri } from '@/services/tauri-bridge';
 import { trackUpdateShown, trackUpdateClicked, trackUpdateDismissed } from '@/services/analytics';
 import { escapeHtml } from '@/utils/sanitize';
@@ -26,8 +27,23 @@ export class DesktopUpdater implements AppModule {
     this.ctx = ctx;
   }
 
+  private get versionApiUrl(): string {
+    return SITE_VARIANT === 'spark'
+      ? 'https://sparkmonitor.cn/api/version'
+      : 'https://worldmonitor.app/api/version';
+  }
+
+  private get downloadApiBase(): string {
+    return SITE_VARIANT === 'spark'
+      ? 'https://sparkmonitor.cn/api/download'
+      : 'https://worldmonitor.app/api/download';
+  }
+
   init(): void {
     this.setupUpdateChecks();
+    if (this.ctx.isDesktopApp) {
+      (window as any).__sparkCheckForUpdate = () => void this.manualCheckForUpdate();
+    }
   }
 
   destroy(): void {
@@ -35,6 +51,7 @@ export class DesktopUpdater implements AppModule {
       clearInterval(this.updateCheckIntervalId);
       this.updateCheckIntervalId = null;
     }
+    delete (window as any).__sparkCheckForUpdate;
   }
 
   private setupUpdateChecks(): void {
@@ -67,7 +84,7 @@ export class DesktopUpdater implements AppModule {
 
   private async checkForUpdate(): Promise<void> {
     try {
-      const res = await fetch('https://worldmonitor.app/api/version', {
+      const res = await fetch(this.versionApiUrl, {
         signal: (() => { const c = new AbortController(); setTimeout(() => c.abort(), 8000); return c.signal; })(),
       });
       if (!res.ok) {
@@ -95,7 +112,7 @@ export class DesktopUpdater implements AppModule {
 
       const releaseUrl = typeof data.url === 'string' && data.url
         ? data.url
-        : 'https://github.com/koala73/worldmonitor/releases/latest';
+        : 'https://github.com/konghesmileface/spark-monitor/releases/latest';
       this.logUpdaterOutcome('update_available', { current, remote, dismissed: false });
       trackUpdateShown(current, remote);
       await this.showUpdateToast(remote, releaseUrl);
@@ -103,6 +120,35 @@ export class DesktopUpdater implements AppModule {
       this.logUpdaterOutcome('fetch_failed', {
         error: error instanceof Error ? error.message : String(error),
       });
+    }
+  }
+
+  private async manualCheckForUpdate(): Promise<void> {
+    this.showCheckingToast();
+    try {
+      const res = await fetch(this.versionApiUrl, {
+        signal: (() => { const c = new AbortController(); setTimeout(() => c.abort(), 8000); return c.signal; })(),
+      });
+      if (!res.ok) {
+        this.showResultToast('error', 'Check Failed', `Server returned ${res.status}`);
+        return;
+      }
+      const data = await res.json();
+      const remote = data.version as string;
+      if (!remote) {
+        this.showResultToast('error', 'Check Failed', 'Unable to retrieve version info');
+        return;
+      }
+      const current = __APP_VERSION__;
+      if (this.isNewerVersion(remote, current)) {
+        const releaseUrl = data.url || 'https://github.com/konghesmileface/spark-monitor/releases/latest';
+        trackUpdateShown(current, remote);
+        await this.showUpdateToast(remote, releaseUrl);
+      } else {
+        this.showResultToast('ok', 'Up to Date', `Current version v${current}`);
+      }
+    } catch {
+      this.showResultToast('error', 'Check Failed', 'Network connection error');
     }
   }
 
@@ -150,12 +196,57 @@ export class DesktopUpdater implements AppModule {
       const platform = this.mapDesktopDownloadPlatform(runtimeInfo.os, runtimeInfo.arch);
       if (platform) {
         const variant = this.getDesktopBuildVariant();
-        return `https://worldmonitor.app/api/download?platform=${platform}&variant=${variant}`;
+        return `${this.downloadApiBase}?platform=${platform}&variant=${variant}`;
       }
     } catch {
       // Silent fallback to release page when desktop runtime info is unavailable.
     }
     return releaseUrl;
+  }
+
+  private showCheckingToast(): void {
+    document.querySelector('.update-toast')?.remove();
+    const toast = document.createElement('div');
+    toast.className = 'update-toast';
+    toast.innerHTML = `
+      <div class="update-toast-icon update-toast-spinner" style="color:var(--blue, #58a6ff);background:rgba(88,166,255,0.1)">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
+        </svg>
+      </div>
+      <div class="update-toast-body">
+        <div class="update-toast-title">Checking for Updates...</div>
+      </div>
+    `;
+    document.body.appendChild(toast);
+    requestAnimationFrame(() => requestAnimationFrame(() => toast.classList.add('visible')));
+  }
+
+  private showResultToast(type: 'ok' | 'error', title: string, detail: string): void {
+    document.querySelector('.update-toast')?.remove();
+    const toast = document.createElement('div');
+    toast.className = 'update-toast';
+    const iconSvg = type === 'ok'
+      ? '<path d="M20 6L9 17l-5-5"/>'
+      : '<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>';
+    const iconColor = type === 'ok' ? 'var(--green, #44ff88)' : '#ff6b6b';
+    const borderColor = type === 'ok' ? 'rgba(68,255,136,0.25)' : 'rgba(255,107,107,0.25)';
+    toast.style.borderColor = borderColor;
+    toast.innerHTML = `
+      <div class="update-toast-icon" style="color:${iconColor};background:${iconColor}18">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${iconSvg}</svg>
+      </div>
+      <div class="update-toast-body">
+        <div class="update-toast-title">${escapeHtml(title)}</div>
+        <div class="update-toast-detail">${escapeHtml(detail)}</div>
+      </div>
+    `;
+    document.body.appendChild(toast);
+    requestAnimationFrame(() => requestAnimationFrame(() => toast.classList.add('visible')));
+    setTimeout(() => {
+      toast.classList.remove('visible');
+      setTimeout(() => toast.remove(), 300);
+    }, type === 'ok' ? 3000 : 5000);
   }
 
   private async showUpdateToast(version: string, releaseUrl: string): Promise<void> {

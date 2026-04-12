@@ -23,6 +23,7 @@ const KEYRING_SERVICE: &str = "spark-monitor";
 const LOCAL_API_LOG_FILE: &str = "local-api.log";
 const DESKTOP_LOG_FILE: &str = "desktop.log";
 const MENU_HELP_GITHUB_ID: &str = "help.github";
+const MENU_HELP_UPDATE_ID: &str = "help.check_update";
 #[cfg(feature = "devtools")]
 const MENU_HELP_DEVTOOLS_ID: &str = "help.devtools";
 const TRUSTED_WINDOWS: [&str; 2] = ["main", "live-channels"];
@@ -647,6 +648,13 @@ fn build_app_menu(handle: &AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
     };
     let about_item =
         PredefinedMenuItem::about(handle, Some("About Spark Monitor"), Some(about_metadata))?;
+    let update_item = MenuItem::with_id(
+        handle,
+        MENU_HELP_UPDATE_ID,
+        "Check for Updates...",
+        true,
+        None::<&str>,
+    )?;
     let github_item = MenuItem::with_id(
         handle,
         MENU_HELP_GITHUB_ID,
@@ -669,7 +677,7 @@ fn build_app_menu(handle: &AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
             handle,
             "Help",
             true,
-            &[&about_item, &help_separator, &github_item, &devtools_item],
+            &[&about_item, &help_separator, &update_item, &github_item, &devtools_item],
         )?
     };
 
@@ -678,7 +686,7 @@ fn build_app_menu(handle: &AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
         handle,
         "Help",
         true,
-        &[&about_item, &help_separator, &github_item],
+        &[&about_item, &help_separator, &update_item, &github_item],
     )?;
 
     let edit_menu = {
@@ -702,6 +710,11 @@ fn build_app_menu(handle: &AppHandle) -> tauri::Result<Menu<tauri::Wry>> {
 
 fn handle_menu_event(app: &AppHandle, event: tauri::menu::MenuEvent) {
     match event.id().as_ref() {
+        MENU_HELP_UPDATE_ID => {
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.eval("window.__sparkCheckForUpdate?.()");
+            }
+        }
         MENU_HELP_GITHUB_ID => {
             let _ = open_in_shell("https://github.com/konghesmileface/spark-monitor");
         }

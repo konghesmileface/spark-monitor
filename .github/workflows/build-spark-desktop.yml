@@ -194,5 +194,7 @@ jobs:
             else
               echo "worldmonitor.conf not found, skipping nginx update"
             fi
+            echo '{"version":"${VERSION}","tag":"v${VERSION}","url":"https://github.com/konghesmileface/spark-monitor/releases/tag/v${VERSION}"}' > /opt/worldmonitor/version.json
+            echo "version.json updated to ${VERSION}"
           SSHEOF
           rm ~/.ssh/deploy_key
