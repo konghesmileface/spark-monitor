@@ -4,18 +4,6 @@ import { invokeTauri } from '@/services/tauri-bridge';
 import { trackUpdateShown, trackUpdateClicked, trackUpdateDismissed } from '@/services/analytics';
 import { escapeHtml } from '@/utils/sanitize';
 
-type TauriUnlisten = () => void;
-
-function listenTauriEvent(event: string, handler: () => void): TauriUnlisten | null {
-  const tauriEvent = (window as any).__TAURI__?.event;
-  if (typeof tauriEvent?.listen !== 'function') return null;
-  let unlisten: TauriUnlisten | null = null;
-  (tauriEvent.listen(event, handler) as Promise<TauriUnlisten>)
-    .then((fn: TauriUnlisten) => { unlisten = fn; })
-    .catch(() => {});
-  return () => unlisten?.();
-}
-
 interface DesktopRuntimeInfo {
   os: string;
   arch: string;
@@ -33,7 +21,7 @@ const DESKTOP_BUILD_VARIANT: DesktopBuildVariant = (
 export class DesktopUpdater implements AppModule {
   private ctx: AppContext;
   private updateCheckIntervalId: ReturnType<typeof setInterval> | null = null;
-  private unlistenUpdate: TauriUnlisten | null = null;
+  private boundCheckHandler: (() => void) | null = null;
   private readonly UPDATE_CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
 
   constructor(ctx: AppContext) {
@@ -55,9 +43,8 @@ export class DesktopUpdater implements AppModule {
   init(): void {
     this.setupUpdateChecks();
     if (this.ctx.isDesktopApp) {
-      this.unlistenUpdate = listenTauriEvent('check-for-update', () => {
-        void this.manualCheckForUpdate();
-      });
+      this.boundCheckHandler = () => void this.manualCheckForUpdate();
+      document.addEventListener('spark-check-update', this.boundCheckHandler);
     }
   }
 
@@ -66,8 +53,10 @@ export class DesktopUpdater implements AppModule {
       clearInterval(this.updateCheckIntervalId);
       this.updateCheckIntervalId = null;
     }
-    this.unlistenUpdate?.();
-    this.unlistenUpdate = null;
+    if (this.boundCheckHandler) {
+      document.removeEventListener('spark-check-update', this.boundCheckHandler);
+      this.boundCheckHandler = null;
+    }
   }
 
   private setupUpdateChecks(): void {
