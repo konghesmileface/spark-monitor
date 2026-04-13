@@ -47,6 +47,12 @@ def start_alert_scanner(app):
         while True:
             try:
                 with app.app_context():
+                    # Leader election: only one worker runs scanner
+                    import os
+                    r = app.redis
+                    if r and not r.set('cn:bg:scanner:lock', os.getpid(), ex=_SCAN_INTERVAL + 60, nx=True):
+                        time.sleep(_SCAN_INTERVAL)
+                        continue
                     _run_scan(app)
                 _last_scan_ts = datetime.now()
             except Exception as e:

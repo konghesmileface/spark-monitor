@@ -7,6 +7,7 @@ akshare calls eastmoney internally but wraps more data sources and handles parsi
 import json
 import logging
 import math
+import os
 import time
 import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -190,11 +191,17 @@ def _fetch_spot_raw():
 
 
 def _bg_spot_loop():
-    """Background thread: refresh spot every 30s during trading hours."""
+    """Background thread: refresh spot every 30s during trading hours.
+    Uses Redis lock to ensure only one gunicorn worker actually fetches."""
     global _spot_mem, _spot_mem_ts
     while True:
         try:
             if _is_trading_hours():
+                # Leader election: only one worker fetches at a time
+                r = _redis()
+                if r and not r.set('cn:bg:spot:lock', os.getpid(), ex=45, nx=True):
+                    time.sleep(30)
+                    continue
                 data = _fetch_spot_raw()
                 if data:
                     with _spot_lock:

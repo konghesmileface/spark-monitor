@@ -11,11 +11,21 @@ Public API:
 import logging
 import threading
 import time
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 
 logger = logging.getLogger('cn-intel.report-scheduler')
 
 _started = False
+_report_pool = None
+
+
+def _get_report_pool():
+    """Lazy-init bounded thread pool for enterprise report generation (max 3 concurrent)."""
+    global _report_pool
+    if _report_pool is None:
+        _report_pool = ThreadPoolExecutor(max_workers=3, thread_name_prefix='ent-report')
+    return _report_pool
 
 # ── Report TTL ──
 REPORT_TTL = 21600  # 6 hours
@@ -621,13 +631,11 @@ def _check_enterprise_schedules():
                 logger.debug(f'[enterprise-sched] Skip {stype} for {user_id[:8]}: already done today')
                 continue
 
-            # Generate report in background thread (pass app for context)
-            import threading as _threading
-            _threading.Thread(
-                target=_run_enterprise_report,
-                args=(current_app._get_current_object(), user_id, stype),
-                daemon=True,
-            ).start()
+            # Generate report in bounded thread pool (pass app for context)
+            _get_report_pool().submit(
+                _run_enterprise_report,
+                current_app._get_current_object(), user_id, stype,
+            )
 
 
 def _run_enterprise_report(app, user_id: str, report_type: str) -> None:
@@ -668,7 +676,8 @@ def _run_enterprise_report(app, user_id: str, report_type: str) -> None:
 # ═══════════════════════════════════════════════════════════════════
 
 def _report_loop(app):
-    """Background loop: check every minute for scheduled reports, 30 min for mood/gov."""
+    """Background loop: check every minute for scheduled reports, 30 min for mood/gov.
+    Uses Redis lock so only one gunicorn worker runs the scheduler."""
     # Initial delay: let data sources warm up first
     time.sleep(60)
 
@@ -680,6 +689,17 @@ def _report_loop(app):
             # Skip weekends + midnight-6am (no useful data)
             if now.weekday() < 5 and now.hour >= 6:
                 with app.app_context():
+                    # Leader election: only one worker runs scheduler per minute
+                    import os
+                    r = None
+                    try:
+                        r = app.redis
+                    except Exception:
+                        pass
+                    if r and not r.set('cn:bg:scheduler:lock', os.getpid(), ex=90, nx=True):
+                        time.sleep(60)
+                        continue
+
                     # Check enterprise schedules every minute
                     try:
                         _check_enterprise_schedules()
