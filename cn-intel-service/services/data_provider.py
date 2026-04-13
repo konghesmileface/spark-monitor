@@ -72,8 +72,18 @@ def _get_ttl(trading_ttl, non_trading_ttl):
 
 # --- Redis helpers (work outside Flask app context) ---
 
+_redis_client = None
+
+def _set_redis_client(r):
+    """Store Redis client for bg threads (no Flask context)."""
+    global _redis_client
+    _redis_client = r
+    logger.warning(f'data_provider: Redis client stored for bg threads')
+
 def _redis():
-    """Get Redis client from Flask app context, or None."""
+    """Get Redis client — stored client (bg threads) or Flask context."""
+    if _redis_client is not None:
+        return _redis_client
     try:
         from flask import current_app
         return current_app.redis
@@ -131,6 +141,29 @@ def _cache_get_stale(key):
         pass
     return None
 
+
+
+# Eastmoney HTTPS→HTTP downgrade patch (called from app.py create_app)
+_original_session_request = None
+
+def _install_eastmoney_http_downgrade():
+    """Monkey-patch requests.Session.request() to downgrade eastmoney HTTPS→HTTP.
+    akshare internally uses HTTPS for push2*.eastmoney.com, but through proxy
+    nodes, HTTP works better. Same pattern as FinGPT akshare_cache.py."""
+    import requests as _req
+    global _original_session_request
+    if _original_session_request is not None:
+        return  # Already installed
+    _original_session_request = _req.Session.request
+
+    def _patched_request(self, method, url, **kwargs):
+        if isinstance(url, str) and 'eastmoney.com' in url and url.startswith('https://'):
+            if 'push2' in url or 'datacenter' in url:
+                url = 'http://' + url[8:]
+        return _original_session_request(self, method, url, **kwargs)
+
+    _req.Session.request = _patched_request
+    logger.warning('Installed eastmoney HTTPS->HTTP downgrade patch (Session.request)')
 
 # --- eastmoney HTTP fallback (same as akshare_data.py) ---
 

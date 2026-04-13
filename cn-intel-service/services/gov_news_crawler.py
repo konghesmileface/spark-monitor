@@ -98,7 +98,7 @@ GOV_SOURCES = {
     'bse': {
         'name': '北交所',
         'category': '金融监管',
-        'url': 'https://www.bse.cn/important_news.html',
+        'url': 'https://www.bse.cn/news/important_news.html',
         'icon': 'bi-graph-up',
     },
     # ── 国务院 ──
@@ -268,19 +268,19 @@ GOV_SOURCES = {
     'pbc_governor': {
         'name': '央行行长',
         'category': '领导活动',
-        'url': 'http://www.pbc.gov.cn/hangzhang/',
+        'url': 'http://www.pbc.gov.cn/hanglingdao/128697/128734/index.html',
         'icon': 'bi-bank',
     },
     'mof_minister': {
         'name': '财政部部长',
         'category': '领导活动',
-        'url': 'http://www.mof.gov.cn/zhengwuxinxi/buzhanghuodong/',
+        'url': 'https://www.mof.gov.cn/zhengwuxinxi/blddt/',
         'icon': 'bi-cash-coin',
     },
     'ndrc_chairman': {
         'name': '发改委主任',
         'category': '领导活动',
-        'url': 'https://www.ndrc.gov.cn/xxgk/ldxx/',
+        'url': 'https://www.ndrc.gov.cn/fzggw/wld/zsj/zyhd/',
         'icon': 'bi-building',
     },
     'csrc_chairman': {
@@ -316,7 +316,7 @@ GOV_SOURCES = {
     'miit_minister': {
         'name': '工信部部长',
         'category': '领导活动',
-        'url': 'https://www.miit.gov.cn/gzcy/bzhdxwfbh/ld/',
+        'url': 'https://www.miit.gov.cn/xwfb/bldhd/',
         'icon': 'bi-cpu-fill',
     },
     'mohrss_minister': {
@@ -328,13 +328,13 @@ GOV_SOURCES = {
     'mohurd_minister': {
         'name': '住建部部长',
         'category': '领导活动',
-        'url': 'https://www.mohurd.gov.cn/xinwen/lingdaohuodong/',
+        'url': 'http://www.mohurd.gov.cn/xinwen/lingdaohuodong/',
         'icon': 'bi-house-door',
     },
     'mot_minister': {
         'name': '交通部部长',
         'category': '领导活动',
-        'url': 'https://www.mot.gov.cn/jiaotongyaowen/202109/t20210901_3617449.html',
+        'url': 'https://www.mot.gov.cn/xinwen/jiaotongyaowen/',
         'icon': 'bi-truck',
     },
     'moa_minister': {
@@ -358,13 +358,13 @@ GOV_SOURCES = {
     'nhc_director': {
         'name': '卫健委主任',
         'category': '领导活动',
-        'url': 'http://www.nhc.gov.cn/wjw/ldxx/list.shtml',
+        'url': 'http://www.nhc.gov.cn/wjw/xwdt/list.shtml',
         'icon': 'bi-heart-pulse',
     },
     'mem_minister': {
         'name': '应急部部长',
         'category': '领导活动',
-        'url': 'https://www.mem.gov.cn/gk/ldxx/',
+        'url': 'https://www.mem.gov.cn/xw/yjyw/',
         'icon': 'bi-shield-exclamation',
     },
     'sasac_director': {
@@ -397,7 +397,7 @@ GOV_SOURCES = {
     'mohurd': {
         'name': '住建部',
         'category': '部委动态',
-        'url': 'https://www.mohurd.gov.cn/xinwen/jsyw/',
+        'url': 'http://www.mohurd.gov.cn/xinwen/jsyw/',
         'icon': 'bi-house-door',
     },
     'mohrss': {
@@ -550,7 +550,7 @@ GOV_SOURCES = {
     'bis': {
         'name': 'BIS',
         'category': '国际机构',
-        'url': 'https://www.bis.org/list/press_rel/index.htm',
+        'url': 'https://www.bis.org/press/pressrels.htm',
         'icon': 'bi-globe-americas',
     },
     # ── 国际媒体 ──
@@ -1617,7 +1617,7 @@ def _fetch_eeo():
 
 def _fetch_bse():
     """北交所 — 本所动态"""
-    resp = _safe_get('https://www.bse.cn/important_news.html', encoding='utf-8')
+    resp = _safe_get('https://www.bse.cn/news/important_news.html', encoding='utf-8')
     if not resp:
         return _fetch_search_news('北交所 北交所上市', 'bse')
     soup = BeautifulSoup(resp.text, 'html.parser')
@@ -1798,7 +1798,7 @@ def _fetch_gov_premier():
 
 def _fetch_pbc_governor():
     """人民银行行长活动"""
-    items = _fetch_gov_generic('http://www.pbc.gov.cn/hangzhang/', 'pbc_governor',
+    items = _fetch_gov_generic('http://www.pbc.gov.cn/hanglingdao/128697/128734/index.html', 'pbc_governor',
                                base_url='http://www.pbc.gov.cn')
     if not items:
         return _fetch_search_news('央行行长 潘功胜', 'pbc_governor')
@@ -1807,13 +1807,13 @@ def _fetch_pbc_governor():
 
 def _fetch_mof_minister():
     """财政部部长活动"""
-    return _fetch_gov_generic('http://www.mof.gov.cn/zhengwuxinxi/buzhanghuodong/', 'mof_minister',
-                              base_url='http://www.mof.gov.cn')
+    return _fetch_gov_generic('https://www.mof.gov.cn/zhengwuxinxi/blddt/', 'mof_minister',
+                              base_url='https://www.mof.gov.cn')
 
 
 def _fetch_ndrc_chairman():
     """发改委主任活动"""
-    return _fetch_gov_generic('https://www.ndrc.gov.cn/xxgk/ldxx/', 'ndrc_chairman',
+    return _fetch_gov_generic('https://www.ndrc.gov.cn/fzggw/wld/zsj/zyhd/', 'ndrc_chairman',
                               base_url='https://www.ndrc.gov.cn')
 
 
@@ -1852,7 +1852,7 @@ def _fetch_safe_director():
 
 def _fetch_miit_minister():
     """工信部部长活动"""
-    return _fetch_gov_generic('https://www.miit.gov.cn/gzcy/bzhdxwfbh/ld/', 'miit_minister',
+    return _fetch_gov_generic('https://www.miit.gov.cn/xwfb/bldhd/', 'miit_minister',
                               base_url='https://www.miit.gov.cn')
 
 
@@ -1863,14 +1863,15 @@ def _fetch_mohrss_minister():
 
 
 def _fetch_mohurd_minister():
-    """住建部部长活动"""
-    return _fetch_gov_generic('https://www.mohurd.gov.cn/xinwen/lingdaohuodong/', 'mohurd_minister',
-                              base_url='https://www.mohurd.gov.cn')
+    """住建部部长活动 — mohurd.gov.cn HTTPS broken, use HTTP"""
+    return _fetch_gov_generic('http://www.mohurd.gov.cn/xinwen/lingdaohuodong/', 'mohurd_minister',
+                              base_url='http://www.mohurd.gov.cn')
 
 
 def _fetch_mot_minister():
     """交通部部长活动"""
-    return _fetch_gov_generic('https://www.mot.gov.cn/', 'mot_minister')
+    return _fetch_gov_generic('https://www.mot.gov.cn/xinwen/jiaotongyaowen/', 'mot_minister',
+                              base_url='https://www.mot.gov.cn')
 
 
 def _fetch_moa_minister():
@@ -1893,13 +1894,13 @@ def _fetch_mee_minister():
 
 def _fetch_nhc_director():
     """卫健委主任活动"""
-    return _fetch_gov_generic('http://www.nhc.gov.cn/wjw/ldxx/list.shtml', 'nhc_director',
+    return _fetch_gov_generic('http://www.nhc.gov.cn/wjw/xwdt/list.shtml', 'nhc_director',
                               base_url='http://www.nhc.gov.cn')
 
 
 def _fetch_mem_minister():
     """应急部部长活动"""
-    return _fetch_gov_generic('https://www.mem.gov.cn/gk/ldxx/', 'mem_minister',
+    return _fetch_gov_generic('https://www.mem.gov.cn/xw/yjyw/', 'mem_minister',
                               base_url='https://www.mem.gov.cn')
 
 
@@ -2497,10 +2498,10 @@ def _fetch_miit():
 
 
 def _fetch_mohurd():
-    """住建部 — 建设要闻(JS渲染, 多URL尝试)"""
+    """住建部 — 建设要闻(JS渲染, 多URL尝试). HTTPS broken, use HTTP."""
     for url in [
-        'https://www.mohurd.gov.cn/xinwen/jsyw/',
-        'https://www.mohurd.gov.cn/',
+        'http://www.mohurd.gov.cn/xinwen/jsyw/',
+        'http://www.mohurd.gov.cn/',
     ]:
         resp = _safe_get(url, encoding='utf-8')
         if not resp or len(resp.text) < 3000:
@@ -2525,7 +2526,7 @@ def _fetch_mohurd():
                 m = re.search(r'/(\d{4})(\d{2})(\d{2})', href)
                 if m:
                     d = f'{m.group(1)}-{m.group(2)}-{m.group(3)}'
-            items.append(_make_item(title, _abs_url('https://www.mohurd.gov.cn', href), d, 'mohurd'))
+            items.append(_make_item(title, _abs_url('http://www.mohurd.gov.cn', href), d, 'mohurd'))
         if items:
             return items[:15]
     return _fetch_search_news('住建部', 'mohurd')
