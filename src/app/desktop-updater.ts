@@ -26,6 +26,10 @@ export class DesktopUpdater implements AppModule {
 
   constructor(ctx: AppContext) {
     this.ctx = ctx;
+    // Start polling menu clicks immediately so "Check for Updates" works during startup
+    if (ctx.isDesktopApp) {
+      this.menuPollIntervalId = setInterval(() => void this.pollMenuUpdateCheck(), 500);
+    }
   }
 
   private get versionApiUrl(): string {
@@ -42,9 +46,6 @@ export class DesktopUpdater implements AppModule {
 
   init(): void {
     this.setupUpdateChecks();
-    if (this.ctx.isDesktopApp) {
-      this.menuPollIntervalId = setInterval(() => void this.pollMenuUpdateCheck(), 500);
-    }
   }
 
   destroy(): void {
@@ -134,8 +135,8 @@ export class DesktopUpdater implements AppModule {
     }
   }
 
-  private async manualCheckForUpdate(): Promise<void> {
-    this.showCheckingToast();
+  private async manualCheckForUpdate(retryCount = 0): Promise<void> {
+    if (retryCount === 0) this.showCheckingToast();
     try {
       const res = await fetch(this.versionApiUrl, {
         signal: (() => { const c = new AbortController(); setTimeout(() => c.abort(), 8000); return c.signal; })(),
@@ -159,6 +160,10 @@ export class DesktopUpdater implements AppModule {
         this.showResultToast('ok', 'Up to Date', `Current version v${current}`);
       }
     } catch {
+      if (retryCount < 2) {
+        await new Promise(r => setTimeout(r, 1500));
+        return this.manualCheckForUpdate(retryCount + 1);
+      }
       this.showResultToast('error', 'Check Failed', 'Network connection error');
     }
   }
