@@ -46,7 +46,7 @@ const POLICY_AREA_OPTIONS = [
 const MODAL_STYLE = `<style>
 @layer base {
 .cn-profile-overlay {
-  position: fixed; inset: 0; z-index: 9999;
+  position: fixed; inset: 0; z-index: 10100;
   background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center;
 }
 .cn-profile-modal {
@@ -135,6 +135,7 @@ const MODAL_STYLE = `<style>
 </style>`;
 
 let _modalEl: HTMLElement | null = null;
+let _escHandler: ((e: KeyboardEvent) => void) | null = null;
 let _companyName = '';
 let _companySize = '';
 let _businessScope = '';
@@ -290,9 +291,23 @@ export async function openProfileModal(onSaved?: (p: UserProfile) => void): Prom
       if (valEl) valEl.textContent = target.value;
     }
   });
+
+  // Direct listeners on close/cancel as fallback (WebView2 delegation quirks)
+  const closeBtn = _modalEl.querySelector('.cn-profile-close');
+  if (closeBtn) closeBtn.addEventListener('click', (e) => { e.stopPropagation(); _close(); });
+  const cancelBtn = _modalEl.querySelector('.cn-profile-btn-cancel');
+  if (cancelBtn) cancelBtn.addEventListener('click', (e) => { e.stopPropagation(); _close(); });
+
+  // Escape key to close
+  _escHandler = (e: KeyboardEvent) => { if (e.key === 'Escape') _close(); };
+  document.addEventListener('keydown', _escHandler);
 }
 
 function _close(): void {
+  if (_escHandler) {
+    document.removeEventListener('keydown', _escHandler);
+    _escHandler = null;
+  }
   if (_modalEl) {
     _modalEl.remove();
     _modalEl = null;

@@ -86,6 +86,18 @@ def _resolve_profile_user_id(conn, account: dict) -> str | None:
         if not acct_data:
             return None
 
+        # Don't create empty profiles — if the account has no meaningful data,
+        # let the frontend keep its existing localStorage UUID (which may already
+        # have a working profile set up before login).
+        has_data = (
+            (acct_data.get('company_name') or '').strip()
+            or (acct_data.get('industries') or '').strip()
+            or (acct_data.get('competitors') or '').strip()
+        )
+        if not has_data:
+            logger.warning(f'[auth] Account {account_id} has no registration data, skipping profile creation')
+            return None
+
         profile_uid = str(uuid.uuid4())
 
         # Parse JSON-or-CSV text fields from wm_accounts

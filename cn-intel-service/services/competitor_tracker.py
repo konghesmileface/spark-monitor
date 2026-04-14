@@ -18,6 +18,43 @@ from services.cache import cache_get, cache_set, is_trading_time
 
 logger = logging.getLogger('cn-intel.competitor')
 
+_URL_RE = None  # lazy compile
+
+
+def _strip_urls(text: str) -> str:
+    """Remove any http/https URLs from text."""
+    global _URL_RE
+    if _URL_RE is None:
+        import re
+        _URL_RE = re.compile(r'https?://\S+')
+    return _URL_RE.sub('', text).strip()
+
+
+def _clean_news_results(results: dict) -> dict:
+    """Strip grounding redirect URLs from Gemini search results."""
+    cleaned = {}
+    for company, news_list in results.items():
+        if not isinstance(news_list, list):
+            continue
+        clean_list = []
+        for item in news_list:
+            if not isinstance(item, dict):
+                continue
+            title = _strip_urls(item.get('title', ''))
+            source = _strip_urls(item.get('source', ''))
+            # Skip entries that are just URLs with no meaningful title
+            if not title or len(title) < 4:
+                continue
+            clean_list.append({
+                'title': title,
+                'source': source,
+                'date': item.get('date', ''),
+            })
+        if clean_list:
+            cleaned[company] = clean_list
+    return cleaned
+
+
 # ── Gemini Search Grounding ──────────────────────────────────────────────────
 
 _GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent'
@@ -72,16 +109,16 @@ def _fetch_competitor_web_news(competitors: list, industries: list) -> dict:
             text = text.split('\n', 1)[-1].rsplit('```', 1)[0]
 
         parsed = json.loads(text)
-        return parsed.get('results', parsed)
+        results = parsed.get('results', parsed)
+        return _clean_news_results(results)
     except json.JSONDecodeError:
         logger.warning(f'Gemini competitor response not valid JSON: {text[:300]}')
-        # Try to extract JSON object from mixed text
         import re
         m = re.search(r'\{[\s\S]*\}', text)
         if m:
             try:
                 parsed = json.loads(m.group())
-                return parsed.get('results', parsed)
+                return _clean_news_results(parsed.get('results', parsed))
             except json.JSONDecodeError:
                 pass
         return {}

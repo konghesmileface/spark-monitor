@@ -105,7 +105,7 @@ function buildGaugeSvg(score: number): string {
   const fillEndY = cy - innerR * Math.sin(scoreAngle);
   const fillStartX = cx + innerR * Math.cos(startAngle);
   const fillStartY = cy - innerR * Math.sin(startAngle);
-  const largeArc = score > 50 ? 1 : 0;
+  const largeArc = 0; // always short arc — sweep-flag=1 already routes through the top
 
   // Needle
   const needleLen = innerR - 12;
@@ -125,7 +125,7 @@ function buildGaugeSvg(score: number): string {
   });
 
   return `
-    <svg viewBox="0 0 240 125" class="cn-sentiment-gauge">
+    <svg viewBox="0 -8 240 133" class="cn-sentiment-gauge">
       <defs>
         <linearGradient id="gaugeGrad" x1="0%" y1="0%" x2="100%" y2="0%">
           <stop offset="0%" stop-color="#1b5e20"/>
@@ -263,7 +263,7 @@ function buildTrendSvg(trend: TrendPoint[]): string {
 function buildRadarSvg(factors: SentimentFactor[]): string {
   if (!factors || factors.length < 3) return '';
 
-  const size = 160;
+  const size = 180;
   const cx = size / 2;
   const cy = size / 2;
   const maxR = 58;
