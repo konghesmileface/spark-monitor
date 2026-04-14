@@ -164,6 +164,13 @@ def create_app():
             g.current_user = {'id': 0, 'email': 'internal@system', 'role': 'admin', 'status': 'approved'}
             return None
 
+        # Allow desktop app sidecar — proxyToCloud sets this Origin header
+        # over HTTPS to sparkmonitor.cn; browsers never send this for API calls
+        origin = request.headers.get('Origin', '')
+        if origin == 'https://worldmonitor.app':
+            g.current_user = {'id': 0, 'email': 'desktop@app', 'role': 'user', 'status': 'approved'}
+            return None
+
         auth_header = request.headers.get('Authorization', '')
         token = ''
         if auth_header.startswith('Bearer '):

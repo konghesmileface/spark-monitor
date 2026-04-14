@@ -70,6 +70,9 @@ export async function getAlertStats(): Promise<Record<string, number>> {
 /** Start SSE connection for FLASH alerts. */
 export function connectFlashStream(): void {
   if (_eventSource) return;
+  // Desktop sidecar buffers entire response (no streaming) and EventSource
+  // doesn't go through the fetch patch, so SSE fails on desktop clients.
+  if (typeof window !== 'undefined' && (window as any).__TAURI_INTERNALS__) return;
   const uid = getUserId();
   const token = localStorage.getItem('wm_token') || '';
   const params = new URLSearchParams({ user_id: uid });

@@ -7,6 +7,7 @@ Returns structured dict for the API + formatted_text for AI prompt injection.
 
 import json
 import logging
+import re
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta
@@ -25,7 +26,6 @@ def _strip_urls(text: str) -> str:
     """Remove any http/https URLs from text."""
     global _URL_RE
     if _URL_RE is None:
-        import re
         _URL_RE = re.compile(r'https?://\S+')
     return _URL_RE.sub('', text).strip()
 
@@ -76,7 +76,7 @@ def _fetch_competitor_web_news(competitors: list, industries: list) -> dict:
         f"请搜索以下公司最近7天的重要新闻动态，每家公司列出最多3条最新新闻。\n"
         f"公司列表: {comp_list}\n"
         f"相关行业: {ind_list}\n\n"
-        f"以JSON格式返回，不要markdown代码块:\n"
+        f"请直接返回JSON，不要任何额外文字、说明或markdown代码块:\n"
         f'{{"results": {{"公司名": [{{"title": "标题", "source": "来源", "date": "MM-DD"}}]}}}}'
     )
 
@@ -103,17 +103,23 @@ def _fetch_competitor_web_news(competitors: list, industries: list) -> dict:
             for part in candidate.get('content', {}).get('parts', []):
                 text += part.get('text', '')
 
-        # Parse JSON from response
+        # Parse JSON from response — Gemini may wrap in code fence or prepend text
         text = text.strip()
-        if text.startswith('```'):
-            text = text.split('\n', 1)[-1].rsplit('```', 1)[0]
+        # Strip code fences anywhere in text (not just at start)
+        fence_match = re.search(r'```(?:json)?\s*\n([\s\S]*?)```', text)
+        if fence_match:
+            text = fence_match.group(1).strip()
+        elif not text.startswith('{'):
+            # Preamble text before JSON — find first {
+            idx = text.find('{')
+            if idx > 0:
+                text = text[idx:]
 
         parsed = json.loads(text)
         results = parsed.get('results', parsed)
         return _clean_news_results(results)
     except json.JSONDecodeError:
         logger.warning(f'Gemini competitor response not valid JSON: {text[:300]}')
-        import re
         m = re.search(r'\{[\s\S]*\}', text)
         if m:
             try:
@@ -296,7 +302,6 @@ def _generate_analysis(comp_items: list, company_name: str, industries: list,
 
         return json.loads(raw)
     except json.JSONDecodeError:
-        import re
         m = re.search(r'\{[\s\S]*\}', raw)
         if m:
             try:
