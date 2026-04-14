@@ -70,7 +70,7 @@ INDUSTRIES.forEach(ind => {
 });
 
 // ── Tags input ──
-function initTagsInput(containerId: string): () => string[] {
+function initTagsInput(containerId: string): { get: () => string[]; reset: () => void } {
   const container = document.getElementById(containerId)!;
   const input = container.querySelector('input')!;
   const tags: string[] = [];
@@ -81,8 +81,13 @@ function initTagsInput(containerId: string): () => string[] {
     tags.push(t);
     const tag = document.createElement('span');
     tag.className = 'tag';
-    tag.innerHTML = `${t}<button type="button">&times;</button>`;
-    tag.querySelector('button')!.addEventListener('click', () => {
+    const textNode = document.createTextNode(t);
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.innerHTML = '&times;';
+    tag.appendChild(textNode);
+    tag.appendChild(btn);
+    btn.addEventListener('click', () => {
       const idx = tags.indexOf(t);
       if (idx >= 0) tags.splice(idx, 1);
       tag.remove();
@@ -104,12 +109,18 @@ function initTagsInput(containerId: string): () => string[] {
 
   container.addEventListener('click', () => input.focus());
 
-  return () => [...tags];
+  return {
+    get: () => [...tags],
+    reset: () => {
+      tags.length = 0;
+      container.querySelectorAll('.tag').forEach(t => t.remove());
+    },
+  };
 }
 
-const getCompetitors = initTagsInput('competitorTags');
-const getSupplyUp = initTagsInput('supplyUpTags');
-const getSupplyDown = initTagsInput('supplyDownTags');
+const competitors = initTagsInput('competitorTags');
+const supplyUp = initTagsInput('supplyUpTags');
+const supplyDown = initTagsInput('supplyDownTags');
 
 // ── Form submit ──
 function showMsg(text: string, type: 'error' | 'success') {
@@ -136,6 +147,24 @@ form.addEventListener('submit', async (e) => {
     return;
   }
 
+  // Validate custom components (not covered by native required)
+  if (selectedIndustries.size === 0) {
+    showMsg('请至少选择一个所属行业', 'error');
+    return;
+  }
+  if (competitors.get().length === 0) {
+    showMsg('请至少添加一个竞争对手', 'error');
+    return;
+  }
+  if (supplyUp.get().length === 0) {
+    showMsg('请至少添加一个上游供应链', 'error');
+    return;
+  }
+  if (supplyDown.get().length === 0) {
+    showMsg('请至少添加一个下游客户', 'error');
+    return;
+  }
+
   submitBtn.disabled = true;
   submitBtn.textContent = '提交中...';
 
@@ -148,9 +177,9 @@ form.addEventListener('submit', async (e) => {
     company_size: fd.get('company_size') as string,
     business_scope: (fd.get('business_scope') as string).trim(),
     industries: Array.from(selectedIndustries),
-    competitors: getCompetitors(),
-    supply_chain_up: getSupplyUp(),
-    supply_chain_down: getSupplyDown(),
+    competitors: competitors.get(),
+    supply_chain_up: supplyUp.get(),
+    supply_chain_down: supplyDown.get(),
   };
 
   try {
@@ -166,6 +195,9 @@ form.addEventListener('submit', async (e) => {
       form.reset();
       chipContainer.querySelectorAll('.chip.active').forEach(c => c.classList.remove('active'));
       selectedIndustries.clear();
+      competitors.reset();
+      supplyUp.reset();
+      supplyDown.reset();
     } else {
       showMsg(data.error || '提交失败，请稍后重试', 'error');
     }

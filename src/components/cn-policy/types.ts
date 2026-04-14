@@ -131,3 +131,51 @@ export interface IndustryBrief {
   executive_lens?: Record<string, string>;
   time_horizon?: Record<string, string>;
 }
+
+export interface CompetitorNewsItem {
+  title: string;
+  source: string;
+  date: string;
+}
+
+export interface CompetitorItem {
+  name: string;
+  is_listed: boolean;
+  stock_code?: string;
+  stock_price?: number;
+  stock_change_pct?: number;
+  web_news: CompetitorNewsItem[];
+  db_news: CompetitorNewsItem[];
+}
+
+export interface CompetitorAnalysisItem {
+  name: string;
+  threat_level: 'high' | 'medium' | 'low';
+  urgency: 'immediate' | 'watch' | 'none';
+  impact: string;
+  opportunities: string[];
+  risks: string[];
+}
+
+export interface CompetitorActionItem {
+  action: string;
+  urgency: 'immediate' | 'this_week' | 'watch';
+}
+
+export interface CompetitorAnalysis {
+  pressure_score: number;
+  pressure_trend: 'rising' | 'stable' | 'easing';
+  summary: string;
+  action_items: CompetitorActionItem[];
+  supply_chain_risks: string[];
+  competitors: CompetitorAnalysisItem[];
+}
+
+export interface CompetitorIntelData {
+  status?: string;
+  message?: string;
+  competitors: CompetitorItem[];
+  analysis?: CompetitorAnalysis;
+  formatted_text: string;
+  generated_at: string;
+}

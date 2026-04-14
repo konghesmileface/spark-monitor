@@ -260,6 +260,7 @@ def create_app():
     from api.enterprise import enterprise_bp
     from api.telegram import telegram_bp
     from api.industry import industry_bp
+    from api.competitors import competitors_bp
     from api.auth import auth_bp
     from api.admin import admin_bp
 
@@ -286,6 +287,7 @@ def create_app():
     app.register_blueprint(enterprise_bp)
     app.register_blueprint(telegram_bp)
     app.register_blueprint(industry_bp)
+    app.register_blueprint(competitors_bp)
     app.register_blueprint(auth_bp)
     app.register_blueprint(admin_bp)
     # Rate limits for industry AI endpoints

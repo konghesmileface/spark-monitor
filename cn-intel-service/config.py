@@ -65,14 +65,18 @@ class Config:
     CACHE_TTL_REGIONAL = 600
     CACHE_TTL_GOV_NEWS = 7200  # 2h (was 30min, too short)
 
-    # Industry advisor TTLs (trading / non-trading)
-    CACHE_TTL_INDUSTRY_BRIEF_TRADING = 900     # 15min
-    CACHE_TTL_INDUSTRY_BRIEF_OFF = 3600        # 1h
-    CACHE_TTL_INDUSTRY_IMPACTS_TRADING = 600   # 10min
-    CACHE_TTL_INDUSTRY_IMPACTS_OFF = 1800      # 30min
-    CACHE_TTL_INDUSTRY_DEEP_TRADING = 1800     # 30min
-    CACHE_TTL_INDUSTRY_DEEP_OFF = 7200         # 2h
+    # Industry advisor TTLs — unified 6h
+    CACHE_TTL_INDUSTRY_BRIEF_TRADING = 21600   # 6h
+    CACHE_TTL_INDUSTRY_BRIEF_OFF = 21600       # 6h
+    CACHE_TTL_INDUSTRY_IMPACTS_TRADING = 21600 # 6h
+    CACHE_TTL_INDUSTRY_IMPACTS_OFF = 21600     # 6h
+    CACHE_TTL_INDUSTRY_DEEP_TRADING = 21600    # 6h
+    CACHE_TTL_INDUSTRY_DEEP_OFF = 21600        # 6h
 
-    # Morning brief TTLs
-    CACHE_TTL_MORNING_BRIEF_TRADING = 3600    # 1h during trading
-    CACHE_TTL_MORNING_BRIEF_OFF = 21600       # 6h off-hours
+    # Morning brief TTLs — unified 6h
+    CACHE_TTL_MORNING_BRIEF_TRADING = 21600   # 6h
+    CACHE_TTL_MORNING_BRIEF_OFF = 21600       # 6h
+
+    # Competitor intelligence TTLs — unified 6h
+    CACHE_TTL_COMPETITOR_INTEL = 21600        # 6h
+    CACHE_TTL_COMPETITOR_INTEL_OFF = 21600    # 6h

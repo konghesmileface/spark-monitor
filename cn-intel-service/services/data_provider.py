@@ -165,6 +165,34 @@ def _install_eastmoney_http_downgrade():
     _req.Session.request = _patched_request
     logger.warning('Installed eastmoney HTTPS->HTTP downgrade patch (Session.request)')
 
+# Circuit breaker for eastmoney API
+_cb_fail_count = 0
+_cb_last_fail = 0
+_CB_THRESHOLD = 3       # failures before opening
+_CB_COOLDOWN = 300      # 5 min cooldown
+
+def _cb_is_open():
+    """Check if eastmoney circuit breaker is open (too many recent failures)."""
+    import time as _t
+    if _cb_fail_count < _CB_THRESHOLD:
+        return False
+    if _t.time() - _cb_last_fail > _CB_COOLDOWN:
+        return False  # Cooldown expired, allow retry
+    return True
+
+def _cb_record_fail():
+    """Record an eastmoney API failure."""
+    global _cb_fail_count, _cb_last_fail
+    import time as _t
+    _cb_fail_count += 1
+    _cb_last_fail = _t.time()
+
+def _cb_reset():
+    """Reset circuit breaker on success."""
+    global _cb_fail_count
+    _cb_fail_count = 0
+
+
 # --- eastmoney HTTP fallback (same as akshare_data.py) ---
 
 _PUSH2 = 'http://push2.eastmoney.com/api/qt'
@@ -220,6 +248,9 @@ def _fetch_spot_raw():
                 break
     except Exception as e:
         logger.warning(f'_fetch_spot_raw failed: {e}')
+        _cb_record_fail()
+    if all_items:
+        _cb_reset()
     return all_items
 
 

@@ -65,7 +65,16 @@ def get_market_overview():
         logger.debug('get_market_overview: non-trading hours, returning None for stale cache fallback')
         return None
 
-    from services.data_provider import get_a_spot, get_north_flow, get_sector_rank, compute_limit_stats
+    from services.data_provider import get_a_spot, get_north_flow, get_sector_rank, compute_limit_stats, _cb_is_open
+
+    # If eastmoney circuit breaker is open, return cached data instead of blocking
+    if _cb_is_open():
+        from services.cache import cache_get, cache_get_stale
+        cached = cache_get('cn:market:overview') or cache_get_stale('cn:market:overview')
+        if cached:
+            logger.warning('get_market_overview: circuit breaker open, returning cached data')
+            return cached
+        logger.warning('get_market_overview: circuit breaker open and no cache, returning minimal')
 
     result = {
         'indices': [],

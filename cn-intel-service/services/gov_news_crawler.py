@@ -211,7 +211,7 @@ GOV_SOURCES = {
     'thepaper': {
         'name': '澎湃新闻',
         'category': '财经媒体',
-        'url': 'https://www.thepaper.cn/',
+        'url': 'https://cache.thepaper.cn/contentapi/wwwIndex/rightSidebar',
         'icon': 'bi-tsunami',
     },
     # ── 智库 ──
@@ -427,7 +427,7 @@ GOV_SOURCES = {
     'most': {
         'name': '科技部',
         'category': '部委动态',
-        'url': 'https://www.most.gov.cn/',
+        'url': 'https://www.most.gov.cn/kjbgz/index.html',
         'icon': 'bi-cpu',
     },
     'mee': {
@@ -1654,27 +1654,50 @@ def _fetch_bse():
 
 
 def _fetch_thepaper():
-    """澎湃新闻 — 首页 newsDetail_forward_ 文章链接"""
+    """澎湃新闻 — API优先(cache.thepaper.cn), 首页爬取备用, 搜索兜底"""
+    # Try API first (homepage returns 403 anti-crawler)
+    try:
+        resp = requests.get(
+            'https://cache.thepaper.cn/contentapi/wwwIndex/rightSidebar',
+            headers={'User-Agent': _UA}, timeout=10, verify=False,
+        )
+        if resp.status_code == 200:
+            data = resp.json().get('data', {})
+            hot_news = data.get('hotNews', [])
+            if isinstance(hot_news, list) and hot_news:
+                items = []
+                today = date.today().isoformat()
+                for item in hot_news[:25]:
+                    title = item.get('name', '') or item.get('title', '')
+                    if not title or len(title) < 6:
+                        continue
+                    cont_id = item.get('contId', '')
+                    url = f'https://www.thepaper.cn/newsDetail_forward_{cont_id}' if cont_id else ''
+                    items.append(_make_item(title, url, today, 'thepaper'))
+                if items:
+                    return items
+    except Exception as e:
+        logger.warning(f'[gov] thepaper API failed: {e}')
+    # Fallback: try homepage scrape
     resp = _safe_get('https://www.thepaper.cn/')
-    if not resp:
-        return _fetch_search_news('澎湃新闻', 'thepaper')
-    soup = BeautifulSoup(resp.text, 'html.parser')
-    items = []
-    seen = set()
-    today = date.today().isoformat()
-    for a in soup.select('a[href]'):
-        title = a.get_text(strip=True)
-        if len(title) < 8 or title in seen:
-            continue
-        href = a.get('href', '')
-        if '/newsDetail_forward_' not in href:
-            continue
-        url = _abs_url('https://www.thepaper.cn', href)
-        seen.add(title)
-        items.append(_make_item(title, url, today, 'thepaper'))
-    if not items:
-        return _fetch_search_news('澎湃新闻', 'thepaper')
-    return items[:25]
+    if resp:
+        soup = BeautifulSoup(resp.text, 'html.parser')
+        items = []
+        seen = set()
+        today = date.today().isoformat()
+        for a in soup.select('a[href]'):
+            title = a.get_text(strip=True)
+            if len(title) < 8 or title in seen:
+                continue
+            href = a.get('href', '')
+            if '/newsDetail_forward_' not in href:
+                continue
+            url = _abs_url('https://www.thepaper.cn', href)
+            seen.add(title)
+            items.append(_make_item(title, url, today, 'thepaper'))
+        if items:
+            return items[:25]
+    return _fetch_search_news('澎湃新闻', 'thepaper')
 
 
 # ── 智库 fetchers ─────────────────────────────────────────────────────────

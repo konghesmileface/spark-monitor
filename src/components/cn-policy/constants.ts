@@ -21,4 +21,4 @@ export const GOV_CATEGORY_FILTERS = [
 ];
 
 // View modes
-export type ViewMode = 'overview' | 'opprisk' | 'live' | 'industry' | 'history' | 'stats' | 'calendar' | 'insights';
+export type ViewMode = 'overview' | 'opprisk' | 'live' | 'industry' | 'competitors' | 'history' | 'stats' | 'calendar' | 'insights';

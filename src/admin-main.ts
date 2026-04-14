@@ -466,8 +466,13 @@ function initTagsInput(containerId: string): { getTags: () => string[]; reset: (
     tags.push(t);
     const tag = document.createElement('span');
     tag.className = 'tag';
-    tag.innerHTML = `${t}<button type="button">&times;</button>`;
-    tag.querySelector('button')!.addEventListener('click', () => {
+    const textNode = document.createTextNode(t);
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.innerHTML = '&times;';
+    tag.appendChild(textNode);
+    tag.appendChild(btn);
+    btn.addEventListener('click', () => {
       const idx = tags.indexOf(t);
       if (idx >= 0) tags.splice(idx, 1);
       tag.remove();

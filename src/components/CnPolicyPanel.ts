@@ -9,7 +9,7 @@ import { escapeHtml } from '@/utils/sanitize';
 import { openPolicyDrawer } from './PolicyDetailDrawer';
 import { openReportViewer } from './CnReportViewer';
 import { loadProfile, getUserId, markOnboardingComplete, cnFetch, CN_INTEL_BASE, type UserProfile } from '@/services/cn-profile';
-import type { GovNewsItem, GovNewsData, PolicyStats, MorningBriefData, IndustryBrief } from './cn-policy/types';
+import type { GovNewsItem, GovNewsData, PolicyStats, MorningBriefData, IndustryBrief, CompetitorIntelData } from './cn-policy/types';
 import { GOV_CATEGORY_FILTERS, type ViewMode } from './cn-policy/constants';
 
 const STYLE = `<style>
@@ -48,13 +48,14 @@ const STYLE = `<style>
 }
 /* Body view tabs: text-only, compact */
 .cn-policy-tabs {
-  display: flex; gap: 2px; margin-bottom: 10px;
+  display: flex; gap: 1px; margin-bottom: 10px;
   border-bottom: 1px solid rgba(255,255,255,0.04); padding-bottom: 6px;
+  overflow-x: auto; flex-shrink: 1; min-width: 0;
 }
 .cn-policy-tab {
-  padding: 4px 12px; border-radius: 4px 4px 0 0; font-size: 12px; cursor: pointer;
+  padding: 4px 10px; border-radius: 4px 4px 0 0; font-size: 12px; cursor: pointer;
   color: #888; background: none; border: none; transition: all .15s;
-  border-bottom: 2px solid transparent;
+  border-bottom: 2px solid transparent; white-space: nowrap; flex-shrink: 0;
 }
 .cn-policy-tab:hover { color: #ccc; }
 .cn-policy-tab.active { color: #e8a838; border-bottom-color: #e8a838; }
@@ -1323,6 +1324,10 @@ export class CnPolicyPanel extends Panel {
   private industryFetched = false;
   private industryDeepLoading = new Set<number>();
   private industryDeepResults = new Map<number, any>();
+  // Competitors state
+  private competitorsData: CompetitorIntelData | null = null;
+  private competitorsLoading = false;
+  private competitorsFetched = false;
   // Morning brief state
   private morningBrief: MorningBriefData | null = null;
   private morningBriefLoading = false;
@@ -1402,6 +1407,7 @@ export class CnPolicyPanel extends Panel {
         if (this.viewMode === 'calendar' && !this.calendarEvents) void this.fetchCalendar();
         if (this.viewMode === 'insights' && !this.insightsFetched) void this.fetchInsights();
         if (this.viewMode === 'industry' && !this.industryFetched) void this.fetchIndustryBrief();
+        if (this.viewMode === 'competitors' && !this.competitorsFetched) void this.fetchCompetitors();
         this.render();
         return;
       }
@@ -1597,6 +1603,14 @@ export class CnPolicyPanel extends Panel {
         return;
       }
 
+      // Competitors: refresh button
+      if (target.closest('.cn-comp-refresh-btn')) {
+        this.competitorsFetched = false;
+        this.competitorsData = null;
+        void this.fetchCompetitors(true);
+        return;
+      }
+
       // Industry: setup profile button (all views)
       if (target.closest('.cn-ind-setup-btn-sm')) {
         this._openProfileModal();
@@ -1652,6 +1666,7 @@ export class CnPolicyPanel extends Panel {
     if (mode === 'opprisk' && !this.morningBriefFetched) void this.fetchMorningBrief();
     if (mode === 'live' && !this.newsFetched) void this.fetchLiveNews();
     if (mode === 'industry' && !this.industryFetched) void this.fetchIndustryBrief();
+    if (mode === 'competitors' && !this.competitorsFetched) void this.fetchCompetitors();
     this.render();
   }
 
@@ -1900,6 +1915,7 @@ export class CnPolicyPanel extends Panel {
     // Always show all 4 tabs; individual render methods show onboarding prompt when no profile
     const tabViews: { key: ViewMode; label: string }[] = [
       { key: 'overview', label: '情报概览' },
+      { key: 'competitors', label: '竞争对手' },
       { key: 'opprisk', label: '机遇与风险' },
       { key: 'live', label: '政策雷达' },
       { key: 'industry', label: '产业洞察' },
@@ -1918,6 +1934,7 @@ export class CnPolicyPanel extends Panel {
       case 'calendar': bodyHtml = this.renderCalendar(); break;
       case 'insights': bodyHtml = this.renderInsights(); break;
       case 'industry': bodyHtml = this.renderIndustry(); break;
+      case 'competitors': bodyHtml = this.renderCompetitors(); break;
       default: bodyHtml = this.renderOverview(); break;
     }
 
@@ -2434,9 +2451,12 @@ export class CnPolicyPanel extends Panel {
       this.industryBrief = null;
       this.morningBriefFetched = false;
       this.morningBrief = null;
+      this.competitorsFetched = false;
+      this.competitorsData = null;
       this.render();
       setTimeout(() => { this.showSetupToast = false; this.render(); }, 3200);
       if (this.viewMode === 'industry') void this.fetchIndustryBrief();
+      if (this.viewMode === 'competitors') void this.fetchCompetitors();
       if (this.viewMode === 'overview' || this.viewMode === 'opprisk') void this.fetchMorningBrief();
     })).catch(err => console.error('[CnPolicyPanel] openProfileModal failed:', err));
   }
@@ -2476,6 +2496,26 @@ export class CnPolicyPanel extends Panel {
     } finally {
       this.industryLoading = false;
       this.industryFetched = true;
+      this.render();
+    }
+  }
+
+  private async fetchCompetitors(force = false): Promise<void> {
+    if (this.competitorsLoading) return;
+    this.competitorsLoading = true;
+    this.render();
+    try {
+      const uid = this.profileData?.user_id || getUserId();
+      const forceParam = force ? '&force=true' : '';
+      const res = await cnFetch(`${CN_INTEL_BASE}/api/cn/enterprise/competitors?user_id=${encodeURIComponent(uid)}${forceParam}`, { signal: this.signal, timeout: 60_000 });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      this.competitorsData = await res.json();
+      this.competitorsFetched = true;
+    } catch (err) {
+      if (this.isAbortError(err)) return;
+    } finally {
+      this.competitorsLoading = false;
+      this.competitorsFetched = true;
       this.render();
     }
   }
@@ -3144,6 +3184,212 @@ export class CnPolicyPanel extends Panel {
           ${riskCards}
         </div>
       </div>`;
+  }
+
+  private renderCompetitors(): string {
+    if (this.competitorsLoading) {
+      return '<div class="cn-policy-empty"><i class="bi bi-arrow-repeat" style="animation:spin 1s linear infinite"></i> 采集竞对情报...</div>';
+    }
+
+    if (!this.competitorsFetched) {
+      return '<div class="cn-policy-empty"><i class="bi bi-arrow-repeat" style="animation:spin 1s linear infinite"></i> 加载中...</div>';
+    }
+
+    if (!this.competitorsData) {
+      return '<div class="cn-policy-empty"><i class="bi bi-exclamation-triangle"></i> 竞对数据加载失败，请切换标签后重试</div>';
+    }
+
+    if (this.competitorsData.status === 'no_profile') {
+      return `<div class="cn-ind-onboard">
+        <div class="cn-ind-onboard-header"><i class="bi bi-people"></i> 竞争对手追踪</div>
+        <div class="cn-ind-onboard-desc">设置企业画像并添加竞争对手，系统将为您提供：</div>
+        <div class="cn-ind-onboard-features">
+          <div class="cn-ind-onboard-feat"><i class="bi bi-graph-up-arrow"></i><div><div class="cn-ind-feat-title">竞对股价监控</div><div class="cn-ind-feat-desc">上市竞对实时行情与涨跌</div></div></div>
+          <div class="cn-ind-onboard-feat"><i class="bi bi-newspaper"></i><div><div class="cn-ind-feat-title">竞对新闻追踪</div><div class="cn-ind-feat-desc">AI搜索+新闻库双源覆盖</div></div></div>
+          <div class="cn-ind-onboard-feat"><i class="bi bi-bell"></i><div><div class="cn-ind-feat-title">动态预警</div><div class="cn-ind-feat-desc">竞对重大动作即时通知</div></div></div>
+          <div class="cn-ind-onboard-feat"><i class="bi bi-diagram-3"></i><div><div class="cn-ind-feat-title">竞争格局分析</div><div class="cn-ind-feat-desc">AI综合分析竞争态势</div></div></div>
+        </div>
+        <button class="cn-ind-setup-btn-sm"><i class="bi bi-arrow-right-circle"></i> 设置企业画像</button>
+      </div>`;
+    }
+
+    if (this.competitorsData.status === 'no_competitors') {
+      return `<div class="cn-ind-onboard">
+        <div class="cn-ind-onboard-header"><i class="bi bi-people"></i> 竞争对手追踪</div>
+        <div class="cn-ind-onboard-desc">您尚未添加竞争对手，请在企业画像中设置。</div>
+        <button class="cn-ind-setup-btn-sm"><i class="bi bi-pencil-square"></i> 编辑企业画像</button>
+      </div>`;
+    }
+
+    const comps = this.competitorsData.competitors || [];
+    if (!comps.length) {
+      return '<div class="cn-policy-empty"><i class="bi bi-inbox"></i> 暂无竞对数据</div>';
+    }
+
+    const genAt = this.competitorsData.generated_at ? new Date(this.competitorsData.generated_at).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '';
+
+    const cards = comps.map(c => {
+      // Header: name + stock badge or "非上市"
+      let badge = '<span style="padding:2px 8px;border-radius:4px;font-size:11px;background:rgba(255,255,255,0.06);color:#888">非上市</span>';
+      if (c.is_listed && c.stock_code) {
+        const pctColor = (c.stock_change_pct ?? 0) >= 0 ? '#ef5350' : '#66bb6a';
+        const pctSign = (c.stock_change_pct ?? 0) >= 0 ? '+' : '';
+        badge = `<span style="padding:2px 8px;border-radius:4px;font-size:11px;background:rgba(232,168,56,0.1);color:#e8a838">${escapeHtml(c.stock_code)}</span>
+          <span style="font-size:12px;color:#ddd;font-weight:600">\u00a5${(c.stock_price ?? 0).toFixed(2)}</span>
+          <span style="font-size:11px;color:${pctColor};font-weight:600">${pctSign}${(c.stock_change_pct ?? 0).toFixed(2)}%</span>`;
+      }
+
+      // News items
+      const allNews: Array<{ title: string; source: string; date: string; tag: string }> = [];
+      (c.web_news || []).forEach(n => allNews.push({ ...n, tag: '搜索' }));
+      (c.db_news || []).forEach(n => allNews.push({ ...n, tag: '新闻库' }));
+
+      let newsHtml: string;
+      if (allNews.length === 0) {
+        newsHtml = '<div style="padding:6px 0;color:#555;font-size:12px">暂无近期新闻</div>';
+      } else {
+        newsHtml = allNews.slice(0, 5).map(n => {
+          const tagColor = n.tag === '搜索' ? '#4fc3f7' : '#81c784';
+          return `<div style="display:flex;gap:6px;align-items:baseline;padding:4px 0;border-bottom:1px solid rgba(255,255,255,0.03)">
+            <span style="flex-shrink:0;padding:1px 5px;border-radius:3px;font-size:10px;background:${tagColor}18;color:${tagColor}">${n.tag}</span>
+            <span style="flex:1;font-size:12px;color:#ccc;line-height:1.5;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(n.title)}</span>
+            <span style="flex-shrink:0;font-size:10px;color:#666">${escapeHtml(n.source || '')} ${escapeHtml(n.date || '')}</span>
+          </div>`;
+        }).join('');
+      }
+
+      return `<div style="background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.06);border-radius:10px;padding:14px 16px;margin-bottom:10px">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+          <i class="bi bi-building" style="color:#e8a838;font-size:14px"></i>
+          <span style="font-size:14px;font-weight:700;color:#f0e6d0">${escapeHtml(c.name)}</span>
+          ${badge}
+        </div>
+        ${newsHtml}
+      </div>`;
+    }).join('');
+
+    // AI Analysis section
+    const analysis = this.competitorsData.analysis;
+    let analysisHtml = '';
+    if (analysis && (analysis.summary || analysis.pressure_score != null || (analysis.competitors && analysis.competitors.length))) {
+      const threatColors: Record<string, { bg: string; text: string; label: string }> = {
+        high: { bg: 'rgba(239,83,80,0.12)', text: '#ef5350', label: '高威胁' },
+        medium: { bg: 'rgba(232,168,56,0.12)', text: '#e8a838', label: '中威胁' },
+        low: { bg: 'rgba(102,187,106,0.12)', text: '#66bb6a', label: '低威胁' },
+      };
+      const urgencyLabels: Record<string, { text: string; color: string }> = {
+        immediate: { text: '立即', color: '#ef5350' },
+        this_week: { text: '本周', color: '#e8a838' },
+        watch: { text: '观察', color: '#888' },
+        none: { text: '', color: '' },
+      };
+
+      // ─ Pressure score gauge ─
+      let gaugeHtml = '';
+      if (analysis.pressure_score != null) {
+        const score = analysis.pressure_score;
+        const scoreColor = score >= 80 ? '#ef5350' : score >= 60 ? '#e8a838' : score >= 30 ? '#4fc3f7' : '#66bb6a';
+        const scoreLabel = score >= 80 ? '高压' : score >= 60 ? '偏高' : score >= 30 ? '正常' : '低压';
+        const trendIcon = analysis.pressure_trend === 'rising' ? 'bi-arrow-up-short' : analysis.pressure_trend === 'easing' ? 'bi-arrow-down-short' : 'bi-dash';
+        const trendColor = analysis.pressure_trend === 'rising' ? '#ef5350' : analysis.pressure_trend === 'easing' ? '#66bb6a' : '#888';
+        gaugeHtml = `<div style="display:flex;align-items:center;gap:16px;padding:12px 16px;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.06);border-radius:10px;margin-bottom:12px">
+          <div style="position:relative;width:56px;height:56px;flex-shrink:0">
+            <svg viewBox="0 0 56 56" style="transform:rotate(-90deg)">
+              <circle cx="28" cy="28" r="24" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="4"/>
+              <circle cx="28" cy="28" r="24" fill="none" stroke="${scoreColor}" stroke-width="4" stroke-dasharray="${score * 1.508} 200" stroke-linecap="round"/>
+            </svg>
+            <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:800;color:${scoreColor}">${score}</div>
+          </div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:12px;color:#888;margin-bottom:2px">竞争压力</div>
+            <div style="display:flex;align-items:center;gap:6px">
+              <span style="font-size:14px;font-weight:700;color:${scoreColor}">${scoreLabel}</span>
+              <i class="bi ${trendIcon}" style="color:${trendColor};font-size:16px"></i>
+            </div>
+          </div>
+          <div style="flex:2;font-size:12px;color:#aaa;line-height:1.6">${escapeHtml(analysis.summary || '')}</div>
+        </div>`;
+      } else if (analysis.summary) {
+        gaugeHtml = `<div style="padding:10px 14px;background:rgba(0,212,255,0.06);border:1px solid rgba(0,212,255,0.12);border-radius:8px;margin-bottom:12px;font-size:13px;color:#c0d0e0;line-height:1.6">${escapeHtml(analysis.summary)}</div>`;
+      }
+
+      // ─ Action items ─
+      let actionsHtml = '';
+      if (analysis.action_items && analysis.action_items.length) {
+        const items = analysis.action_items.map(a => {
+          const u = urgencyLabels[a.urgency] || urgencyLabels.watch!;
+          return `<div style="display:flex;gap:8px;align-items:center;padding:8px 12px;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.05);border-radius:6px">
+            ${u.text ? `<span style="padding:2px 6px;border-radius:3px;font-size:10px;font-weight:600;background:${u.color}18;color:${u.color};flex-shrink:0">${u.text}</span>` : ''}
+            <span style="font-size:12px;color:#ddd;line-height:1.5">${escapeHtml(a.action)}</span>
+          </div>`;
+        }).join('');
+        actionsHtml = `<div style="margin-bottom:12px">
+          <div style="font-size:12px;font-weight:700;color:#e8a838;margin-bottom:6px;display:flex;align-items:center;gap:4px"><i class="bi bi-flag" style="font-size:11px"></i> 建议行动</div>
+          <div style="display:flex;flex-direction:column;gap:4px">${items}</div>
+        </div>`;
+      }
+
+      // ─ Supply chain risks ─
+      let scHtml = '';
+      if (analysis.supply_chain_risks && analysis.supply_chain_risks.length) {
+        const scItems = analysis.supply_chain_risks.map(r =>
+          `<div style="display:flex;gap:6px;align-items:baseline;padding:3px 0"><span style="color:#e8a838;flex-shrink:0"><i class="bi bi-link-45deg" style="font-size:11px"></i></span><span style="font-size:12px;color:#c0b8a0;line-height:1.5">${escapeHtml(r)}</span></div>`
+        ).join('');
+        scHtml = `<div style="margin-bottom:12px;padding:10px 14px;background:rgba(232,168,56,0.04);border:1px solid rgba(232,168,56,0.1);border-radius:8px">
+          <div style="font-size:12px;font-weight:700;color:#e8a838;margin-bottom:6px"><i class="bi bi-diagram-3" style="font-size:11px"></i> 供应链影响</div>
+          ${scItems}
+        </div>`;
+      }
+
+      // ─ Per-competitor analysis ─
+      const compAnalysis = (analysis.competitors || []).map(ca => {
+        const tcRaw = threatColors[ca.threat_level];
+        const tc = tcRaw || threatColors.medium!;
+        const urg = urgencyLabels[ca.urgency] || urgencyLabels.none!;
+        const oppHtml = (ca.opportunities || []).map(o =>
+          `<div style="display:flex;gap:6px;align-items:baseline;padding:3px 0"><span style="color:#66bb6a;flex-shrink:0">+</span><span style="font-size:12px;color:#b0c0b0;line-height:1.5">${escapeHtml(o)}</span></div>`
+        ).join('');
+        const riskHtml = (ca.risks || []).map(r =>
+          `<div style="display:flex;gap:6px;align-items:baseline;padding:3px 0"><span style="color:#ef5350;flex-shrink:0">!</span><span style="font-size:12px;color:#c0b0b0;line-height:1.5">${escapeHtml(r)}</span></div>`
+        ).join('');
+
+        return `<div style="background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.05);border-radius:8px;padding:12px 14px;margin-bottom:8px">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+            <span style="font-size:13px;font-weight:700;color:#e0d6c0">${escapeHtml(ca.name)}</span>
+            <span style="padding:2px 8px;border-radius:4px;font-size:10px;background:${tc.bg};color:${tc.text}">${tc.label}</span>
+            ${urg.text ? `<span style="padding:2px 6px;border-radius:3px;font-size:10px;background:${urg.color}18;color:${urg.color}">${urg.text}</span>` : ''}
+          </div>
+          <div style="font-size:12px;color:#aaa;margin-bottom:8px;line-height:1.5">${escapeHtml(ca.impact)}</div>
+          ${oppHtml || riskHtml ? `<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <div>${oppHtml ? `<div style="font-size:11px;color:#66bb6a;font-weight:600;margin-bottom:4px">机遇</div>${oppHtml}` : ''}</div>
+            <div>${riskHtml ? `<div style="font-size:11px;color:#ef5350;font-weight:600;margin-bottom:4px">风险</div>${riskHtml}` : ''}</div>
+          </div>` : ''}
+        </div>`;
+      }).join('');
+
+      analysisHtml = `<div style="margin-top:16px;padding-top:14px;border-top:1px solid rgba(255,255,255,0.06)">
+        <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px">
+          <i class="bi bi-lightning-charge" style="color:#e8a838;font-size:13px"></i>
+          <span style="font-size:13px;font-weight:700;color:#e0d6c0">AI 竞争分析</span>
+        </div>
+        ${gaugeHtml}
+        ${actionsHtml}
+        ${scHtml}
+        ${compAnalysis}
+      </div>`;
+    }
+
+    return `<div>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+        <span style="font-size:13px;color:#888">追踪 ${comps.length} 家竞争对手</span>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="font-size:11px;color:#555">${genAt}</span>
+          <button class="cn-comp-refresh-btn" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:6px;padding:4px 10px;cursor:pointer;color:#888;font-size:11px;display:flex;align-items:center;gap:4px;transition:all .15s" title="刷新竞对数据"><i class="bi bi-arrow-clockwise"></i> 刷新</button>
+        </div>
+      </div>
+      ${cards}
+      ${analysisHtml}
+    </div>`;
   }
 
   private renderIndustry(): string {

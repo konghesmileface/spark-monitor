@@ -13,7 +13,7 @@ Fetches 3 types of international data:
 
 Mirrors ALL feed URLs from the main worldmonitor frontend (src/config/feeds.ts).
 Uses Google News RSS proxy for sources not in relay allowlist.
-All RSS fetched in parallel via ThreadPoolExecutor (20 workers, 45s deadline).
+Direct RSS fetched in parallel (15 workers), Google News in 3 batches (10 workers, 2s gap).
 Uses thread-safe caching with stale fallback, same pattern as global_signals.py.
 """
 
@@ -81,7 +81,7 @@ RSS_FEEDS = [
     ('https://news.google.com/rss/search?q=site:cnn.com+world+news+when:1d&hl=en-US&gl=US&ceid=US:en', 'CNN World'),
     ('https://feeds.npr.org/1001/rss.xml', 'NPR News'),
     ('https://www.pbs.org/newshour/feeds/rss/headlines', 'PBS NewsHour'),
-    ('https://feeds.abcnews.com/abcnews/topstories', 'ABC News'),
+    ('https://news.google.com/rss/search?q=site:abcnews.go.com+when:1d&hl=en-US&gl=US&ceid=US:en', 'ABC News'),
     ('https://www.cbsnews.com/latest/rss/main', 'CBS News'),
     ('https://feeds.nbcnews.com/nbcnews/public/news', 'NBC News'),
     ('https://thehill.com/news/feed', 'The Hill'),
@@ -100,7 +100,7 @@ RSS_FEEDS = [
     ('https://www.spiegel.de/schlagzeilen/tops/index.rss', 'Der Spiegel'),
     ('https://newsfeed.zeit.de/index', 'Die Zeit'),
     ('https://www.ansa.it/sito/notizie/topnews/topnews_rss.xml', 'ANSA'),
-    ('https://www.repubblica.it/rss/homepage/rss2.0.xml', 'Repubblica'),
+    ('https://news.google.com/rss/search?q=site:repubblica.it+when:1d&hl=it&gl=IT&ceid=IT:it', 'Repubblica'),
     ('https://feeds.nos.nl/nosnieuwsalgemeen', 'NOS Nieuws'),
     ('https://www.nrc.nl/rss/', 'NRC'),
     ('https://news.google.com/rss/search?q=site:telegraaf.nl+when:1d&hl=nl&gl=NL&ceid=NL:nl', 'De Telegraaf'),
@@ -118,7 +118,7 @@ RSS_FEEDS = [
     ('https://www.iefimerida.gr/rss.xml', 'iefimerida'),
     ('https://news.google.com/rss/search?q=site:protothema.gr+when:2d&hl=el&gl=GR&ceid=GR:el', 'Proto Thema'),
     ('https://www.france24.com/en/rss', 'France 24'),
-    ('https://www.euronews.com/rss?format=xml', 'EuroNews'),
+    ('https://news.google.com/rss/search?q=site:euronews.com+when:1d&hl=en-US&gl=US&ceid=US:en', 'EuroNews'),
     ('https://www.lemonde.fr/en/rss/une.xml', 'Le Monde'),
 
     # ── Asia-Pacific (20) ─────────────────────────────────────────
@@ -129,9 +129,9 @@ RSS_FEEDS = [
     ('https://news.google.com/rss/search?q=site:xinhuanet.com+OR+Xinhua+when:1d&hl=en-US&gl=US&ceid=US:en', 'Xinhua'),
     ('https://japantoday.com/feed/atom', 'Japan Today'),
     ('https://news.google.com/rss/search?q=site:asia.nikkei.com+when:3d&hl=en-US&gl=US&ceid=US:en', 'Nikkei Asia'),
-    ('https://www.asahi.com/rss/asahi/newsheadlines.rdf', 'Asahi Shimbun'),
+    ('https://news.google.com/rss/search?q=site:asahi.com+when:1d&hl=ja&gl=JP&ceid=JP:ja', 'Asahi Shimbun'),
     ('https://www.thehindu.com/news/national/feeder/default.rss', 'The Hindu'),
-    ('https://indianexpress.com/section/india/feed/', 'Indian Express'),
+    ('https://news.google.com/rss/search?q=site:indianexpress.com+India+when:1d&hl=en-IN&gl=IN&ceid=IN:en', 'Indian Express'),
     ('https://feeds.feedburner.com/ndtvnews-top-stories', 'NDTV'),
     ('https://news.google.com/rss/search?q=India+diplomacy+foreign+policy+news&hl=en&gl=US&ceid=US:en', 'India News Network'),
     ('https://www.channelnewsasia.com/api/v1/rss-outbound-feed?_format=xml', 'CNA'),
@@ -165,12 +165,12 @@ RSS_FEEDS = [
     # ── Africa (11) ───────────────────────────────────────────────
     ('https://news.google.com/rss/search?q=(Africa+OR+Nigeria+OR+Kenya+OR+"South+Africa"+OR+Ethiopia)+when:2d&hl=en-US&gl=US&ceid=US:en', 'Africa News'),
     ('https://news.google.com/rss/search?q=(Sahel+OR+Mali+OR+Niger+OR+"Burkina+Faso"+OR+Wagner)+when:3d&hl=en-US&gl=US&ceid=US:en', 'Sahel Crisis'),
-    ('https://feeds.news24.com/articles/news24/TopStories/rss', 'News24'),
+    ('https://news.google.com/rss/search?q=site:news24.com+South+Africa+when:1d&hl=en&gl=ZA&ceid=ZA:en', 'News24'),
     ('https://feeds.bbci.co.uk/news/world/africa/rss.xml', 'BBC Africa'),
     ('https://www.jeuneafrique.com/feed/', 'Jeune Afrique'),
-    ('https://www.premiumtimesng.com/feed', 'Premium Times'),
+    ('https://news.google.com/rss/search?q=site:premiumtimesng.com+Nigeria+when:1d&hl=en&gl=NG&ceid=NG:en', 'Premium Times'),
     ('https://www.vanguardngr.com/feed/', 'Vanguard Nigeria'),
-    ('https://www.channelstv.com/feed/', 'Channels TV'),
+    ('https://news.google.com/rss/search?q=site:channelstv.com+Nigeria+when:1d&hl=en&gl=NG&ceid=NG:en', 'Channels TV'),
     ('https://dailytrust.com/feed/', 'Daily Trust'),
     ('https://www.thisdaylive.com/feed', 'ThisDay'),
     ('https://www.africanews.com/feed/rss', 'Africanews'),
@@ -179,14 +179,14 @@ RSS_FEEDS = [
     ('https://news.google.com/rss/search?q=(Brazil+OR+Mexico+OR+Argentina+OR+Venezuela+OR+Colombia)+when:2d&hl=en-US&gl=US&ceid=US:en', 'Latin America'),
     ('https://feeds.bbci.co.uk/news/world/latin_america/rss.xml', 'BBC Latin America'),
     ('https://www.theguardian.com/world/americas/rss', 'Guardian Americas'),
-    ('https://www.clarin.com/rss/lo-ultimo/', 'Clarín'),
+    ('https://news.google.com/rss/search?q=site:clarin.com+Argentina+when:1d&hl=es-419&gl=AR&ceid=AR:es-419', 'Clarín'),
     ('https://news.google.com/rss/search?q=site:oglobo.globo.com+when:1d&hl=pt-BR&gl=BR&ceid=BR:pt-419', 'O Globo'),
     ('https://feeds.folha.uol.com.br/emcimadahora/rss091.xml', 'Folha de S.Paulo'),
-    ('https://www.brasilparalelo.com.br/noticias/rss.xml', 'Brasil Paralelo'),
-    ('https://www.eltiempo.com/rss/mundo_latinoamerica.xml', 'El Tiempo'),
+    ('https://news.google.com/rss/search?q=Brazil+economy+politics+when:1d&hl=pt-BR&gl=BR&ceid=BR:pt-419', 'Brasil News'),
+    ('https://news.google.com/rss/search?q=site:eltiempo.com+Colombia+when:1d&hl=es-419&gl=CO&ceid=CO:es-419', 'El Tiempo'),
     ('https://www.lasillavacia.com/rss', 'La Silla Vacía'),
-    ('https://www.primicias.ec/feed/', 'Primicias'),
-    ('https://www.infobae.com/feeds/rss/', 'Infobae Americas'),
+    ('https://news.google.com/rss/search?q=site:primicias.ec+Ecuador+when:1d&hl=es-419&gl=EC&ceid=EC:es-419', 'Primicias'),
+    ('https://news.google.com/rss/search?q=site:infobae.com+Latin+America+when:1d&hl=es-419&gl=AR&ceid=AR:es-419', 'Infobae Americas'),
     ('https://www.eluniverso.com/arc/outboundfeeds/rss/category/noticias/?outputType=xml', 'El Universo'),
     ('https://mexiconewsdaily.com/feed/', 'Mexico News Daily'),
     ('https://news.google.com/rss/search?q=site:apnews.com+Mexico+when:3d&hl=en-US&gl=US&ceid=US:en', 'AP Mexico'),
@@ -207,7 +207,7 @@ RSS_FEEDS = [
     ('https://www.theverge.com/rss/index.xml', 'The Verge'),
     ('https://www.technologyreview.com/feed/', 'MIT Tech Review'),
     ('https://news.google.com/rss/search?q=(OpenAI+OR+Anthropic+OR+Google+AI+OR+"large+language+model"+OR+ChatGPT)+when:2d&hl=en-US&gl=US&ceid=US:en', 'AI News'),
-    ('https://venturebeat.com/category/ai/feed/', 'VentureBeat AI'),
+    ('https://news.google.com/rss/search?q=site:venturebeat.com+AI+when:1d&hl=en-US&gl=US&ceid=US:en', 'VentureBeat AI'),
     ('https://www.theverge.com/rss/ai-artificial-intelligence/index.xml', 'The Verge AI'),
     ('https://export.arxiv.org/rss/cs.AI', 'ArXiv AI'),
     ('https://news.google.com/rss/search?q=Thai+PBS+World+news&hl=en&gl=US&ceid=US:en', 'Thai PBS'),
@@ -220,7 +220,7 @@ RSS_FEEDS = [
     ('https://news.google.com/rss/search?q="artificial+intelligence"+OR+"machine+learning"+when:3d&hl=en-US&gl=US&ceid=US:en', 'AI Weekly'),
     ('https://news.google.com/rss/search?q=Anthropic+Claude+AI+when:7d&hl=en-US&gl=US&ceid=US:en', 'Anthropic News'),
     ('https://news.google.com/rss/search?q=OpenAI+ChatGPT+GPT-4+when:7d&hl=en-US&gl=US&ceid=US:en', 'OpenAI News'),
-    ('https://venturebeat.com/feed/', 'VentureBeat'),
+    ('https://news.google.com/rss/search?q=site:venturebeat.com+when:1d&hl=en-US&gl=US&ceid=US:en', 'VentureBeat'),
     ('https://feeds.feedburner.com/TheHackersNews', 'The Hacker News'),
     ('https://news.google.com/rss/search?q=site:semianalysis.com+when:7d&hl=en-US&gl=US&ceid=US:en', 'SemiAnalysis'),
     ('https://news.google.com/rss/search?q=semiconductor+OR+chip+OR+TSMC+OR+NVIDIA+OR+Intel+when:3d&hl=en-US&gl=US&ceid=US:en', 'Semiconductor News'),
@@ -308,7 +308,7 @@ RSS_FEEDS = [
     ('https://news.google.com/rss/search?q=site:rand.org+when:7d&hl=en-US&gl=US&ceid=US:en', 'RAND'),
     ('https://news.google.com/rss/search?q=site:brookings.edu+when:7d&hl=en-US&gl=US&ceid=US:en', 'Brookings'),
     ('https://news.google.com/rss/search?q=site:carnegieendowment.org+when:7d&hl=en-US&gl=US&ceid=US:en', 'Carnegie'),
-    ('https://www.aei.org/feed/', 'AEI'),
+    ('https://news.google.com/rss/search?q=site:aei.org+policy+when:7d&hl=en-US&gl=US&ceid=US:en', 'AEI'),
     ('https://news.google.com/rss/search?q=site:rusi.org+when:3d&hl=en-US&gl=US&ceid=US:en', 'RUSI'),
     ('https://www.fpri.org/feed/', 'FPRI'),
     ('https://jamestown.org/feed/', 'Jamestown'),
@@ -374,7 +374,7 @@ RSS_FEEDS = [
     ('https://news.google.com/rss/search?q=(IPO+OR+"initial+public+offering"+OR+SPAC)+tech+when:7d&hl=en-US&gl=US&ceid=US:en', 'IPO News'),
     ('https://news.google.com/rss/search?q=site:renaissancecapital.com+IPO+when:14d&hl=en-US&gl=US&ceid=US:en', 'Renaissance IPO'),
     ('https://news.google.com/rss/search?q=tech+IPO+OR+"tech+company"+IPO+when:7d&hl=en-US&gl=US&ceid=US:en', 'Tech IPO News'),
-    ('https://seekingalpha.com/market_currents.xml', 'Seeking Alpha Tech'),
+    ('https://news.google.com/rss/search?q=site:seekingalpha.com+tech+stock+when:1d&hl=en-US&gl=US&ceid=US:en', 'Seeking Alpha Tech'),
     ('https://news.google.com/rss/search?q=site:investing.com+markets+when:1d&hl=en-US&gl=US&ceid=US:en', 'Investing.com News'),
     ('https://news.google.com/rss/search?q=("forex"+OR+"currency"+OR+"FX+market")+trading+when:1d&hl=en-US&gl=US&ceid=US:en', 'Forex News'),
     ('https://news.google.com/rss/search?q=("dollar+index"+OR+DXY+OR+"US+dollar"+OR+"euro+dollar")+when:2d&hl=en-US&gl=US&ceid=US:en', 'Dollar Watch'),
@@ -399,7 +399,7 @@ RSS_FEEDS = [
     ('https://www.darkreading.com/rss.xml', 'Dark Reading'),
     ('https://www.schneier.com/feed/', 'Schneier'),
     ('https://www.defenseone.com/rss/all/', 'Defense One'),
-    ('https://breakingdefense.com/feed/', 'Breaking Defense'),
+    ('https://news.google.com/rss/search?q=site:breakingdefense.com+defense+when:3d&hl=en-US&gl=US&ceid=US:en', 'Breaking Defense'),
     ('https://www.twz.com/feed', 'The War Zone'),
     ('https://www.defensenews.com/arc/outboundfeeds/rss/?outputType=xml', 'Defense News'),
     ('https://news.google.com/rss/search?q=site:janes.com+when:3d&hl=en-US&gl=US&ceid=US:en', 'Janes'),
@@ -421,7 +421,7 @@ RSS_FEEDS = [
     # ── Science & Innovation (7) ─────────────────────────────────
     ('https://www.goodnewsnetwork.org/category/news/science/feed/', 'GNN Science'),
     ('https://www.sciencedaily.com/rss/all.xml', 'ScienceDaily'),
-    ('https://feeds.nature.com/nature/rss/current', 'Nature News'),
+    ('https://www.nature.com/nature.rss', 'Nature News'),
     ('https://www.livescience.com/feeds.xml', 'Live Science'),
     ('https://singularityhub.com/feed/', 'Singularity Hub'),
     ('https://humanprogress.org/feed/', 'Human Progress'),
@@ -435,7 +435,7 @@ RSS_FEEDS = [
     ('https://news.google.com/rss/search?q="open+source"+project+release+OR+launch+when:3d&hl=en-US&gl=US&ceid=US:en', 'Open Source News'),
     ('https://feed.infoq.com/', 'InfoQ'),
     ('https://thenewstack.io/feed/', 'The New Stack'),
-    ('https://devops.com/feed/', 'DevOps.com'),
+    ('https://news.google.com/rss/search?q=site:devops.com+when:3d&hl=en-US&gl=US&ceid=US:en', 'DevOps.com'),
     ('https://dev.to/feed', 'Dev.to'),
     ('https://lobste.rs/rss', 'Lobsters'),
     ('https://changelog.com/feed', 'Changelog'),
@@ -580,7 +580,7 @@ def fetch_rss_news(max_per_source: int = 3) -> list:
             resp = requests.get(
                 f'{relay_url}/rss',
                 params={'url': feed_url},
-                timeout=8,
+                timeout=12,
             )
             if resp.status_code == 200:
                 return _parse_rss_xml(resp.text, source_name, max_per_source)
@@ -590,20 +590,38 @@ def fetch_rss_news(max_per_source: int = 3) -> list:
             logger.debug(f'RSS {source_name} fetch failed: {e}')
         return []
 
-    # Parallel fetch all feeds (max 20 concurrent, 45s overall deadline)
+    # Split feeds: direct feeds first (fast), then Google News in batches (avoid rate limiting)
+    direct_feeds = [(u, n) for u, n in RSS_FEEDS if 'news.google.com' not in u]
+    google_feeds = [(u, n) for u, n in RSS_FEEDS if 'news.google.com' in u]
+
+    def _collect_results(futures, deadline):
+        nonlocal ok_count
+        try:
+            for future in as_completed(futures, timeout=deadline):
+                try:
+                    items = future.result()
+                    if items:
+                        all_items.extend(items)
+                        ok_count += 1
+                except Exception:
+                    pass
+        except TimeoutError:
+            pass  # collect whatever finished within deadline
+
+    # Phase 1: Direct feeds — all at once (these are fast, no rate limiting)
     with ThreadPoolExecutor(max_workers=20) as pool:
-        futures = {
-            pool.submit(_fetch_one_feed, url, name): name
-            for url, name in RSS_FEEDS
-        }
-        for future in as_completed(futures, timeout=45):
-            try:
-                items = future.result()
-                if items:
-                    all_items.extend(items)
-                    ok_count += 1
-            except Exception:
-                pass
+        futs = {pool.submit(_fetch_one_feed, u, n): n for u, n in direct_feeds}
+        _collect_results(futs, 40)
+
+    # Phase 2: Google News feeds — in 4 batches with 1s gap to avoid rate limiting
+    batch_size = len(google_feeds) // 4 + 1
+    for i in range(0, len(google_feeds), batch_size):
+        batch = google_feeds[i:i + batch_size]
+        if i > 0:
+            time.sleep(1)
+        with ThreadPoolExecutor(max_workers=15) as pool:
+            futs = {pool.submit(_fetch_one_feed, u, n): n for u, n in batch}
+            _collect_results(futs, 20)
 
     # Deduplicate by title similarity (exact match)
     seen_titles = set()
