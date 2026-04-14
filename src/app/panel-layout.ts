@@ -1369,21 +1369,31 @@ export class PanelLayoutManager implements AppModule {
 
     // Alert bell → toggle alert panel (anchored to header)
     let headerAlertPanel: any = null;
-    alertBtn?.addEventListener('click', async () => {
-      const { CnAlertPanel } = await import('@/components/CnAlertPanel');
+    const ensureAlertPanel = async () => {
       if (!headerAlertPanel) {
+        const { CnAlertPanel } = await import('@/components/CnAlertPanel');
         const anchor = document.getElementById('cnHdrActions');
         if (anchor) {
           anchor.style.position = 'relative';
           headerAlertPanel = new CnAlertPanel(anchor);
         }
       }
-      if (headerAlertPanel) {
-        await headerAlertPanel.toggle();
-        // Update badge after toggle
+      return headerAlertPanel;
+    };
+
+    alertBtn?.addEventListener('click', async () => {
+      const panel = await ensureAlertPanel();
+      if (panel) {
+        await panel.toggle();
         this.updateCnAlertBadge();
       }
     });
+
+    // Pre-load alert data after 5s so clicking bell shows data instantly
+    setTimeout(async () => {
+      const panel = await ensureAlertPanel();
+      if (panel) await panel.loadAlerts();
+    }, 5000);
 
     // Weekly report → open report viewer
     reportBtn?.addEventListener('click', async () => {

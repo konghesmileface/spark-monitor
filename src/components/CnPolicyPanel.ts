@@ -1381,6 +1381,12 @@ export class CnPolicyPanel extends Panel {
     };
     document.addEventListener('visibilitychange', this._onVisibilityChange);
 
+    this.content.addEventListener('cn-retry-news', () => {
+      this._newsRetryCount = 0;
+      this.newsFetched = false;
+      void this.fetchLiveNews();
+    });
+
     this.content.addEventListener('click', (e) => {
       const target = e.target as HTMLElement;
 
@@ -1674,14 +1680,18 @@ export class CnPolicyPanel extends Panel {
 
   private _newsRetryTimer: ReturnType<typeof setTimeout> | null = null;
 
+  private _newsRetryCount = 0;
+
   private async fetchLiveNews(isRetry = false): Promise<void> {
     if (this.newsLoading) return;
     this.newsLoading = true;
     this.render();
     try {
-      const res = await cnFetch(`${CN_INTEL_BASE}/api/cn/gov-news`, { signal: this.signal });
+      // Use longer timeout for gov-news (746KB+ response through sidecar proxy)
+      const res = await cnFetch(`${CN_INTEL_BASE}/api/cn/gov-news`, { signal: this.signal, timeout: 60_000 });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
+      this._newsRetryCount = 0;  // reset on success
 
       // Reconstruct flat `all` list from categories (server omits it to reduce payload ~35%)
       if (!data.all && data.categories) {
@@ -1733,10 +1743,18 @@ export class CnPolicyPanel extends Panel {
       }
     } catch (err) {
       if (this.isAbortError(err)) return;
-      if (!this.newsData) {
-        this.showError('政策数据加载失败，点击重试');
+      // Auto-retry up to 3 times with exponential backoff (3s, 6s, 12s)
+      if (!this.newsData && this._newsRetryCount < 3) {
+        this._newsRetryCount++;
+        const delay = 3000 * Math.pow(2, this._newsRetryCount - 1);
+        if (this._newsRetryTimer) clearTimeout(this._newsRetryTimer);
+        this._newsRetryTimer = setTimeout(() => {
+          this._newsRetryTimer = null;
+          void this.fetchLiveNews(true);
+        }, delay);
         return;
       }
+      // All retries exhausted — don't call showError (it conflicts with render in finally)
     } finally {
       this.newsLoading = false;
       this.render();
@@ -2021,6 +2039,10 @@ export class CnPolicyPanel extends Panel {
         return `<div class="cn-policy-chips">${chipsHtml}</div>${reportHtml}${statsBar}<div class="cn-policy-empty"><i class="bi bi-arrow-repeat" style="animation:spin 1s linear infinite"></i> ${hint}</div>`;
       }
       if (!this.newsData) {
+        // After all retries exhausted, show clickable retry instead of perpetual spinner
+        if (this._newsRetryCount >= 3) {
+          return `<div class="cn-policy-chips">${chipsHtml}</div>${reportHtml}<div class="cn-policy-empty" style="cursor:pointer" onclick="this.dispatchEvent(new CustomEvent('cn-retry-news',{bubbles:true}))"><i class="bi bi-arrow-clockwise"></i> 加载失败，点击重试</div>`;
+        }
         return `<div class="cn-policy-chips">${chipsHtml}</div>${reportHtml}<div class="cn-policy-empty"><i class="bi bi-arrow-repeat" style="animation:spin 1s linear infinite"></i> 正在加载政策数据...</div>`;
       }
     }
