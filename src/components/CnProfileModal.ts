@@ -135,6 +135,7 @@ const MODAL_STYLE = `<style>
 </style>`;
 
 let _modalEl: HTMLElement | null = null;
+let _opening = false;
 let _escHandler: ((e: KeyboardEvent) => void) | null = null;
 let _companyName = '';
 let _companySize = '';
@@ -152,10 +153,21 @@ let _selectedPolicyAreas: Set<string> = new Set();
 let _alertMinScore = 60;
 
 export async function openProfileModal(onSaved?: (p: UserProfile) => void): Promise<void> {
-  if (_modalEl) return; // already open
+  if (_modalEl || _opening) return; // already open or loading
+  _opening = true;
 
   // Load existing profile
-  const { profile } = await loadProfile();
+  let profile: UserProfile | null = null;
+  try {
+    const res = await loadProfile();
+    profile = res.profile;
+  } catch (err) {
+    console.error('[CnProfileModal] loadProfile failed:', err);
+  }
+
+  // Guard: another open may have raced during await
+  if (_modalEl) { _opening = false; return; }
+
   _companyName = profile?.company_name || '';
   _companySize = profile?.company_size || '';
   _businessScope = profile?.business_scope || '';
@@ -172,6 +184,7 @@ export async function openProfileModal(onSaved?: (p: UserProfile) => void): Prom
   _alertMinScore = profile?.alert_min_score ?? 60;
 
   _modalEl = document.createElement('div');
+  _opening = false;
   _modalEl.innerHTML = MODAL_STYLE + _buildHTML();
   document.body.appendChild(_modalEl);
 
@@ -304,14 +317,19 @@ export async function openProfileModal(onSaved?: (p: UserProfile) => void): Prom
 }
 
 function _close(): void {
+  _opening = false;
   if (_escHandler) {
     document.removeEventListener('keydown', _escHandler);
     _escHandler = null;
   }
   if (_modalEl) {
-    _modalEl.remove();
+    try { _modalEl.remove(); } catch { /* ignore */ }
     _modalEl = null;
   }
+  // Safety: remove any orphan overlays left from race conditions
+  document.querySelectorAll('.cn-profile-overlay').forEach(el => {
+    try { el.parentElement?.remove(); } catch { /* ignore */ }
+  });
 }
 
 function _buildHTML(): string {
