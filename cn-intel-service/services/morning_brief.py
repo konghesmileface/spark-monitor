@@ -543,6 +543,9 @@ def generate_morning_brief(user_id: str) -> dict:
             result['status'] = 'ok'
             ttl = Config.CACHE_TTL_MORNING_BRIEF_TRADING if is_trading_time() else Config.CACHE_TTL_MORNING_BRIEF_OFF
             cache_set(cache_key, result, ttl=ttl)
+            # Also save a stale copy with 48h TTL — used as fallback when
+            # main cache expires and regeneration is in progress
+            cache_set(f'{cache_key}:stale', result, ttl=172800)
             # Archive to MySQL for history
             try:
                 from services.report_archive import archive_report

@@ -1392,7 +1392,10 @@ export class PanelLayoutManager implements AppModule {
     // Pre-load alert data after 5s so clicking bell shows data instantly
     setTimeout(async () => {
       const panel = await ensureAlertPanel();
-      if (panel) await panel.loadAlerts();
+      if (panel) {
+        await panel.loadAlerts();
+        this.updateCnAlertBadge();
+      }
     }, 5000);
 
     // Weekly report → open report viewer

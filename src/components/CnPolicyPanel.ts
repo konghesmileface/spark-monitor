@@ -2485,6 +2485,8 @@ export class CnPolicyPanel extends Panel {
 
   // ── Industry view ────────────────────────────────────────────────────────
 
+  private _briefRetryTimer: ReturnType<typeof setTimeout> | null = null;
+
   private async fetchMorningBrief(): Promise<void> {
     if (this.morningBriefLoading) return;
     this.morningBriefLoading = true;
@@ -2493,7 +2495,46 @@ export class CnPolicyPanel extends Panel {
       const uid = this.profileData?.user_id || getUserId();
       const res = await cnFetch(`${CN_INTEL_BASE}/api/cn/enterprise/morning-brief?user_id=${encodeURIComponent(uid)}`, { signal: this.signal, timeout: 180_000 });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      this.morningBrief = await res.json();
+      const data = await res.json();
+
+      // Backend returns 'generating' when cache expired and regeneration is in progress.
+      // Auto-retry after the suggested interval instead of showing empty data.
+      if (data.status === 'generating' || data.status === 'unavailable') {
+        // Keep existing good data if we have it; don't overwrite with empty response
+        if (!this.morningBrief || this.morningBrief.status !== 'ok') {
+          this.morningBrief = data;
+        }
+        this.morningBriefFetched = true;
+        const retryMs = ((data.retry_after as number) || 15) * 1000;
+        if (this._briefRetryTimer) clearTimeout(this._briefRetryTimer);
+        this._briefRetryTimer = setTimeout(() => {
+          this.morningBriefFetched = false;  // allow re-fetch
+          this._briefRetryTimer = null;
+          if (this.viewMode === 'overview' || this.viewMode === 'opprisk') {
+            void this.fetchMorningBrief();
+          }
+        }, retryMs);
+        return;
+      }
+
+      // Backend returned stale data alongside 'generating' indicator — use stale data
+      if (data.stale_brief && data.stale_brief.status === 'ok') {
+        this.morningBrief = data.stale_brief;
+        this.morningBriefFetched = true;
+        // Still schedule a retry to get fresh data
+        const retryMs = ((data.retry_after as number) || 30) * 1000;
+        if (this._briefRetryTimer) clearTimeout(this._briefRetryTimer);
+        this._briefRetryTimer = setTimeout(() => {
+          this.morningBriefFetched = false;
+          this._briefRetryTimer = null;
+          if (this.viewMode === 'overview' || this.viewMode === 'opprisk') {
+            void this.fetchMorningBrief();
+          }
+        }, retryMs);
+        return;
+      }
+
+      this.morningBrief = data;
       this.morningBriefFetched = true;
     } catch (err) {
       if (this.isAbortError(err)) return;
@@ -2600,6 +2641,22 @@ export class CnPolicyPanel extends Panel {
         <div class="cn-ind-onboard-header"><i class="bi bi-shield-check"></i> 企业情报中心</div>
         <div class="cn-ind-onboard-desc">${escapeHtml(this.profileData?.company_name || '我的企业')} — 正在生成情报简报...</div>
         <button class="cn-brief-refresh-btn" style="margin-top:12px;padding:8px 20px;font-size:13px"><i class="bi bi-arrow-clockwise"></i> 生成情报简报</button>
+      </div>`;
+    }
+
+    // Brief is being regenerated (cache expired) — show generating state with auto-retry
+    if (this.morningBrief.status === 'generating' || this.morningBrief.status === 'unavailable' || this.morningBrief.status === 'error') {
+      const msg = this.morningBrief.status === 'generating'
+        ? '正在生成今日情报简报，预计1-3分钟...'
+        : this.morningBrief.status === 'unavailable'
+          ? (this.morningBrief.message || '情报简报暂时不可用，系统将自动重试')
+          : '情报简报加载失败';
+      const retrying = this._briefRetryTimer ? '<div style="margin-top:4px;font-size:11px;color:#666">系统将自动刷新</div>' : '';
+      return `<div class="cn-policy-empty">
+        <i class="bi bi-arrow-repeat" style="animation:spin 1s linear infinite;font-size:20px;color:#e8a838"></i>
+        <div style="margin-top:8px">${msg}</div>
+        ${retrying}
+        <button class="cn-brief-refresh-btn" style="margin-top:12px;padding:6px 16px"><i class="bi bi-arrow-clockwise"></i> 手动刷新</button>
       </div>`;
     }
 
@@ -2969,6 +3026,20 @@ export class CnPolicyPanel extends Panel {
         return '<div class="cn-policy-empty">请先设置企业画像，系统将为您分析机遇与风险。<br><button class="cn-ind-setup-btn-sm" style="margin-top:10px"><i class="bi bi-arrow-right-circle"></i> 设置企业画像</button></div>';
       }
       return '<div class="cn-policy-empty">正在加载机遇与风险数据...<br><button class="cn-brief-refresh-btn" style="margin-top:10px;padding:6px 16px"><i class="bi bi-arrow-clockwise"></i> 生成分析</button></div>';
+    }
+
+    // Brief is being regenerated — show generating state (same as overview)
+    if (this.morningBrief.status === 'generating' || this.morningBrief.status === 'unavailable' || this.morningBrief.status === 'error') {
+      const msg = this.morningBrief.status === 'generating'
+        ? '正在生成机遇与风险分析，预计1-3分钟...'
+        : '机遇与风险数据暂时不可用';
+      const retrying = this._briefRetryTimer ? '<div style="margin-top:4px;font-size:11px;color:#666">系统将自动刷新</div>' : '';
+      return `<div class="cn-policy-empty">
+        <i class="bi bi-arrow-repeat" style="animation:spin 1s linear infinite;font-size:20px;color:#e8a838"></i>
+        <div style="margin-top:8px">${msg}</div>
+        ${retrying}
+        <button class="cn-brief-refresh-btn" style="margin-top:10px;padding:6px 16px"><i class="bi bi-arrow-clockwise"></i> 手动刷新</button>
+      </div>`;
     }
 
     const b = this.morningBrief;

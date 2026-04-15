@@ -13,15 +13,88 @@ enterprise_bp = Blueprint('enterprise', __name__)
 @enterprise_bp.route('/api/cn/enterprise/morning-brief')
 @safe_route(fallback_data={'status': 'error', 'executive_summary': '情报简报暂时不可用'})
 def morning_brief():
-    """Generate AI-powered daily intelligence briefing."""
+    """Generate AI-powered daily intelligence briefing.
+
+    Non-blocking: returns cached brief if available, otherwise triggers
+    background generation and returns 'generating' status so the client
+    can retry after a few seconds instead of waiting 2-3 minutes.
+
+    Stale cache: returns last-known-good data while regenerating so the
+    user sees something useful instead of an empty page.
+
+    Cooldown: if generation fails, sets a 5-minute cooldown to avoid
+    repeated futile attempts (e.g. when AI provider balance is depleted).
+    """
+    import threading
     from services.morning_brief import generate_morning_brief
+    from services.cache import cache_get
 
     user_id = request.args.get('user_id', '').strip()
     if not user_id:
         return jsonify({'status': 'no_user'}), 400
 
-    brief = generate_morning_brief(user_id=user_id)
-    return jsonify(brief)
+    # Fast path: return cached brief immediately
+    cache_key = f'cn:morning-brief:{user_id}'
+    cached = cache_get(cache_key)
+    if cached:
+        return jsonify(cached)
+
+    from flask import current_app
+    app = current_app._get_current_object()
+    r = app.redis
+
+    # Check cooldown: if generation recently failed, don't retry for 5 minutes
+    cooldown_key = f'cn:morning-brief:cooldown:{user_id}'
+    if r and r.get(cooldown_key):
+        # Still return stale data if available
+        stale = cache_get(f'cn:morning-brief:stale:{user_id}')
+        resp = {
+            'status': 'unavailable',
+            'message': '情报简报生成暂时不可用，请稍后再试',
+            'retry_after': 300,
+        }
+        if stale and stale.get('status') == 'ok':
+            resp['stale_brief'] = stale
+        return jsonify(resp)
+
+    # No cache — trigger background generation instead of blocking
+    lock_key = f'cn:morning-brief:generating:{user_id}'
+    stale_key = f'cn:morning-brief:stale:{user_id}'
+
+    # Check if already generating (prevent duplicate threads)
+    if r and r.set(lock_key, '1', ex=300, nx=True):
+        def _bg_generate():
+            try:
+                with app.app_context():
+                    generate_morning_brief(user_id=user_id)
+                    logger.warning(f'[morning-brief] Background generation done for {user_id[:8]}')
+            except Exception as e:
+                logger.warning(f'[morning-brief] Background generation failed: {e}')
+                # Set cooldown: don't retry for 5 minutes after failure
+                try:
+                    r.set(cooldown_key, '1', ex=300)
+                except Exception:
+                    pass
+            finally:
+                try:
+                    r.delete(lock_key)
+                except Exception:
+                    pass
+
+        threading.Thread(target=_bg_generate, daemon=True,
+                         name=f'brief-gen-{user_id[:8]}').start()
+        logger.warning(f'[morning-brief] Triggered background generation for {user_id[:8]}')
+
+    # Return stale data if available, otherwise just 'generating' status
+    stale = cache_get(stale_key)
+    resp = {
+        'status': 'generating',
+        'message': '正在生成今日情报简报，请稍后刷新...',
+        'retry_after': 15,
+    }
+    if stale and stale.get('status') == 'ok':
+        resp['stale_brief'] = stale
+    return jsonify(resp)
 
 
 @enterprise_bp.route('/api/cn/enterprise/report/weekly')
