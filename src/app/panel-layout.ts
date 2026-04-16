@@ -1389,14 +1389,22 @@ export class PanelLayoutManager implements AppModule {
       }
     });
 
-    // Pre-load alert data after 5s so clicking bell shows data instantly
-    setTimeout(async () => {
+    // Pre-load alert data with retry — Windows clients queue 60+ requests at
+    // startup, saturating the browser's 6-connection limit.  First paint can
+    // take up to 5 minutes on slow connections, so we retry aggressively.
+    const preloadAlerts = async (attempt = 1): Promise<void> => {
       const panel = await ensureAlertPanel();
-      if (panel) {
+      if (!panel) return;
+      try {
         await panel.loadAlerts();
         this.updateCnAlertBadge();
+      } catch {
+        if (attempt < 6) {
+          setTimeout(() => void preloadAlerts(attempt + 1), 60_000);
+        }
       }
-    }, 5000);
+    };
+    setTimeout(() => void preloadAlerts(), 30_000);
 
     // Weekly report → open report viewer
     reportBtn?.addEventListener('click', async () => {
@@ -1423,11 +1431,10 @@ export class PanelLayoutManager implements AppModule {
       });
     });
 
-    // Load initial alert badge — retry after delay to handle race condition on
-    // slower machines (Windows) where SSE stream may not be connected yet.
-    this.updateCnAlertBadge();
-    setTimeout(() => this.updateCnAlertBadge(), 3000);
-    setTimeout(() => this.updateCnAlertBadge(), 10000);
+    // Load initial alert badge — delay to avoid competing with startup request burst.
+    setTimeout(() => this.updateCnAlertBadge(), 30_000);
+    setTimeout(() => this.updateCnAlertBadge(), 120_000);
+    setTimeout(() => this.updateCnAlertBadge(), 300_000);
   }
 
   private showLogoutModal(): void {
