@@ -1328,6 +1328,7 @@ export class CnPolicyPanel extends Panel {
   private competitorsData: CompetitorIntelData | null = null;
   private competitorsLoading = false;
   private competitorsFetched = false;
+  private competitorsError = false;
   // Morning brief state
   private morningBrief: MorningBriefData | null = null;
   private morningBriefLoading = false;
@@ -1609,9 +1610,10 @@ export class CnPolicyPanel extends Panel {
         return;
       }
 
-      // Competitors: refresh button
-      if (target.closest('.cn-comp-refresh-btn')) {
+      // Competitors: refresh / retry button
+      if (target.closest('.cn-comp-refresh-btn') || target.closest('.cn-comp-retry-btn')) {
         this.competitorsFetched = false;
+        this.competitorsError = false;
         this.competitorsData = null;
         void this.fetchCompetitors(true);
         return;
@@ -2474,6 +2476,7 @@ export class CnPolicyPanel extends Panel {
       this.morningBriefFetched = false;
       this.morningBrief = null;
       this.competitorsFetched = false;
+      this.competitorsError = false;
       this.competitorsData = null;
       this.render();
       setTimeout(() => { this.showSetupToast = false; this.render(); }, 3200);
@@ -2576,9 +2579,9 @@ export class CnPolicyPanel extends Panel {
       this.competitorsFetched = true;
     } catch (err) {
       if (this.isAbortError(err)) return;
+      this.competitorsError = true;
     } finally {
       this.competitorsLoading = false;
-      this.competitorsFetched = true;
       this.render();
     }
   }
@@ -3284,12 +3287,12 @@ export class CnPolicyPanel extends Panel {
       return '<div class="cn-policy-empty"><i class="bi bi-arrow-repeat" style="animation:spin 1s linear infinite"></i> 采集竞对情报...</div>';
     }
 
-    if (!this.competitorsFetched) {
+    if (!this.competitorsFetched && !this.competitorsError) {
       return '<div class="cn-policy-empty"><i class="bi bi-arrow-repeat" style="animation:spin 1s linear infinite"></i> 加载中...</div>';
     }
 
-    if (!this.competitorsData) {
-      return '<div class="cn-policy-empty"><i class="bi bi-exclamation-triangle"></i> 竞对数据加载失败，请切换标签后重试</div>';
+    if (this.competitorsError || !this.competitorsData) {
+      return '<div class="cn-policy-empty"><i class="bi bi-exclamation-triangle"></i> 竞对数据加载失败 <button class="cn-comp-retry-btn" style="margin-left:8px;padding:4px 12px;border:1px solid #555;border-radius:4px;background:transparent;color:#ddd;cursor:pointer;font-size:12px"><i class="bi bi-arrow-clockwise"></i> 重试</button></div>';
     }
 
     if (this.competitorsData.status === 'no_profile') {
