@@ -1690,7 +1690,8 @@ export class CnPolicyPanel extends Panel {
     this.render();
     try {
       // Use longer timeout for gov-news (746KB+ response through sidecar proxy)
-      const res = await cnFetch(`${CN_INTEL_BASE}/api/cn/gov-news`, { signal: this.signal, timeout: 60_000 });
+      // priority: high to avoid being queued behind dozens of low-priority requests at startup
+      const res = await cnFetch(`${CN_INTEL_BASE}/api/cn/gov-news`, { signal: this.signal, timeout: 60_000, priority: 'high' as any });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
       this._newsRetryCount = 0;  // reset on success
