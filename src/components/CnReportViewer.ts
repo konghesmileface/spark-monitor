@@ -145,7 +145,7 @@ function _renderTrendBars(items: any[], labelKey: string, valKey: string): strin
 const VIEWER_STYLE = `<style>
 @layer base {
 .cn-report-viewer {
-  position: fixed; inset: 0; z-index: 9999;
+  position: fixed; inset: 0; z-index: 10100;
   background: rgba(0,0,0,0.75); display: flex; align-items: center; justify-content: center;
   backdrop-filter: blur(4px);
 }

@@ -330,7 +330,7 @@ const STYLE = `
   position: fixed;
   inset: 0;
   background: rgba(0,0,0,0.6);
-  z-index: 9999;
+  z-index: 10100;
   display: flex;
   align-items: center;
   justify-content: center;

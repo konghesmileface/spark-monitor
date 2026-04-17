@@ -18,7 +18,7 @@ import { escapeHtml } from '@/utils/sanitize';
 const MODAL_STYLE = `<style>
 @layer base {
 .cn-ai-overlay {
-  position: fixed; inset: 0; z-index: 9999;
+  position: fixed; inset: 0; z-index: 10100;
   background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center;
 }
 .cn-ai-modal {
@@ -151,6 +151,13 @@ export async function openAiSettingsModal(): Promise<void> {
   _modalEl = document.createElement('div');
   _render();
   _bindEvents();   // bind click handler ONCE (not in every _render)
+
+  // Direct listeners on close/cancel as fallback (WebView2 delegation quirks)
+  const closeBtn = _modalEl.querySelector('.cn-ai-close');
+  if (closeBtn) closeBtn.addEventListener('click', (e) => { e.stopPropagation(); _close(); });
+  const cancelBtn = _modalEl.querySelector('.cn-ai-btn-cancel');
+  if (cancelBtn) cancelBtn.addEventListener('click', (e) => { e.stopPropagation(); _close(); });
+
   document.body.appendChild(_modalEl);
 
   // ESC to close
