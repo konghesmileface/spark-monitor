@@ -79,6 +79,13 @@ const STYLE = `<style>
 }
 .cn-policy-stat { display: flex; align-items: center; gap: 4px; font-size: 12px; color: #888; }
 .cn-policy-stat .val { color: #e8a838; font-weight: 600; }
+.cn-policy-refresh-btn {
+  background: rgba(232,168,56,0.1); border: 1px solid rgba(232,168,56,0.25); color: #e8a838;
+  border-radius: 6px; padding: 3px 10px; font-size: 11px; cursor: pointer;
+  display: flex; align-items: center; gap: 4px; transition: all .15s;
+}
+.cn-policy-refresh-btn:hover:not(:disabled) { background: rgba(232,168,56,0.2); border-color: rgba(232,168,56,0.45); }
+.cn-policy-refresh-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 .cn-policy-chips {
   display: flex; gap: 4px; flex-wrap: nowrap; margin-bottom: 8px;
   overflow-x: auto; scrollbar-width: none; -ms-overflow-style: none;
@@ -1379,6 +1386,16 @@ export class CnPolicyPanel extends Panel {
         const uid = this.profileData.user_id;
         cnFetch(`${CN_INTEL_BASE}/api/cn/enterprise/snapshot?user_id=${encodeURIComponent(uid)}`, { method: 'POST' }).catch(() => {});
       }
+      // On return to visible: if 政策雷达 data is > 10min old, auto-refresh so users
+      // don't see a stale feed from when the app was suspended/backgrounded.
+      if (!document.hidden && this.viewMode === 'live' && this.lastFetchTime && !this.newsLoading) {
+        const ageMin = (Date.now() - this.lastFetchTime) / 60_000;
+        if (ageMin > 10) {
+          this._newsRetryCount = 0;
+          this.newsFetched = false;
+          void this.fetchLiveNews();
+        }
+      }
     };
     document.addEventListener('visibilitychange', this._onVisibilityChange);
 
@@ -1490,6 +1507,16 @@ export class CnPolicyPanel extends Panel {
       if (target.closest('.cn-policy-report-close')) {
         this.reportVisible = false;
         this.render();
+        return;
+      }
+
+      // Manual refresh button on 政策雷达
+      if (target.closest('.cn-policy-refresh-btn')) {
+        if (this.newsLoading) return;
+        this._newsRetryCount = 0;
+        this.newsFetched = false;
+        if (this._newsRetryTimer) { clearTimeout(this._newsRetryTimer); this._newsRetryTimer = null; }
+        void this.fetchLiveNews();
         return;
       }
 
@@ -2021,10 +2048,15 @@ export class CnPolicyPanel extends Panel {
     if (this.newsData) {
       const sources = this.newsData.sources || {};
       const activeCount = Object.values(sources).filter(n => n > 0).length;
+      const ts = this.newsData.timestamp ? new Date(this.newsData.timestamp) : null;
+      const tsLabel = ts ? `${ts.getMonth() + 1}-${ts.getDate()} ${String(ts.getHours()).padStart(2, '0')}:${String(ts.getMinutes()).padStart(2, '0')}` : '';
+      const refreshing = this.newsLoading ? ' style="animation:spin 1s linear infinite"' : '';
       statsBar = `<div class="cn-policy-stats-bar">
         <div class="cn-policy-stat"><i class="bi bi-newspaper"></i> <span class="val">${this.newsData.total}</span> 条新闻</div>
         <div class="cn-policy-stat"><i class="bi bi-flag-fill"></i> <span class="val">${activeCount}/${Object.keys(sources).length}</span> 数据源</div>
         <div class="cn-policy-stat"><i class="bi bi-grid-3x3"></i> <span class="val">${(this.newsData.category_list || []).length}</span> 分类</div>
+        ${tsLabel ? `<div class="cn-policy-stat" style="margin-left:auto;color:#666"><i class="bi bi-clock"></i> ${tsLabel}</div>` : ''}
+        <button class="cn-policy-refresh-btn" title="刷新政策数据" ${this.newsLoading ? 'disabled' : ''}><i class="bi bi-arrow-clockwise"${refreshing}></i> 刷新</button>
       </div>`;
     }
 
