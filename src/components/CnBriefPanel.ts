@@ -310,6 +310,7 @@ export class CnBriefPanel extends Panel {
   private lastFetchTime = 0;
   private freshnessTimer: ReturnType<typeof setInterval> | null = null;
   private retryAttempt = 0;
+  private generatingRetryTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor() {
     super({ id: 'cn-brief', title: 'AI投资简报 <span class="spark-subtitle">DAILY BRIEF</span>' });
@@ -352,7 +353,15 @@ export class CnBriefPanel extends Panel {
     try {
       const res = await cnFetch(`${CN_INTEL_BASE}/api/cn/brief`, { signal: this.signal });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      this.data = await res.json();
+      const payload = await res.json();
+      if (payload?.status === 'generating' || payload?.status === 'unavailable') {
+        this.showRetrying(payload.message || '正在生成今日投资简报...');
+        const delay = ((payload.retry_after as number) || 15) * 1000;
+        if (this.generatingRetryTimer) clearTimeout(this.generatingRetryTimer);
+        this.generatingRetryTimer = setTimeout(() => void this.fetchData(), delay);
+        return;
+      }
+      this.data = payload;
       this.retryAttempt = 0;
       this.lastFetchTime = Date.now();
       if ((this.data as any)?._stale) {
@@ -386,7 +395,14 @@ export class CnBriefPanel extends Panel {
         signal: this.signal,
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      this.data = await res.json();
+      const payload = await res.json();
+      if (payload?.status === 'generating' || payload?.status === 'unavailable') {
+        const delay = ((payload.retry_after as number) || 15) * 1000;
+        if (this.generatingRetryTimer) clearTimeout(this.generatingRetryTimer);
+        this.generatingRetryTimer = setTimeout(() => void this.fetchData(), delay);
+      } else {
+        this.data = payload;
+      }
     } catch (err) {
       if (this.isAbortError(err)) return;
       // Keep old data, just show the panel
@@ -533,6 +549,10 @@ export class CnBriefPanel extends Panel {
     if (this.freshnessTimer) {
       clearInterval(this.freshnessTimer);
       this.freshnessTimer = null;
+    }
+    if (this.generatingRetryTimer) {
+      clearTimeout(this.generatingRetryTimer);
+      this.generatingRetryTimer = null;
     }
     super.destroy();
   }
